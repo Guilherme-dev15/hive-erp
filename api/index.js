@@ -53,7 +53,7 @@ const TRANSACTIONS_COLLECTION = 'transactions';
 // (Esta é a configuração robusta que fizemos para a Vercel)
 const allowedOrigins = [
   'https://hiveerp-catalogo.vercel.app',
-  'https://hiveerp-admin.vercel.app',
+  'https://hive-erp.vercel.app',
   'http://localhost:5173', // app-admin local
   'http://localhost:5174'  // app-catalogo local
 ];
