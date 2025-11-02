@@ -6,14 +6,11 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* --- ESTA É A CORREÇÃO PRINCIPAL --- */
-    // 'bundler' diz ao TypeScript para "relaxar" com as extensões
-    // de ficheiro, pois o Vite (o "bundler") irá tratar disso.
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true, // 'tsc -b' no seu build script irá tratar disto
+    "noEmit": true, 
     "jsx": "react-jsx",
 
     /* Linter */
@@ -23,4 +20,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
+  // A linha "references" (que causava o erro) deve estar APAGADA
 }
