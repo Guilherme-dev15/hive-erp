@@ -30,7 +30,8 @@ interface ItemCarrinho {
 }
 
 // O URL do nosso Backend
-const API_URL = 'http://localhost:3001';
+// A URL da API virá de uma Variável de Ambiente
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const apiClient = axios.create({
   baseURL: API_URL,
