@@ -162,7 +162,7 @@ export default function App() {
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
-              <span className="absolute top-0 right-0 block w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+              <span className="absolute top-0 right-0 block w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full items-center justify-center animate-pulse">
                 {totalItens}
               </span>
             )}
