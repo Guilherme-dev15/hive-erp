@@ -11,7 +11,7 @@
 
     /* Resolução de Módulos (Compatibilidade aprimorada) */
     // Alterado de "bundler" para "node16" para garantir máxima compatibilidade com as bibliotecas do ecossistema Node.
-    "moduleResolution": "node16",
+    "moduleResolution": "nodenext",
     // Removido "verbatimModuleSyntax": true, pois é incompatível com a resolução "node16".
     "moduleDetection": "force",
     "noEmit": true,
