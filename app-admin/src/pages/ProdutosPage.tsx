@@ -27,7 +27,7 @@ export function ProdutosPage() {
   // 3. Criar estados para os fornecedores e o modal
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +44,7 @@ export function ProdutosPage() {
         ]);
         setProdutos(produtosData);
         setFornecedores(fornecedoresData);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError("Falha ao carregar dados da página.");
       } finally {
@@ -106,16 +106,16 @@ export function ProdutosPage() {
     <>
       <Toaster position="top-right" />
       <div className="space-y-6">
-        <motion.div 
+        <motion.div
           className="flex justify-between items-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
           <h1 className="text-3xl font-bold text-carvao">Gestão de Produtos</h1>
-          
+
           {/* 6. Ligar o botão para abrir o modal */}
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)} // Ação do botão
             className="bg-carvao text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 transform hover:scale-105"
           >
@@ -131,8 +131,8 @@ export function ProdutosPage() {
           ) : (
             <ul className="divide-y divide-gray-200">
               {produtos.map(produto => (
-                <motion.li 
-                  key={produto.id} 
+                <motion.li
+                  key={produto.id}
                   className="py-3 flex justify-between items-center transition-transform duration-200 hover:scale-[1.01]"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -162,13 +162,13 @@ export function ProdutosPage() {
           )}
         </Card>
       </div>
-      
+
       {/* 7. Renderizar o Modal (ele só aparece se isModalOpen=true) */}
       <ProdutoFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         fornecedores={fornecedores}
-        onProdutoCriado={handleProdutoCriado}
+        onProdutoSalvo={handleProdutoCriado} 
       />
     </>
   );

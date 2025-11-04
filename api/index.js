@@ -79,7 +79,9 @@ app.use(express.json());
 app.get('/produtos-catalogo', async (req, res) => {
   console.log("ROTA: GET /produtos-catalogo");
   try {
-    const snapshot = await db.collection(PRODUCTS_COLLECTION).get();
+    const snapshot = await db.collection(PRODUCTS_COLLECTION)
+                             .where('status', '==', 'ativo')
+                             .get();
     if (snapshot.empty) return res.status(200).json([]);
     
     const produtos = snapshot.docs.map(doc => {
