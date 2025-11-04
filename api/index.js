@@ -89,7 +89,7 @@ app.get('/produtos-catalogo', async (req, res) => {
       return {
         id: doc.id,
         name: data.name || 'Nome Indisponível',
-       // imageUrl: data.imageUrl || null,
+       imageUrl: data.imageUrl || null,
         code: data.code || 'N/A',
         category: data.category || 'Sem Categoria',
         description: data.description || ''

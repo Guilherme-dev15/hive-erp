@@ -10,6 +10,8 @@ import { Toaster, toast } from 'react-hot-toast';
 
 // O 'Produto' que o cliente vê (com salePrice)
 interface ProdutoCatalogo {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  imageUrl: any;
   id: string;
   name: string;
   code?: string;
@@ -134,7 +136,7 @@ export default function App() {
   const produtosAgrupados = useMemo(() => {
     // Filtra primeiro os produtos ativos
     const produtosAtivos = produtos.filter(p => p.status === 'ativo');
-    
+
     // Depois agrupa
     return produtosAtivos.reduce((acc, produto) => {
       const categoria = produto.category || 'Outros';
@@ -230,8 +232,16 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
     >
       {/* Placeholder no lugar da Imagem */}
       <div className="relative w-full overflow-hidden">
-        <div className="aspect-square bg-gray-100 flex items-center justify-center">
-          <Package size={48} className="text-prata" />
+        <div className="aspect-square w-full bg-gray-100 flex items-center justify-center">
+          {produto.imageUrl ? (
+            <img
+              src={produto.imageUrl}
+              alt={produto.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Package size={48} className="text-prata" />
+          )}
         </div>
         {/* Código (SKU) */}
         <span className="absolute top-3 left-3 bg-black bg-opacity-60 text-white text-xs font-mono px-2 py-1 rounded">
