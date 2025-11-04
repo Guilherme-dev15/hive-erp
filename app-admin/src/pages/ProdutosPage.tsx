@@ -163,12 +163,12 @@ export function ProdutosPage() {
         </Card>
       </div>
 
-      {/* 7. Renderizar o Modal (ele só aparece se isModalOpen=true) */}
+          
       <ProdutoFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         fornecedores={fornecedores}
-        onProdutoSalvo={handleProdutoCriado} 
+        onProdutoSalvo={handleProdutoCriado} /
       />
     </>
   );
