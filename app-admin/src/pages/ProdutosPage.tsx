@@ -168,7 +168,7 @@ export function ProdutosPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         fornecedores={fornecedores}
-        onProdutoSalvo={handleProdutoCriado} /
+        onProdutoSalvo={handleProdutoCriado} 
       />
     </>
   );

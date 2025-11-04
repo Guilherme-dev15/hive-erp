@@ -8,14 +8,14 @@ import { Toaster, toast } from 'react-hot-toast';
 // Tipos de Dados (para o Catálogo)
 // ============================================================================
 
-// O 'Produto' que o cliente vê (com salePrice, sem imageUrl)
+// O 'Produto' que o cliente vê (com salePrice)
 interface ProdutoCatalogo {
   id: string;
   name: string;
   code?: string;
   category?: string;
   description?: string;
-  salePrice?: number; // <-- CAMPO NOVO
+  salePrice?: number;
   status?: 'ativo' | 'inativo';
 }
 
@@ -31,7 +31,10 @@ interface ItemCarrinho {
 }
 
 // O URL do nosso Backend
-const API_URL = 'http://localhost:3001';
+// --- CORREÇÃO PRINCIPAL AQUI ---
+// O URL agora usa a variável de ambiente VITE_API_URL.
+// Se não a encontrar (em dev), usa localhost:3001.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -72,8 +75,8 @@ export default function App() {
   const [config, setConfig] = useState<ConfigPublica | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({}); 
+
+  const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
 
   // Carrega os dados da API (produtos e config)
@@ -86,15 +89,15 @@ export default function App() {
           getProdutosCatalogo(),
           getConfigPublica()
         ]);
-        
+
         setProdutos(produtosData);
         setConfig(configData);
-        
+
         if (!configData.whatsappNumber) {
           console.warn("Número de WhatsApp não configurado no ERP Admin.");
           toast.error("Erro: A loja não está a aceitar pedidos de momento.");
         }
-        
+
       } catch (err) {
         console.error(err);
         setError("Não foi possível carregar o catálogo. Tente novamente mais tarde.");
@@ -123,13 +126,17 @@ export default function App() {
     toast.success(`${produto.name} adicionado ao pedido!`);
     setIsCarrinhoAberto(true);
   };
-  
+
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
   // --- Lógica de Agrupar por Categoria ---
   const produtosAgrupados = useMemo(() => {
-    return produtos.reduce((acc, produto) => {
+    // Filtra primeiro os produtos ativos
+    const produtosAtivos = produtos.filter(p => p.status === 'ativo');
+    
+    // Depois agrupa
+    return produtosAtivos.reduce((acc, produto) => {
       const categoria = produto.category || 'Outros';
       if (!acc[categoria]) {
         acc[categoria] = [];
@@ -145,9 +152,9 @@ export default function App() {
       <p className="text-xl text-carvao">A carregar catálogo...</p>
     </div>
   );
-  
+
   if (error) return (
-     <div className="min-h-screen flex items-center justify-center bg-off-white">
+    <div className="min-h-screen flex items-center justify-center bg-off-white">
       <p className="text-xl text-red-500">{error}</p>
     </div>
   );
@@ -155,17 +162,18 @@ export default function App() {
   return (
     <div className="min-h-screen bg-off-white text-carvao">
       <Toaster position="top-right" />
-      
+
       {/* Header Fixo */}
       <header className="bg-carvao shadow-lg sticky top-0 z-40 border-b-4 border-dourado">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
           <h1 className="text-2xl font-bold text-dourado">HivePratas</h1>
-          <button 
+          <button
             onClick={() => setIsCarrinhoAberto(true)}
             className="relative p-2 rounded-full text-prata hover:bg-gray-700 transition-colors"
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
+              // --- PEQUENA CORREÇÃO DE LAYOUT AQUI (adicionado 'flex') ---
               <span className="absolute top-0 right-0 block w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full items-center justify-center animate-pulse">
                 {totalItens}
               </span>
@@ -173,7 +181,7 @@ export default function App() {
           </button>
         </div>
       </header>
-      
+
       {/* Conteúdo Principal (Produtos) */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="space-y-12">
@@ -184,10 +192,10 @@ export default function App() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {produtosDaCategoria.map(produto => (
-                  <CardProduto 
-                    key={produto.id} 
-                    produto={produto} 
-                    onAdicionar={() => adicionarAoCarrinho(produto)} 
+                  <CardProduto
+                    key={produto.id}
+                    produto={produto}
+                    onAdicionar={() => adicionarAoCarrinho(produto)}
                   />
                 ))}
               </div>
@@ -195,9 +203,9 @@ export default function App() {
           ))}
         </div>
       </main>
-      
+
       {/* Modal do Carrinho */}
-      <ModalCarrinho 
+      <ModalCarrinho
         isOpen={isCarrinhoAberto}
         onClose={() => setIsCarrinhoAberto(false)}
         itens={itensDoCarrinho}
@@ -212,16 +220,15 @@ export default function App() {
 // Componentes do Catálogo
 // ============================================================================
 
-// --- COMPONENTE ATUALIZADO (SEM IMAGEM, COM PREÇO) ---
 function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdicionar: () => void }) {
   return (
-    <motion.div 
+    <motion.div
       className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }} // Animação de "levantar"
     >
-      {/* Imagem Removida - Placeholder no lugar */}
+      {/* Placeholder no lugar da Imagem */}
       <div className="relative w-full overflow-hidden">
         <div className="aspect-square bg-gray-100 flex items-center justify-center">
           <Package size={48} className="text-prata" />
@@ -231,21 +238,21 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
           {produto.code || 'N/A'}
         </span>
       </div>
-      
+
       {/* Info */}
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
           <p className="text-sm text-gray-600 mt-1 h-10 overflow-hidden">{produto.description || 'Sem descrição'}</p>
         </div>
-        
+
         {/* Preço de Venda Final */}
         <p className="text-2xl font-bold text-carvao mt-2">
           {formatCurrency(produto.salePrice)}
         </p>
-        
+
         {/* Botão */}
-        <button 
+        <button
           onClick={onAdicionar}
           className="w-full mt-4 flex items-center justify-center bg-dourado text-carvao px-4 py-2 rounded-lg shadow-md hover:bg-yellow-500 transition-colors duration-200 font-semibold"
         >
@@ -267,7 +274,7 @@ interface ModalCarrinhoProps {
 
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
-  
+
   // Calcula o total de itens E o valor total do pedido
   const { totalItens, valorTotalPedido } = useMemo(() => {
     return itens.reduce((acc, item) => {
@@ -290,47 +297,43 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       return novoCarrinho;
     });
   };
-  
-  // --- FUNÇÃO DE CHECKOUT ATUALIZADA ---
+
   const handleCheckout = () => {
     if (!whatsappNumber) {
       toast.error("Erro: A loja não está aceitando pedidos no momento.");
       return;
     }
 
-    // 1. Formata a mensagem para o WhatsApp (SEM IMAGEM)
     let message = "🧾 Pedido recebido\n\n"; // Título
-    
+
     itens.forEach(item => {
       const precoUnitario = item.produto.salePrice || 0;
       const totalLinha = precoUnitario * item.quantidade;
-      
-      message += `Produto: ${item.produto.name} (${item.produto.code})\n`;
+
+      message += `Produto: ${item.produto.name} (${item.produto.code || 'N/A'})\n`;
       message += `Qtde: ${item.quantidade}\n`;
       message += `Valor unitário: ${formatCurrency(precoUnitario)}\n`;
       message += `Valor total: ${formatCurrency(totalLinha)}\n\n`;
     });
-    
-    // 2. Adiciona o Total Geral
+
     message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
-    
+
     if (obs) {
       message += `*Observação:*\n${obs}\n\n`;
     }
-    
+
     message += "Obrigado! Aguardo confirmação para consultar o fornecedor e enviar prazo.";
 
-    // 3. Codifica e envia
     const encodedMessage = encodeURIComponent(message);
     const waLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
-    
+
     window.open(waLink, '_blank');
-    
+
     setCarrinho({});
     setObs('');
     onClose();
   };
-  
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -360,15 +363,15 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                 <X size={24} />
               </button>
             </div>
-            
-            {/* Itens do Carrinho (ATUALIZADO PARA MOSTRAR PREÇO) */}
+
+            {/* Itens do Carrinho */}
             <div className="flex-grow p-4 space-y-4 overflow-y-auto">
               {itens.length === 0 ? (
                 <p className="text-gray-500 text-center pt-10">O seu carrinho está vazio.</p>
               ) : (
                 itens.map(item => (
-                  <motion.div 
-                    key={item.produto.id} 
+                  <motion.div
+                    key={item.produto.id}
                     className="flex items-center space-x-3"
                     layout
                     initial={{ opacity: 0 }}
@@ -377,61 +380,60 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                   >
                     {/* Placeholder da Imagem */}
                     <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border">
-                       <Package size={24} className="text-prata" />
+                      <Package size={24} className="text-prata" />
                     </div>
-                    
+
                     <div className="flex-grow">
                       <p className="font-semibold text-carvao">{item.produto.name}</p>
                       <p className="text-sm text-gray-500 font-mono">{item.produto.code}</p>
-                      {/* Preço Unitário */}
                       <p className="text-sm text-carvao font-semibold mt-1">
                         {formatCurrency(item.produto.salePrice)}
                       </p>
                     </div>
                     {/* Stepper de Quantidade */}
                     <div className="flex items-center border border-gray-300 rounded-lg">
-                       <button
-                          onClick={() => atualizarQuantidade(item.produto.id, item.quantidade - 1)}
-                          className="p-2 text-gray-600 hover:text-red-600 transition-colors"
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <span className="px-2 text-carvao font-semibold">{item.quantidade}</span>
-                         <button
-                            onClick={() => atualizarQuantidade(item.produto.id, item.quantidade + 1)}
-                            className="p-2 text-gray-600 hover:text-green-600 transition-colors"
-                        >
-                          <Plus size={16} />
-                        </button>
+                      <button
+                        onClick={() => atualizarQuantidade(item.produto.id, item.quantidade - 1)}
+                        className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span className="px-2 text-carvao font-semibold">{item.quantidade}</span>
+                      <button
+                        onClick={() => atualizarQuantidade(item.produto.id, item.quantidade + 1)}
+                        className="p-2 text-gray-600 hover:text-green-600 transition-colors"
+                      >
+                        <Plus size={16} />
+                      </button>
                     </div>
                   </motion.div>
                 ))
               )}
             </div>
-            
-            {/* Rodapé do Carrinho (Checkout) (ATUALIZADO COM TOTAL) */}
+
+            {/* Rodapé do Carrinho (Checkout) */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
-               <textarea
-                  value={obs}
-                  onChange={(e) => setObs(e.target.value)}
-                  placeholder="Observações do pedido (opcional)..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
-                />
-               
-               {/* Total do Pedido */}
-               <div className="flex justify-between items-center text-xl font-bold text-carvao">
-                  <span>Total do Pedido:</span>
-                  <span>{formatCurrency(valorTotalPedido)}</span>
-               </div>
-               
-               <button
-                  onClick={handleCheckout}
-                  disabled={totalItens === 0}
-                  className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
-                >
-                  <Send size={18} className="mr-2" /> Enviar Pedido via WhatsApp
-                </button>
+              <textarea
+                value={obs}
+                onChange={(e) => setObs(e.target.value)}
+                placeholder="Observações do pedido (opcional)..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
+              />
+
+              {/* Total do Pedido */}
+              <div className="flex justify-between items-center text-xl font-bold text-carvao">
+                <span>Total do Pedido:</span>
+                <span>{formatCurrency(valorTotalPedido)}</span>
+              </div>
+
+              <button
+                onClick={handleCheckout}
+                disabled={totalItens === 0}
+                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+              >
+                <Send size={18} className="mr-2" /> Enviar Pedido via WhatsApp
+              </button>
             </div>
           </motion.div>
         </motion.div>
