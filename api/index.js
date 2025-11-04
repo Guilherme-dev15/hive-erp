@@ -87,10 +87,13 @@ app.get('/produtos-catalogo', async (req, res) => {
       return {
         id: doc.id,
         name: data.name || 'Nome Indisponível',
-        imageUrl: data.imageUrl || null,
+       // imageUrl: data.imageUrl || null,
         code: data.code || 'N/A',
         category: data.category || 'Sem Categoria',
         description: data.description || ''
+        ,
+        salePrice: data.salePrice || 0, // <-- NOVO CAMPO
+        status: data.status || 'ativo' // <-- NOVO CAMPO
       };
     });
     res.status(200).json(produtos);
@@ -140,8 +143,8 @@ app.post('/admin/produtos', async (req, res) => {
   console.log("ROTA: POST /admin/produtos");
   try {
     const novoProduto = req.body;
-    if (!novoProduto || !novoProduto.name || !novoProduto.costPrice) {
-      return res.status(400).json({ message: "Dados do produto em falta." });
+    if (!novoProduto || !novoProduto.name || !novoProduto.costPrice || !novoProduto.salePrice) {
+      return res.status(400).json({ message: "Dados do produto em falta. Nome, Custo e Preço de Venda são obrigatórios." });
     }
     const docRef = await db.collection(PRODUCTS_COLLECTION).add(novoProduto);
     res.status(201).json({ id: docRef.id, ...novoProduto });
@@ -157,8 +160,8 @@ app.put('/admin/produtos/:id', async (req, res) => {
     const { id } = req.params;
     const dadosAtualizados = req.body;
     if (!id) return res.status(400).json({ message: "ID em falta." });
-    if (!dadosAtualizados || !dadosAtualizados.name || !dadosAtualizados.costPrice) {
-      return res.status(400).json({ message: "Dados do produto em falta." });
+   if (!dadosAtualizados || !dadosAtualizados.name || !dadosAtualizados.costPrice || !dadosAtualizados.salePrice) {
+      return res.status(400).json({ message: "Dados do produto em falta. Nome, Custo e Preço de Venda são obrigatórios." });
     }
     await db.collection(PRODUCTS_COLLECTION).doc(id).update(dadosAtualizados);
     res.status(200).json({ id: id, ...dadosAtualizados });

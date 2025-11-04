@@ -9,6 +9,10 @@ export interface ProdutoAdmin {
   imageUrl?: string;
   costPrice: number;    
   supplierId: string; 
+  
+  salePrice?: number;   
+  marginPercent?: number; 
+  status?: 'ativo' | 'inativo';
 }
 
 export interface Fornecedor {

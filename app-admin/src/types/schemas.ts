@@ -16,6 +16,12 @@ export const produtoSchema = z.object({
   category: z.string().optional(),
   description: z.string().optional(),
   imageUrl: z.string().url("Deve ser um URL de imagem válido.").optional().or(z.literal('')),
+
+
+  // --- CAMPOS NOVOS (Opcionais no formulário base) ---
+  salePrice: z.coerce.number().optional(),
+  marginPercent: z.coerce.number().optional(),
+  status: z.enum(['ativo', 'inativo']).default('ativo').optional(),
 });
 
 export type ProdutoFormData = z.infer<typeof produtoSchema>;

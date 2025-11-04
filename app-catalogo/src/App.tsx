@@ -8,14 +8,15 @@ import { Toaster, toast } from 'react-hot-toast';
 // Tipos de Dados (para o Catálogo)
 // ============================================================================
 
-// O 'Produto' que o cliente vê (não tem costPrice)
+// O 'Produto' que o cliente vê (com salePrice, sem imageUrl)
 interface ProdutoCatalogo {
   id: string;
   name: string;
   code?: string;
   category?: string;
   description?: string;
-  imageUrl?: string;
+  salePrice?: number; // <-- CAMPO NOVO
+  status?: 'ativo' | 'inativo';
 }
 
 // O que esperamos da rota /config-publica
@@ -30,8 +31,7 @@ interface ItemCarrinho {
 }
 
 // O URL do nosso Backend
-// A URL da API virá de uma Variável de Ambiente
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = 'http://localhost:3001';
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -50,6 +50,19 @@ const getConfigPublica = async (): Promise<ConfigPublica> => {
   return response.data;
 };
 
+// ============================================================================
+// Função Utilitária para formatar Moeda (R$)
+// ============================================================================
+const formatCurrency = (value?: number): string => {
+  if (value === undefined || value === null) {
+    return 'R$ 0,00';
+  }
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+};
+
 
 // ============================================================================
 // Componente Principal
@@ -60,8 +73,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Lógica do Carrinho
-  // Usamos 'Record' (um mapa) para acesso rápido pelo ID
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({}); 
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
 
@@ -71,7 +82,6 @@ export default function App() {
       try {
         setLoading(true);
         setError(null);
-        // Pede os produtos e a config ao mesmo tempo
         const [produtosData, configData] = await Promise.all([
           getProdutosCatalogo(),
           getConfigPublica()
@@ -82,7 +92,6 @@ export default function App() {
         
         if (!configData.whatsappNumber) {
           console.warn("Número de WhatsApp não configurado no ERP Admin.");
-          // Este erro é para o cliente, caso o admin não tenha configurado
           toast.error("Erro: A loja não está a aceitar pedidos de momento.");
         }
         
@@ -97,18 +106,15 @@ export default function App() {
   }, []);
 
   // --- Lógica do Carrinho ---
-  
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
     setCarrinho(prevCarrinho => {
       const itemExistente = prevCarrinho[produto.id];
       if (itemExistente) {
-        // Se já existe, só aumenta a quantidade
         return {
           ...prevCarrinho,
           [produto.id]: { ...itemExistente, quantidade: itemExistente.quantidade + 1 }
         };
       }
-      // Se é novo, adiciona
       return {
         ...prevCarrinho,
         [produto.id]: { produto, quantidade: 1 }
@@ -118,7 +124,6 @@ export default function App() {
     setIsCarrinhoAberto(true);
   };
   
-  // Converte o objeto 'carrinho' num array (lista) para ser mais fácil de mostrar
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
@@ -131,7 +136,7 @@ export default function App() {
       }
       acc[categoria].push(produto);
       return acc;
-    }, {} as Record<string, ProdutoCatalogo[]>); // Ex: { "Anéis": [...], "Colares": [...] }
+    }, {} as Record<string, ProdutoCatalogo[]>);
   }, [produtos]);
 
 
@@ -148,7 +153,6 @@ export default function App() {
   );
 
   return (
-    // Aplicando as cores da sua paleta
     <div className="min-h-screen bg-off-white text-carvao">
       <Toaster position="top-right" />
       
@@ -208,40 +212,38 @@ export default function App() {
 // Componentes do Catálogo
 // ============================================================================
 
-// Card de Produto (para o Cliente)
+// --- COMPONENTE ATUALIZADO (SEM IMAGEM, COM PREÇO) ---
 function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdicionar: () => void }) {
   return (
     <motion.div 
-      className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl group"
+      className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }} // Animação de "levantar"
     >
+      {/* Imagem Removida - Placeholder no lugar */}
       <div className="relative w-full overflow-hidden">
-        {/* Imagem */}
         <div className="aspect-square bg-gray-100 flex items-center justify-center">
-          {produto.imageUrl ? (
-            <img 
-              src={produto.imageUrl} 
-              alt={produto.name} 
-              className="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105" // Efeito de Zoom
-              onError={(e) => (e.currentTarget.style.display = 'none')} 
-            />
-          ) : (
-            <Package size={48} className="text-prata" />
-          )}
+          <Package size={48} className="text-prata" />
         </div>
         {/* Código (SKU) */}
         <span className="absolute top-3 left-3 bg-black bg-opacity-60 text-white text-xs font-mono px-2 py-1 rounded">
           {produto.code || 'N/A'}
         </span>
       </div>
+      
       {/* Info */}
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
           <p className="text-sm text-gray-600 mt-1 h-10 overflow-hidden">{produto.description || 'Sem descrição'}</p>
         </div>
+        
+        {/* Preço de Venda Final */}
+        <p className="text-2xl font-bold text-carvao mt-2">
+          {formatCurrency(produto.salePrice)}
+        </p>
+        
         {/* Botão */}
         <button 
           onClick={onAdicionar}
@@ -254,7 +256,7 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
   );
 }
 
-// Modal do Carrinho (Painel Lateral)
+// Modal do Carrinho
 interface ModalCarrinhoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -266,13 +268,21 @@ interface ModalCarrinhoProps {
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
   
-  const totalItens = itens.reduce((total, item) => total + item.quantidade, 0);
+  // Calcula o total de itens E o valor total do pedido
+  const { totalItens, valorTotalPedido } = useMemo(() => {
+    return itens.reduce((acc, item) => {
+      const precoItem = item.produto.salePrice || 0;
+      acc.totalItens += item.quantidade;
+      acc.valorTotalPedido += precoItem * item.quantidade;
+      return acc;
+    }, { totalItens: 0, valorTotalPedido: 0 });
+  }, [itens]);
+
 
   const atualizarQuantidade = (id: string, novaQuantidade: number) => {
     setCarrinho(prev => {
       const novoCarrinho = { ...prev };
       if (novaQuantidade <= 0) {
-        // Apaga o item se a quantidade for 0
         delete novoCarrinho[id];
       } else {
         novoCarrinho[id].quantidade = novaQuantidade;
@@ -281,42 +291,41 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     });
   };
   
+  // --- FUNÇÃO DE CHECKOUT ATUALIZADA ---
   const handleCheckout = () => {
     if (!whatsappNumber) {
       toast.error("Erro: A loja não está aceitando pedidos no momento.");
       return;
     }
 
-    // Formata a mensagem para o WhatsApp
-    let message = "Olá! Gostaria de fazer um pedido:\n\n";
+    // 1. Formata a mensagem para o WhatsApp (SEM IMAGEM)
+    let message = "🧾 Pedido recebido\n\n"; // Título
+    
     itens.forEach(item => {
-      message += `▪️ *${item.produto.name}* (${item.produto.code})\n`;
-      if(item.produto.description) {
-        message += `  Descrição: ${item.produto.description}\n`;
-      }
-      message += `  Quantidade: *${item.quantidade}*\n`;
-      // Adiciona o link da imagem (o WhatsApp mostra a pré-visualização)
-      if(item.produto.imageUrl) {
-        message += `  Imagem: ${item.produto.imageUrl}\n`;
-      }
-      message += `\n`; // Espaço extra
+      const precoUnitario = item.produto.salePrice || 0;
+      const totalLinha = precoUnitario * item.quantidade;
+      
+      message += `Produto: ${item.produto.name} (${item.produto.code})\n`;
+      message += `Qtde: ${item.quantidade}\n`;
+      message += `Valor unitário: ${formatCurrency(precoUnitario)}\n`;
+      message += `Valor total: ${formatCurrency(totalLinha)}\n\n`;
     });
     
-    message += `*Total de itens:* ${totalItens}\n\n`;
+    // 2. Adiciona o Total Geral
+    message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
     
     if (obs) {
       message += `*Observação:*\n${obs}\n\n`;
     }
     
-    message += "Aguardo sua confirmação. ✅";
+    message += "Obrigado! Aguardo confirmação para consultar o fornecedor e enviar prazo.";
 
-    // Codifica para URL e abre o WhatsApp
+    // 3. Codifica e envia
     const encodedMessage = encodeURIComponent(message);
     const waLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
     
     window.open(waLink, '_blank');
     
-    // Limpa o carrinho e fecha o modal
     setCarrinho({});
     setObs('');
     onClose();
@@ -325,7 +334,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
   return (
     <AnimatePresence>
       {isOpen && (
-        // Overlay (fundo escuro)
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -342,7 +350,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
             className="bg-white shadow-2xl w-full max-w-md h-full flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabeçalho do Carrinho */}
+            {/* Cabeçalho */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-carvao">Meu Pedido</h2>
               <button
@@ -353,7 +361,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               </button>
             </div>
             
-            {/* Itens do Carrinho */}
+            {/* Itens do Carrinho (ATUALIZADO PARA MOSTRAR PREÇO) */}
             <div className="flex-grow p-4 space-y-4 overflow-y-auto">
               {itens.length === 0 ? (
                 <p className="text-gray-500 text-center pt-10">O seu carrinho está vazio.</p>
@@ -367,14 +375,18 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <img 
-                      src={item.produto.imageUrl || 'https://placehold.co/100x100/e2e8f0/cbd5e0?text=Sem+Foto'}
-                      alt={item.produto.name}
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                    />
+                    {/* Placeholder da Imagem */}
+                    <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border">
+                       <Package size={24} className="text-prata" />
+                    </div>
+                    
                     <div className="flex-grow">
                       <p className="font-semibold text-carvao">{item.produto.name}</p>
                       <p className="text-sm text-gray-500 font-mono">{item.produto.code}</p>
+                      {/* Preço Unitário */}
+                      <p className="text-sm text-carvao font-semibold mt-1">
+                        {formatCurrency(item.produto.salePrice)}
+                      </p>
                     </div>
                     {/* Stepper de Quantidade */}
                     <div className="flex items-center border border-gray-300 rounded-lg">
@@ -397,7 +409,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               )}
             </div>
             
-            {/* Rodapé do Carrinho (Checkout) */}
+            {/* Rodapé do Carrinho (Checkout) (ATUALIZADO COM TOTAL) */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
                <textarea
                   value={obs}
@@ -406,6 +418,13 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
                 />
+               
+               {/* Total do Pedido */}
+               <div className="flex justify-between items-center text-xl font-bold text-carvao">
+                  <span>Total do Pedido:</span>
+                  <span>{formatCurrency(valorTotalPedido)}</span>
+               </div>
+               
                <button
                   onClick={handleCheckout}
                   disabled={totalItens === 0}
