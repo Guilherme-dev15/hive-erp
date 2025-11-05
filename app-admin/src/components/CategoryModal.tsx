@@ -82,8 +82,10 @@ export function CategoryModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          // z-index 60 para ficar SOBRE o modal de produto (que é z-50)
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/70"
+          // --- CORREÇÃO DO Z-INDEX ---
+          // z-[60] força o Tailwind a criar z-index: 60,
+          // que é maior que o z-50 do modal de produto.
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70"
           onClick={onClose}
         >
           <motion.div
