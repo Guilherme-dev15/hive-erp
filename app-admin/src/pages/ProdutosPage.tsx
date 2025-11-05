@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { ProdutoAdmin, Fornecedor } from '../types';
-import { getAdminProdutos, deleteAdminProduto, getFornecedores } from '../services/apiService';
-// 1. Importar o ícone de Edição
+// 1. Importar o tipo 'Category' e o serviço 'getCategories'
+import type { ProdutoAdmin, Fornecedor, Category } from '../types';
+import { getAdminProdutos, deleteAdminProduto, getFornecedores, getCategories } from '../services/apiService';
 import { Trash2, Edit } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 
-// ... (Componente Card não muda) ...
 const Card = ({ children, delay = 0 }: { children: React.ReactNode, delay?: number }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
@@ -19,31 +18,33 @@ const Card = ({ children, delay = 0 }: { children: React.ReactNode, delay?: numb
   </motion.div>
 );
 
-
 export function ProdutosPage() {
   const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  // 2. Criar o estado para guardar as categorias
+  const [categories, setCategories] = useState<Category[]>([]);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // 2. Criar estado para guardar o produto a ser editado
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
-  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 3. Atualizar o useEffect para carregar produtos, fornecedores E categorias
   useEffect(() => {
     async function carregarDadosPagina() {
       try {
         setLoading(true);
         setError(null);
-        const [produtosData, fornecedoresData] = await Promise.all([
+        // Carrega os três em paralelo
+        const [produtosData, fornecedoresData, categoriesData] = await Promise.all([
           getAdminProdutos(),
-          getFornecedores()
+          getFornecedores(),
+          getCategories() // <-- Busca as categorias
         ]);
         setProdutos(produtosData);
         setFornecedores(fornecedoresData);
+        setCategories(categoriesData); // <-- Salva as categorias no estado
       } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         setError("Falha ao carregar dados da página.");
       } finally {
         setLoading(false);
@@ -52,7 +53,7 @@ export function ProdutosPage() {
     carregarDadosPagina();
   }, []);
 
-  // ... (Lógica de Apagar: handleApagarProduto e executarApagar não mudam) ...
+  // --- Lógica de Apagar ---
   const handleApagarProduto = (id: string, nome: string) => {
     toast((t) => (
       <div className="flex flex-col p-2">
@@ -78,6 +79,7 @@ export function ProdutosPage() {
       </div>
     ), { duration: 6000 });
   };
+  
   const executarApagar = async (id: string) => {
     const promise = deleteAdminProduto(id);
     toast.promise(promise, {
@@ -90,37 +92,25 @@ export function ProdutosPage() {
     });
   };
 
-  // --- 3. FUNÇÕES ATUALIZADAS PARA ADICIONAR E EDITAR ---
-
-  // Abre o modal para CRIAR (limpa a seleção)
+  // --- Lógica de Adicionar/Editar ---
   const handleAdicionar = () => {
     setProdutoSelecionado(null);
     setIsModalOpen(true);
   };
   
-  // Abre o modal para EDITAR (define a seleção)
   const handleEditar = (produto: ProdutoAdmin) => {
     setProdutoSelecionado(produto);
     setIsModalOpen(true);
   };
   
-  // Função que o modal chama ao salvar (Criação OU Edição)
   const handleProdutoSalvo = (produtoSalvo: ProdutoAdmin) => {
     const produtoExiste = produtos.find(p => p.id === produtoSalvo.id);
-    
     if (produtoExiste) {
-      // É uma ATUALIZAÇÃO: substitui o produto na lista
-      setProdutos(prev => 
-        prev.map(p => 
-          p.id === produtoSalvo.id ? produtoSalvo : p
-        )
-      );
+      setProdutos(prev => prev.map(p => p.id === produtoSalvo.id ? produtoSalvo : p));
     } else {
-      // É uma CRIAÇÃO: adiciona o novo produto ao topo da lista
       setProdutos(prev => [produtoSalvo, ...prev]);
     }
   };
-
 
   if (loading) return <div>A carregar produtos...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -136,10 +126,8 @@ export function ProdutosPage() {
           transition={{ duration: 0.3 }}
         >
           <h1 className="text-3xl font-bold text-carvao">Gestão de Produtos</h1>
-          
-          {/* 4. Atualizar o botão para chamar handleAdicionar */}
           <button 
-            onClick={handleAdicionar} // Ação do botão
+            onClick={handleAdicionar}
             className="bg-carvao text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 transform hover:scale-105"
           >
             + Adicionar Produto
@@ -162,7 +150,7 @@ export function ProdutosPage() {
                 >
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{produto.name}</p>
-                    <p className="text-sm text-gray-500">{produto.code || 'Sem Código'}</p>
+                    <p className="text-sm text-gray-500">{produto.category || 'Sem Categoria'} | {produto.code || 'Sem Código'}</p>
                   </div>
                   <div className="text-right mr-4">
                     <p className="font-semibold text-dourado">Custo: R$ {produto.costPrice.toFixed(2)}</p>
@@ -170,8 +158,6 @@ export function ProdutosPage() {
                       Fornecedor: {fornecedores.find(f => f.id === produto.supplierId)?.name || 'N/A'}
                     </p>
                   </div>
-                  
-                  {/* --- 5. ADICIONAR OS BOTÕES DE AÇÃO --- */}
                   <div className="flex gap-1">
                     <button
                       onClick={() => handleEditar(produto)}
@@ -195,14 +181,15 @@ export function ProdutosPage() {
         </Card>
       </div>
       
-      {/* --- 6. ATUALIZAR AS PROPS DO MODAL --- */}
+      {/* 4. Passar a prop 'categories' para o modal */}
       <ProdutoFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)} // (Opcional: podia limpar a seleção aqui também)
+        onClose={() => setIsModalOpen(false)}
         fornecedores={fornecedores}
-        produtoParaEditar={produtoSelecionado} // Passa o produto a editar
-        onProdutoSalvo={handleProdutoSalvo} // Prop corrigida
-        categories={[]}      />
+        categories={categories} // <-- AQUI ESTÁ A CORREÇÃO
+        produtoParaEditar={produtoSelecionado}
+        onProdutoSalvo={handleProdutoSalvo}
+      />
     </>
   );
 }
