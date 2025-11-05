@@ -1,24 +1,26 @@
-import React, { useEffect } from 'react';
+// 1. Importar 'useState' e o novo ícone 'Plus'
+import React, { useEffect, useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign } from 'lucide-react';
+import { X, DollarSign, Plus } from 'lucide-react'; // <-- Adicionado Plus
 
-// Importações de Tipos e Lógica da Aplicação
-// 1. Adicionado 'Category'
-import { type Fornecedor, type ProdutoAdmin, type Category } from '../types'; 
+// 2. Importar o novo CategoryModal
+import { CategoryModal } from './CategoryModal';
+import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
 import { produtoSchema, type ProdutoFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto } from '../services/apiService';
 
 // ============================================================================
-// Tipagem das Props (Atualizada para Edição)
+// Tipagem das Props
 // ============================================================================
 interface ProdutoFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   fornecedores: Fornecedor[];
-  categories: Category[]; // 2. Adicionada prop de categorias 
+  categories: Category[];
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>; // 3. Adicionar prop
   produtoParaEditar?: ProdutoAdmin | null;
   onProdutoSalvo: (produto: ProdutoAdmin) => void;
 }
@@ -75,17 +77,20 @@ export function ProdutoFormModal({
   isOpen,
   onClose,
   fornecedores,
-  categories, // 3. Recebendo a prop de categorias 
+  categories,
+  setCategories, // 4. Receber a prop
   produtoParaEditar,
   onProdutoSalvo,
 }: ProdutoFormModalProps) {
 
   const isEditMode = !!produtoParaEditar;
 
+  // 5. Adicionar 'setValue' do react-hook-form
   const {
     register,
     handleSubmit,
     reset,
+    setValue, // <-- Adicionado
     formState: { errors, isSubmitting },
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
@@ -100,6 +105,9 @@ export function ProdutoFormModal({
       status: 'ativo',
     }
   });
+
+  // 6. Adicionar estado para o novo modal
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // Preenche o formulário ao abrir (para Edição ou Criação)
   useEffect(() => {
@@ -141,6 +149,14 @@ export function ProdutoFormModal({
       },
       error: (err) => err.message || "Erro ao salvar.",
     });
+  };
+
+  // 7. Adicionar função para lidar com a criação de categoria
+  const handleCategoryCreated = (newCategory: Category) => {
+    // Seleciona a categoria recém-criada no dropdown
+    setValue('category', newCategory.name, { shouldValidate: true });
+    // Fecha o modal de categorias
+    setIsCategoryModalOpen(false);
   };
 
   return (
@@ -214,7 +230,7 @@ export function ProdutoFormModal({
                 Dica: Use a página "Precificação" para calcular o seu Preço de Venda Final.
               </p>
 
-              {/* --- 4. CAMPOS FORNECEDOR E CATEGORIA (SELECT) --- */}
+              {/* --- FORNECEDOR E CATEGORIA --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="supplierId" className="block text-sm font-medium text-gray-700">
@@ -240,23 +256,36 @@ export function ProdutoFormModal({
                   )}
                 </div>
 
-                {/* --- CAMPO DE CATEGORIA ATUALIZADO PARA SELECT --- */}
+                {/* --- 8. CAMPO DE CATEGORIA ATUALIZADO --- */}
                 <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                    Categoria (Opcional)
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                      Categoria (Opcional)
+                    </label>
+                    {/* Botão de Adicionar/Gerir Categoria */}
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="p-1 rounded-full text-dourado hover:bg-gray-100"
+                      title="Gerir categorias"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
                   <select
                     id="category"
                     {...register("category")}
-                    className={`mt-1 block w-full px-3 py-2 border ${errors.category ? "border-red-500" : "border-gray-300"
+                    className={`block w-full px-3 py-2 border ${errors.category ? "border-red-500" : "border-gray-300"
                       } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
                   >
                     <option value="">Selecione uma categoria</option>
-                    {categories.map((c) => ( 
-                      <option key={c.id} value={c.name}> 
-                        {c.name} 
-                      </option> 
-                    ))} 
+                    {categories
+                      .sort((a, b) => a.name.localeCompare(b.name)) // Ordena alfabeticamente
+                      .map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
                   </select>
                   {errors.category && (
                     <p className="mt-1 text-xs text-red-600">
@@ -266,7 +295,7 @@ export function ProdutoFormModal({
                 </div>
               </div>
 
-              {/* --- 5. CAMPOS SKU E STATUS (REORGANIZADOS) --- */}
+              {/* --- SKU E STATUS --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormInput
                   label="Código (SKU) (Opcional)"
@@ -328,6 +357,15 @@ export function ProdutoFormModal({
           </motion.div>
         </motion.div>
       )}
+
+      {/* 9. RENDERIZAR O NOVO MODAL (Modal-in-Modal) */}
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        setCategories={setCategories}
+        onCategoryCreated={handleCategoryCreated}
+      />
     </AnimatePresence>
   );
 }

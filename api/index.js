@@ -409,6 +409,44 @@ app.delete('/admin/categories/:id', async (req, res) => {
     }
 });
 
+
+app.delete('/admin/categories/:id', async (req, res) => {
+    console.log(`ROTA: DELETE /admin/categories/${req.params.id}`);
+    try {
+        const { id } = req.params;
+        if (!id) return res.status(400).json({ message: "ID em falta." });
+        
+        // --- INÍCIO DA VALIDAÇÃO ---
+        // 1. Obter o nome da categoria que queremos apagar
+        const categoryDoc = await db.collection(CATEGORIES_COLLECTION).doc(id).get();
+        if (!categoryDoc.exists) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        const categoryName = categoryDoc.data().name;
+
+        // 2. Verificar se algum produto usa esta categoria (pelo nome)
+        // (Como o seu sistema salva o nome, verificamos pelo nome)
+        const productsSnapshot = await db.collection(PRODUCTS_COLLECTION)
+                                         .where('category', '==', categoryName)
+                                         .limit(1)
+                                         .get();
+        
+        // 3. Se o snapshot não estiver vazio, significa que encontrámos um produto.
+        if (!productsSnapshot.empty) {
+            return res.status(400).json({ 
+                message: `A categoria "${categoryName}" está em uso por um ou mais produtos e não pode ser apagada.` 
+            });
+        }
+        // --- FIM DA VALIDAÇÃO ---
+
+        // 4. Se estiver livre (empty), podemos apagar.
+        await db.collection(CATEGORIES_COLLECTION).doc(id).delete();
+        res.status(204).send(); 
+    } catch (error) {
+        console.error(`ERRO em DELETE /admin/categories/${req.params.id}:`, error.message);
+        res.status(500).json({ message: "Erro interno.", error: error.message });
+    }
+});
 // --- 5. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
 
 // Apenas escuta na porta se NÃO estivermos na Vercel

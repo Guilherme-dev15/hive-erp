@@ -186,7 +186,8 @@ export function ProdutosPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         fornecedores={fornecedores}
-        categories={categories} // <-- AQUI ESTÁ A CORREÇÃO
+        categories={categories} 
+        setCategories={setCategories}
         produtoParaEditar={produtoSelecionado}
         onProdutoSalvo={handleProdutoSalvo}
       />
