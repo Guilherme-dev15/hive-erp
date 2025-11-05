@@ -41,4 +41,7 @@ export interface DashboardStats {
   saldoTotal: number;
 }
 
-// A interface 'ProdutoAdmin' duplicada que estava aqui foi REMOVIDA.
+export interface Category {
+  id: string;
+  name: string;
+}

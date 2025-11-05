@@ -5,7 +5,8 @@ import type {
   ProdutoAdmin, 
   Fornecedor, 
   Transacao, 
-  DashboardStats 
+  DashboardStats,
+  Category
 } from '../types/index.ts'; // Remova as extensões .ts
 
 // 2. Importar TODOS os tipos de formulário de 'schemas'
@@ -15,6 +16,7 @@ import type {
   ConfigFormData, 
   TransacaoFormData // 3. Importar o TransacaoFormData que faltava
 } from '../types/schemas.ts'; // Remova as extensões .ts
+
 
 // ============================================================================
 // Configuração da API
@@ -120,5 +122,19 @@ export const saveConfig = async (config: ConfigFormData): Promise<AppConfig> => 
   return response.data;
 };
 
-// 4. REMOVIDO o 'transacaoSchema' e 'TransacaoFormData' daqui.
-// O seu lugar é no 'schemas.ts'.
+// ============================================================================
+// Módulo: Categorias
+// ============================================================================
+export const getCategories = async (): Promise<Category[]> => {
+  const response = await apiClient.get('/admin/categories');
+  return response.data;
+};
+
+export const createCategory = async (data: { name: string }): Promise<Category> => {
+  const response = await apiClient.post('/admin/categories', data);
+  return response.data;
+};
+
+export const deleteCategory = async (id: string): Promise<void> => {
+  await apiClient.delete(`/admin/categories/${id}`);
+};

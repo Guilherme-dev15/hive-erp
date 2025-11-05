@@ -48,6 +48,7 @@ const CONFIG_PATH = db.collection('config').doc('settings');
 const PRODUCTS_COLLECTION = 'products';
 const SUPPLIERS_COLLECTION = 'suppliers';
 const TRANSACTIONS_COLLECTION = 'transactions';
+const CATEGORIES_COLLECTION = 'categories';
 
 // --- 4. CONFIGURAÇÃO DE CORS (Whitelist) ---
 // (Esta é a configuração robusta que fizemos para a Vercel)
@@ -354,6 +355,59 @@ app.post('/admin/config', async (req, res) => {
     }
 });
 
+
+app.get('/admin/categories', async (req, res) => {
+    console.log("ROTA: GET /admin/categories");
+    try { 
+        const snapshot = await db.collection(CATEGORIES_COLLECTION).orderBy('name').get();
+        if (snapshot.empty) return res.status(200).json([]);
+        const categories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.status(200).json(categories);
+    } catch (error) { 
+        console.error("ERRO em /admin/categories:", error.message);
+        res.status(500).json({ message: "Erro interno.", error: error.message });
+    }
+});
+
+app.post('/admin/categories', async (req, res) => {
+    console.log("ROTA: POST /admin/categories");
+    try {
+        const newCategory = req.body;
+        if (!newCategory || !newCategory.name) {
+            return res.status(400).json({ message: "O 'name' é obrigatório." });
+        }
+        // Verifica se a categoria já existe (case-insensitive)
+        const existingSnapshot = await db.collection(CATEGORIES_COLLECTION)
+                                         .where('name', '==', newCategory.name)
+                                         .get();
+        if (!existingSnapshot.empty) {
+            return res.status(400).json({ message: "Essa categoria já existe." });
+        }
+
+        const docRef = await db.collection(CATEGORIES_COLLECTION).add(newCategory);
+        res.status(201).json({ id: docRef.id, ...newCategory });
+    } catch (error) {
+        console.error("ERRO em POST /admin/categories:", error.message);
+        res.status(500).json({ message: "Erro interno.", error: error.message });
+    }
+});
+
+app.delete('/admin/categories/:id', async (req, res) => {
+    console.log(`ROTA: DELETE /admin/categories/${req.params.id}`);
+    try {
+        const { id } = req.params;
+        if (!id) return res.status(400).json({ message: "ID em falta." });
+        
+        // TODO: O ideal seria verificar se algum produto usa esta categoria
+        // Mas, por simplicidade, vamos apenas apagar.
+
+        await db.collection(CATEGORIES_COLLECTION).doc(id).delete();
+        res.status(204).send(); 
+    } catch (error) {
+        console.error(`ERRO em DELETE /admin/categories/${req.params.id}:`, error.message);
+        res.status(500).json({ message: "Erro interno.", error: error.message });
+    }
+});
 
 // --- 5. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
 

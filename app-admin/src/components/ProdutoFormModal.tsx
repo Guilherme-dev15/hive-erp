@@ -3,11 +3,12 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign } from 'lucide-react'; // Importar Ícone
+import { X, DollarSign } from 'lucide-react';
 
 // Importações de Tipos e Lógica da Aplicação
-import { type Fornecedor, type ProdutoAdmin } from '../types'; 
-import { produtoSchema, type ProdutoFormData } from '../types/schemas'; 
+// 1. Adicionado 'Category'
+import { type Fornecedor, type ProdutoAdmin, type Category } from '../types'; 
+import { produtoSchema, type ProdutoFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto } from '../services/apiService';
 
 // ============================================================================
@@ -17,7 +18,8 @@ interface ProdutoFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   fornecedores: Fornecedor[];
-  produtoParaEditar?: ProdutoAdmin | null; 
+  categories: Category[]; // 2. Adicionada prop de categorias 
+  produtoParaEditar?: ProdutoAdmin | null;
   onProdutoSalvo: (produto: ProdutoAdmin) => void;
 }
 
@@ -29,8 +31,7 @@ type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> 
   name: keyof ProdutoFormData;
   register: ReturnType<typeof useForm<ProdutoFormData>>["register"];
   error?: string;
-  // Prop extra para adicionar ícone (como R$)
-  icon?: React.ReactNode; 
+  icon?: React.ReactNode;
 };
 
 const FormInput: React.FC<FormInputProps> = ({
@@ -49,7 +50,6 @@ const FormInput: React.FC<FormInputProps> = ({
       {label}
     </label>
     <div className="relative mt-1">
-      {/* Adiciona o ícone se ele for passado */}
       {icon && (
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
           {icon}
@@ -59,10 +59,9 @@ const FormInput: React.FC<FormInputProps> = ({
         id={String(name)}
         {...props}
         {...register(name)}
-        className={`block w-full px-3 py-2 border ${
-          error ? "border-red-500" : "border-gray-300"
-        } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado
-           ${icon ? 'pl-10' : ''}`} // Adiciona padding se tiver ícone
+        className={`block w-full px-3 py-2 border ${error ? "border-red-500" : "border-gray-300"
+          } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado
+           ${icon ? 'pl-10' : ''}`}
       />
     </div>
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
@@ -76,6 +75,7 @@ export function ProdutoFormModal({
   isOpen,
   onClose,
   fornecedores,
+  categories, // 3. Recebendo a prop de categorias 
   produtoParaEditar,
   onProdutoSalvo,
 }: ProdutoFormModalProps) {
@@ -89,7 +89,6 @@ export function ProdutoFormModal({
     formState: { errors, isSubmitting },
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
-    // Definimos os valores padrão (defaultValues)
     defaultValues: {
       name: '',
       costPrice: undefined,
@@ -98,7 +97,7 @@ export function ProdutoFormModal({
       code: '',
       imageUrl: '',
       salePrice: undefined,
-      status: 'ativo', // Status padrão
+      status: 'ativo',
     }
   });
 
@@ -106,10 +105,8 @@ export function ProdutoFormModal({
   useEffect(() => {
     if (isOpen) {
       if (isEditMode && produtoParaEditar) {
-        // Modo Edição: preenche
         reset(produtoParaEditar);
       } else {
-        // Modo Criação: limpa para os valores padrão
         reset({
           name: '',
           costPrice: undefined,
@@ -127,12 +124,12 @@ export function ProdutoFormModal({
 
   // Função de submit validada
   const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
-    
+
     let promise;
     if (isEditMode && produtoParaEditar) {
       promise = updateAdminProduto(produtoParaEditar.id, data);
     } else {
-      promise = createAdminProduto(data); 
+      promise = createAdminProduto(data);
     }
 
     toast.promise(promise, {
@@ -189,7 +186,7 @@ export function ProdutoFormModal({
                 placeholder="Ex: Anel Solitário Prata 925"
               />
 
-              {/* --- CAMPOS DE PREÇO ATUALIZADOS --- */}
+              {/* --- CAMPOS DE PREÇO --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormInput
                   label="Custo (Fornecedor) R$"
@@ -201,7 +198,7 @@ export function ProdutoFormModal({
                   placeholder="50.00"
                   icon={<DollarSign size={16} className="text-gray-400" />}
                 />
-                
+
                 <FormInput
                   label="Preço de Venda Final R$"
                   name="salePrice"
@@ -216,9 +213,8 @@ export function ProdutoFormModal({
               <p className="text-xs text-gray-500 -mt-2 ml-1">
                 Dica: Use a página "Precificação" para calcular o seu Preço de Venda Final.
               </p>
-              {/* --- FIM DA ATUALIZAÇÃO DE PREÇO --- */}
 
-
+              {/* --- 4. CAMPOS FORNECEDOR E CATEGORIA (SELECT) --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="supplierId" className="block text-sm font-medium text-gray-700">
@@ -227,9 +223,8 @@ export function ProdutoFormModal({
                   <select
                     id="supplierId"
                     {...register("supplierId")}
-                    className={`mt-1 block w-full px-3 py-2 border ${
-                      errors.supplierId ? "border-red-500" : "border-gray-300"
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.supplierId ? "border-red-500" : "border-gray-300"
+                      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
                   >
                     <option value="">Selecione um fornecedor</option>
                     {fornecedores.map((f) => (
@@ -245,7 +240,42 @@ export function ProdutoFormModal({
                   )}
                 </div>
 
-                {/* --- CAMPO NOVO: STATUS --- */}
+                {/* --- CAMPO DE CATEGORIA ATUALIZADO PARA SELECT --- */}
+                <div>
+                  <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                    Categoria (Opcional)
+                  </label>
+                  <select
+                    id="category"
+                    {...register("category")}
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.category ? "border-red-500" : "border-gray-300"
+                      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categories.map((c) => ( 
+                      <option key={c.id} value={c.name}> 
+                        {c.name} 
+                      </option> 
+                    ))} 
+                  </select>
+                  {errors.category && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.category.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* --- 5. CAMPOS SKU E STATUS (REORGANIZADOS) --- */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormInput
+                  label="Código (SKU) (Opcional)"
+                  name="code"
+                  register={register}
+                  error={errors.code?.message}
+                  placeholder="Ex: ANL-001"
+                />
+
                 <div>
                   <label htmlFor="status" className="block text-sm font-medium text-gray-700">
                     Status
@@ -253,9 +283,8 @@ export function ProdutoFormModal({
                   <select
                     id="status"
                     {...register("status")}
-                    className={`mt-1 block w-full px-3 py-2 border ${
-                      errors.status ? "border-red-500" : "border-gray-300"
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.status ? "border-red-500" : "border-gray-300"
+                      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
                   >
                     <option value="ativo">Ativo (Visível no catálogo)</option>
                     <option value="inativo">Inativo (Oculto do catálogo)</option>
@@ -268,23 +297,6 @@ export function ProdutoFormModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput
-                  label="Categoria (Opcional)"
-                  name="category"
-                  register={register}
-                  error={errors.category?.message}
-                  placeholder="Ex: Anéis"
-                />
-                <FormInput
-                  label="Código (SKU) (Opcional)"
-                  name="code"
-                  register={register}
-                  error={errors.code?.message}
-                  placeholder="Ex: ANL-001"
-                />
-              </div>
-
               <FormInput
                 label="URL da Imagem (Opcional)"
                 name="imageUrl"
@@ -293,7 +305,7 @@ export function ProdutoFormModal({
                 error={errors.imageUrl?.message}
                 placeholder="https://..."
               />
-              
+
               <FormInput
                 label="Descrição Curta (Opcional)"
                 name="description"

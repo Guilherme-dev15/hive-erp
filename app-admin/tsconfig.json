@@ -5,6 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "types": ["vite/client"],
 
     /* --- ESTA É A CORREÇÃO PRINCIPAL --- */
     // 'bundler' diz ao TypeScript para "relaxar" com as extensões
