@@ -202,7 +202,7 @@ export function ProdutosPage() {
         fornecedores={fornecedores}
         produtoParaEditar={produtoSelecionado} // Passa o produto a editar
         onProdutoSalvo={handleProdutoSalvo} // Prop corrigida
-      />
+        categories={[]}      />
     </>
   );
 }
