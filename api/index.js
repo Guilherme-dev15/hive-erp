@@ -447,7 +447,39 @@ app.delete('/admin/categories/:id', async (req, res) => {
         res.status(500).json({ message: "Erro interno.", error: error.message });
     }
 });
+
+
+// ADICIONE ESTA NOVA ROTA PÚBLICA
+app.get('/categories-public', async (req, res) => {
+  console.log("ROTA: GET /categories-public");
+  try {
+    const snapshot = await db.collection(PRODUCTS_COLLECTION)
+                             .where('status', '==', 'ativo')
+                             .get();
+                             
+    if (snapshot.empty) return res.status(200).json([]);
+    
+    // Usamos um Set para garantir nomes de categoria únicos
+    const categorySet = new Set();
+    snapshot.docs.forEach(doc => {
+      const category = doc.data().category;
+      if (category) { // Adiciona apenas se a categoria não for nula ou vazia
+        categorySet.add(category);
+      }
+    });
+    
+    // Converte o Set de volta para um array e ordena
+    const categories = Array.from(categorySet).sort();
+    res.status(200).json(categories);
+    
+  } catch (error) {
+    console.error("ERRO em /categories-public:", error.message);
+    res.status(500).json({ message: "Erro interno", error: error.message });
+  }
+});v
 // --- 5. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
+
+
 
 // Apenas escuta na porta se NÃO estivermos na Vercel
 if (process.env.VERCEL_ENV !== 'production') {
@@ -455,6 +487,7 @@ if (process.env.VERCEL_ENV !== 'production') {
     console.log(`[API] Backend rodando em http://localhost:${PORT}`);
   });
 }
+
 
 // Exporta o 'app' para a Vercel
 module.exports = app;

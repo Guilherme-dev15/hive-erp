@@ -8,10 +8,7 @@ import { Toaster, toast } from 'react-hot-toast';
 // Tipos de Dados (para o Catálogo)
 // ============================================================================
 
-// O 'Produto' que o cliente vê (com salePrice)
 interface ProdutoCatalogo {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  imageUrl: any;
   id: string;
   name: string;
   code?: string;
@@ -19,6 +16,7 @@ interface ProdutoCatalogo {
   description?: string;
   salePrice?: number;
   status?: 'ativo' | 'inativo';
+  imageUrl?: string; // Corrigido de 'any' para 'string?'
 }
 
 // O que esperamos da rota /config-publica
@@ -33,9 +31,6 @@ interface ItemCarrinho {
 }
 
 // O URL do nosso Backend
-// --- CORREÇÃO PRINCIPAL AQUI ---
-// O URL agora usa a variável de ambiente VITE_API_URL.
-// Se não a encontrar (em dev), usa localhost:3001.
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const apiClient = axios.create({
@@ -43,7 +38,7 @@ const apiClient = axios.create({
 });
 
 // ============================================================================
-// Serviço de API (simplificado para o catálogo)
+// Serviço de API
 // ============================================================================
 const getProdutosCatalogo = async (): Promise<ProdutoCatalogo[]> => {
   const response = await apiClient.get('/produtos-catalogo');
@@ -52,6 +47,12 @@ const getProdutosCatalogo = async (): Promise<ProdutoCatalogo[]> => {
 
 const getConfigPublica = async (): Promise<ConfigPublica> => {
   const response = await apiClient.get('/config-publica');
+  return response.data;
+};
+
+// 1. ADICIONADA: Função para buscar as categorias públicas
+const getPublicCategories = async (): Promise<string[]> => {
+  const response = await apiClient.get('/categories-public');
   return response.data;
 };
 
@@ -81,19 +82,27 @@ export default function App() {
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
 
-  // Carrega os dados da API (produtos e config)
+  // 2. ADICIONADOS: Estados para o menu de categorias e filtro
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
+
+  // 3. ATUALIZADO: Carrega todos os dados da API (produtos, config E categorias)
   useEffect(() => {
     async function carregarCatalogo() {
       try {
         setLoading(true);
         setError(null);
-        const [produtosData, configData] = await Promise.all([
+        // Busca as 3 rotas em paralelo
+        const [produtosData, configData, categoriesData] = await Promise.all([
           getProdutosCatalogo(),
-          getConfigPublica()
+          getConfigPublica(),
+          getPublicCategories() // <-- Nova chamada de API
         ]);
 
         setProdutos(produtosData);
         setConfig(configData);
+        // Adiciona "Todos" no início do array de categorias
+        setCategories(["Todos", ...categoriesData]);
 
         if (!configData.whatsappNumber) {
           console.warn("Número de WhatsApp não configurado no ERP Admin.");
@@ -132,21 +141,24 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // --- Lógica de Agrupar por Categoria ---
-  const produtosAgrupados = useMemo(() => {
-    // Filtra primeiro os produtos ativos
+  // 4. ATUALIZADO: Lógica de Agrupamento substituída por Filtragem
+  const produtosFiltrados = useMemo(() => {
+    // Filtra produtos ativos (a API já deve fazer isso, mas é uma boa garantia)
     const produtosAtivos = produtos.filter(p => p.status === 'ativo');
+    
+    // Se "Todos" estiver selecionado, retorna todos os ativos
+    if (selectedCategory === "Todos") {
+      return produtosAtivos;
+    }
+    
+    // Se "Outros" for selecionado (caso a API retorne produtos sem categoria)
+    if (selectedCategory === "Outros") {
+        return produtosAtivos.filter(p => !p.category);
+    }
 
-    // Depois agrupa
-    return produtosAtivos.reduce((acc, produto) => {
-      const categoria = produto.category || 'Outros';
-      if (!acc[categoria]) {
-        acc[categoria] = [];
-      }
-      acc[categoria].push(produto);
-      return acc;
-    }, {} as Record<string, ProdutoCatalogo[]>);
-  }, [produtos]);
+    // Se uma categoria específica for selecionada
+    return produtosAtivos.filter(p => p.category === selectedCategory);
+  }, [produtos, selectedCategory]);
 
 
   if (loading) return (
@@ -175,8 +187,8 @@ export default function App() {
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
-              // --- PEQUENA CORREÇÃO DE LAYOUT AQUI (adicionado 'flex') ---
-              <span className="absolute top-0 right-0 block w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full items-center justify-center animate-pulse">
+              // 5. CORRIGIDO: Removido 'block' redundante
+              <span className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                 {totalItens}
               </span>
             )}
@@ -184,16 +196,36 @@ export default function App() {
         </div>
       </header>
 
-      {/* Conteúdo Principal (Produtos) */}
+      {/* 6. ADICIONADO: Menu dinâmico de Categorias */}
+      <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center h-14 gap-2">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-2 rounded-full font-medium text-sm transition-colors whitespace-nowrap
+                ${selectedCategory === category
+                  ? 'bg-carvao text-white'
+                  : 'bg-gray-100 text-carvao hover:bg-gray-200'
+                }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* 7. ATUALIZADO: Conteúdo Principal (Produtos Filtrados) */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="space-y-12">
-          {Object.entries(produtosAgrupados).map(([categoria, produtosDaCategoria]) => (
-            <section key={categoria}>
-              <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
-                {categoria}
-              </h2>
+          <section>
+            <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
+              {selectedCategory}
+            </h2>
+            {/* Renderiza os produtos filtrados */}
+            {produtosFiltrados.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {produtosDaCategoria.map(produto => (
+                {produtosFiltrados.map(produto => (
                   <CardProduto
                     key={produto.id}
                     produto={produto}
@@ -201,8 +233,10 @@ export default function App() {
                   />
                 ))}
               </div>
-            </section>
-          ))}
+            ) : (
+              <p className="text-gray-500">Nenhum produto encontrado nesta categoria.</p>
+            )}
+          </section>
         </div>
       </main>
 
@@ -230,7 +264,7 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }} // Animação de "levantar"
     >
-      {/* Placeholder no lugar da Imagem */}
+      {/* Imagem ou Placeholder */}
       <div className="relative w-full overflow-hidden">
         <div className="aspect-square w-full bg-gray-100 flex items-center justify-center">
           {produto.imageUrl ? (
@@ -388,9 +422,13 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    {/* Placeholder da Imagem */}
+                    {/* Imagem ou Placeholder */}
                     <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border">
-                      <Package size={24} className="text-prata" />
+                      {item.produto.imageUrl ? (
+                        <img src={item.produto.imageUrl} alt={item.produto.name} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        <Package size={24} className="text-prata" />
+                      )}
                     </div>
 
                     <div className="flex-grow">
