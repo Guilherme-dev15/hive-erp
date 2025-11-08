@@ -27,15 +27,21 @@ if (process.env.VERCEL_ENV === 'production') {
   }
 }
 
-// --- 2. INICIALIZAÇÃO DO FIREBASE ---
-try {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-} catch (error) {
-  console.error("ERRO CRÍTICO: Falha ao inicializar o Firebase Admin.");
-  console.error(error);
-  process.exit(1);
+// --- 2. INICIALIZAÇÃO DO FIREBASE (CORRIGIDA PARA VERCEL) ---
+if (!admin.apps.length) {
+  // Verifica se nenhuma app do Firebase foi inicializada ainda
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("Firebase Admin inicializado com SUCESSO.");
+  } catch (error) {
+    console.error("ERRO CRÍTICO: Falha ao inicializar o Firebase Admin.");
+    console.error(error);
+    process.exit(1);
+  }
+} else {
+  // A app [DEFAULT] já existe, não fazemos nada.
 }
 
 // --- 3. CONFIGURAÇÃO DO APP E CONSTANTES ---
@@ -43,7 +49,7 @@ const db = admin.firestore();
 const app = express();
 const PORT = 3001;
 
-// Constantes de Caminhos (Definidas DEPOIS do 'db')
+// Constantes de Caminhos
 const CONFIG_PATH = db.collection('config').doc('settings');
 const PRODUCTS_COLLECTION = 'products';
 const SUPPLIERS_COLLECTION = 'suppliers';
@@ -51,7 +57,6 @@ const TRANSACTIONS_COLLECTION = 'transactions';
 const CATEGORIES_COLLECTION = 'categories';
 
 // --- 4. CONFIGURAÇÃO DE CORS (Whitelist) ---
-// (Esta é a configuração robusta que fizemos para a Vercel)
 const allowedOrigins = [
   'https://hiveerp-catalogo.vercel.app',
   'https://hive-erp.vercel.app',
@@ -81,22 +86,21 @@ app.get('/produtos-catalogo', async (req, res) => {
   console.log("ROTA: GET /produtos-catalogo");
   try {
     const snapshot = await db.collection(PRODUCTS_COLLECTION)
-                             .where('status', '==', 'ativo')
-                             .get();
+      .where('status', '==', 'ativo')
+      .get();
     if (snapshot.empty) return res.status(200).json([]);
-    
+
     const produtos = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
         name: data.name || 'Nome Indisponível',
-       imageUrl: data.imageUrl || null,
+        imageUrl: data.imageUrl || null,
         code: data.code || 'N/A',
         category: data.category || 'Sem Categoria',
-        description: data.description || ''
-        ,
-        salePrice: data.salePrice || 0, // <-- NOVO CAMPO
-        status: data.status || 'ativo' // <-- NOVO CAMPO
+        description: data.description || '',
+        salePrice: data.salePrice || 0,
+        status: data.status || 'ativo'
       };
     });
     res.status(200).json(produtos);
@@ -124,6 +128,35 @@ app.get('/config-publica', async (req, res) => {
   }
 });
 
+// ROTA PÚBLICA DE CATEGORIAS (MOVIDA PARA CÁ)
+app.get('/categories-public', async (req, res) => {
+  console.log("ROTA: GET /categories-public");
+  try {
+    const snapshot = await db.collection(PRODUCTS_COLLECTION)
+      .where('status', '==', 'ativo')
+      .get();
+
+    if (snapshot.empty) return res.status(200).json([]);
+
+    // Usamos um Set para garantir nomes de categoria únicos
+    const categorySet = new Set();
+    snapshot.docs.forEach(doc => {
+      const category = doc.data().category;
+      if (category) { // Adiciona apenas se a categoria não for nula ou vazia
+        categorySet.add(category);
+      }
+    });
+
+    // Converte o Set de volta para um array e ordena
+    const categories = Array.from(categorySet).sort();
+    res.status(200).json(categories);
+
+  } catch (error) {
+    console.error("ERRO em /categories-public:", error.message);
+    res.status(500).json({ message: "Erro interno", error: error.message });
+  }
+});
+
 // ============================================================================
 // MÓDULO: ADMIN (app-admin)
 // ============================================================================
@@ -131,12 +164,12 @@ app.get('/config-publica', async (req, res) => {
 // --- ROTAS DE PRODUTOS (ADMIN) ---
 app.get('/admin/produtos', async (req, res) => {
   console.log("ROTA: GET /admin/produtos");
-  try { 
+  try {
     const snapshot = await db.collection(PRODUCTS_COLLECTION).get();
     if (snapshot.empty) return res.status(200).json([]);
     const produtos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).json(produtos);
-  } catch (error) { 
+  } catch (error) {
     console.error("ERRO em /admin/produtos:", error.message);
     res.status(500).json({ message: "Erro interno.", error: error.message });
   }
@@ -163,7 +196,7 @@ app.put('/admin/produtos/:id', async (req, res) => {
     const { id } = req.params;
     const dadosAtualizados = req.body;
     if (!id) return res.status(400).json({ message: "ID em falta." });
-   if (!dadosAtualizados || !dadosAtualizados.name || !dadosAtualizados.costPrice || !dadosAtualizados.salePrice) {
+    if (!dadosAtualizados || !dadosAtualizados.name || !dadosAtualizados.costPrice || !dadosAtualizados.salePrice) {
       return res.status(400).json({ message: "Dados do produto em falta. Nome, Custo e Preço de Venda são obrigatórios." });
     }
     await db.collection(PRODUCTS_COLLECTION).doc(id).update(dadosAtualizados);
@@ -180,7 +213,7 @@ app.delete('/admin/produtos/:id', async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ message: "ID em falta." });
     await db.collection(PRODUCTS_COLLECTION).doc(id).delete();
-    res.status(204).send(); 
+    res.status(204).send();
   } catch (error) {
     console.error(`ERRO em DELETE /admin/produtos/${req.params.id}:`, error.message);
     res.status(500).json({ message: "Erro interno.", error: error.message });
@@ -190,296 +223,248 @@ app.delete('/admin/produtos/:id', async (req, res) => {
 
 // --- ROTAS DE FORNECEDORES (ADMIN) ---
 app.get('/admin/fornecedores', async (req, res) => {
-    console.log("ROTA: GET /admin/fornecedores");
-    try { 
-        const snapshot = await db.collection(SUPPLIERS_COLLECTION).get();
-        if (snapshot.empty) return res.status(200).json([]);
-        const fornecedores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        res.status(200).json(fornecedores);
-    } catch (error) { 
-        console.error("ERRO em /admin/fornecedores:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log("ROTA: GET /admin/fornecedores");
+  try {
+    const snapshot = await db.collection(SUPPLIERS_COLLECTION).get();
+    if (snapshot.empty) return res.status(200).json([]);
+    const fornecedores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(fornecedores);
+  } catch (error) {
+    console.error("ERRO em /admin/fornecedores:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.post('/admin/fornecedores', async (req, res) => {
-    console.log("ROTA: POST /admin/fornecedores");
-    try {
-        const novoFornecedor = req.body;
-        if (!novoFornecedor || !novoFornecedor.name) {
-            return res.status(400).json({ message: "O 'name' é obrigatório." });
-        }
-        const docRef = await db.collection(SUPPLIERS_COLLECTION).add(novoFornecedor);
-        res.status(201).json({ id: docRef.id, ...novoFornecedor });
-    } catch (error) {
-        console.error("ERRO em POST /admin/fornecedores:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
+  console.log("ROTA: POST /admin/fornecedores");
+  try {
+    const novoFornecedor = req.body;
+    if (!novoFornecedor || !novoFornecedor.name) {
+      return res.status(400).json({ message: "O 'name' é obrigatório." });
     }
+    const docRef = await db.collection(SUPPLIERS_COLLECTION).add(novoFornecedor);
+    res.status(201).json({ id: docRef.id, ...novoFornecedor });
+  } catch (error) {
+    console.error("ERRO em POST /admin/fornecedores:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.put('/admin/fornecedores/:id', async (req, res) => {
-    console.log(`ROTA: PUT /admin/fornecedores/${req.params.id}`);
-    try {
-        const { id } = req.params;
-        const dadosAtualizados = req.body;
-        if (!id) return res.status(400).json({ message: "ID em falta." });
-        if (!dadosAtualizados || !dadosAtualizados.name) {
-            return res.status(400).json({ message: "O 'name' é obrigatório." });
-        }
-        await db.collection(SUPPLIERS_COLLECTION).doc(id).update(dadosAtualizados);
-        res.status(200).json({ id: id, ...dadosAtualizados });
-    } catch (error) {
-        console.error(`ERRO em PUT /admin/fornecedores/${req.params.id}:`, error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
+  console.log(`ROTA: PUT /admin/fornecedores/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    const dadosAtualizados = req.body;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    if (!dadosAtualizados || !dadosAtualizados.name) {
+      return res.status(400).json({ message: "O 'name' é obrigatório." });
     }
+    await db.collection(SUPPLIERS_COLLECTION).doc(id).update(dadosAtualizados);
+    res.status(200).json({ id: id, ...dadosAtualizados });
+  } catch (error) {
+    console.error(`ERRO em PUT /admin/fornecedores/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.delete('/admin/fornecedores/:id', async (req, res) => {
-    console.log(`ROTA: DELETE /admin/fornecedores/${req.params.id}`);
-    try {
-        const { id } = req.params;
-        if (!id) return res.status(400).json({ message: "ID em falta." });
-        await db.collection(SUPPLIERS_COLLECTION).doc(id).delete();
-        res.status(204).send(); 
-    } catch (error) {
-        console.error(`ERRO em DELETE /admin/fornecedores/${req.params.id}:`, error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log(`ROTA: DELETE /admin/fornecedores/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    await db.collection(SUPPLIERS_COLLECTION).doc(id).delete();
+    res.status(204).send();
+  } catch (error) {
+    console.error(`ERRO em DELETE /admin/fornecedores/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 
 // --- ROTAS DE FINANCEIRO (ADMIN) ---
 app.get('/admin/transacoes', async (req, res) => {
-    console.log("ROTA: GET /admin/transacoes");
-    try { 
-        const snapshot = await db.collection(TRANSACTIONS_COLLECTION).orderBy('date', 'desc').get();
-        if (snapshot.empty) return res.status(200).json([]);
-        const transacoes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        res.status(200).json(transacoes);
-    } catch (error) { 
-        console.error("ERRO em /admin/transacoes:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log("ROTA: GET /admin/transacoes");
+  try {
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).orderBy('date', 'desc').get();
+    if (snapshot.empty) return res.status(200).json([]);
+    const transacoes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(transacoes);
+  } catch (error) {
+    console.error("ERRO em /admin/transacoes:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.post('/admin/transacoes', async (req, res) => {
-    console.log("ROTA: POST /admin/transacoes");
-    try {
-        const novaTransacao = req.body;
-        if (!novaTransacao || !novaTransacao.type || !novaTransacao.amount || !novaTransacao.description || !novaTransacao.date) {
-            return res.status(400).json({ message: "Dados da transação em falta." });
-        }
-        novaTransacao.amount = parseFloat(novaTransacao.amount);
-        novaTransacao.date = admin.firestore.Timestamp.fromDate(new Date(novaTransacao.date));
-        const docRef = await db.collection(TRANSACTIONS_COLLECTION).add(novaTransacao);
-        res.status(201).json({ id: docRef.id, ...novaTransacao });
-    } catch (error) {
-        console.error("ERRO em POST /admin/transacoes:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
+  console.log("ROTA: POST /admin/transacoes");
+  try {
+    const novaTransacao = req.body;
+    if (!novaTransacao || !novaTransacao.type || !novaTransacao.amount || !novaTransacao.description || !novaTransacao.date) {
+      return res.status(400).json({ message: "Dados da transação em falta." });
     }
+    novaTransacao.amount = parseFloat(novaTransacao.amount);
+    novaTransacao.date = admin.firestore.Timestamp.fromDate(new Date(novaTransacao.date));
+    const docRef = await db.collection(TRANSACTIONS_COLLECTION).add(novaTransacao);
+    res.status(201).json({ id: docRef.id, ...novaTransacao });
+  } catch (error) {
+    console.error("ERRO em POST /admin/transacoes:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.put('/admin/transacoes/:id', async (req, res) => {
-    console.log(`ROTA: PUT /admin/transacoes/${req.params.id}`);
-    try {
-        const { id } = req.params;
-        const dadosAtualizados = req.body;
-        if (!id) return res.status(400).json({ message: "ID em falta." });
-        if (!dadosAtualizados.type || !dadosAtualizados.amount || !dadosAtualizados.description || !dadosAtualizados.date) {
-            return res.status(400).json({ message: "Dados da transação em falta." });
-        }
-        dadosAtualizados.amount = parseFloat(dadosAtualizados.amount);
-        dadosAtualizados.date = admin.firestore.Timestamp.fromDate(new Date(dadosAtualizados.date));
-        await db.collection(TRANSACTIONS_COLLECTION).doc(id).update(dadosAtualizados);
-        res.status(200).json({ id: id, ...dadosAtualizados });
-    } catch (error) {
-        console.error(`ERRO em PUT /admin/transacoes/${req.params.id}:`, error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
+  console.log(`ROTA: PUT /admin/transacoes/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    const dadosAtualizados = req.body;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    if (!dadosAtualizados.type || !dadosAtualizados.amount || !dadosAtualizados.description || !dadosAtualizados.date) {
+      return res.status(400).json({ message: "Dados da transação em falta." });
     }
+    dadosAtualizados.amount = parseFloat(dadosAtualizados.amount);
+    dadosAtualizados.date = admin.firestore.Timestamp.fromDate(new Date(dadosAtualizados.date));
+    await db.collection(TRANSACTIONS_COLLECTION).doc(id).update(dadosAtualizados);
+    res.status(200).json({ id: id, ...dadosAtualizados });
+  } catch (error) {
+    console.error(`ERRO em PUT /admin/transacoes/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.delete('/admin/transacoes/:id', async (req, res) => {
-    console.log(`ROTA: DELETE /admin/transacoes/${req.params.id}`);
-    try {
-        const { id } = req.params;
-        if (!id) return res.status(400).json({ message: "ID em falta." });
-        await db.collection(TRANSACTIONS_COLLECTION).doc(id).delete();
-        res.status(204).send();
-    } catch (error) {
-        console.error(`ERRO em DELETE /admin/transacoes/${req.params.id}:`, error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log(`ROTA: DELETE /admin/transacoes/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    await db.collection(TRANSACTIONS_COLLECTION).doc(id).delete();
+    res.status(204).send();
+  } catch (error) {
+    console.error(`ERRO em DELETE /admin/transacoes/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 
 // --- ROTA DO DASHBOARD (ADMIN) ---
 app.get('/admin/dashboard-stats', async (req, res) => {
-    console.log("ROTA: GET /admin/dashboard-stats");
-    try {
-        const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
-        if (snapshot.empty) {
-            return res.status(200).json({ totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
-        }
-        const stats = snapshot.docs.reduce((acc, doc) => {
-            const transacao = doc.data();
-            const amount = transacao.amount || 0;
-            acc.saldoTotal += amount;
-            if (transacao.type === 'venda') {
-                acc.totalVendas += amount;
-            } else if (transacao.type === 'despesa') {
-                acc.totalDespesas += amount;
-            }
-            return acc;
-        }, { totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
-        stats.lucroLiquido = stats.totalVendas + stats.totalDespesas;
-        res.status(200).json(stats);
-    } catch (error) {
-        console.error("ERRO em /admin/dashboard-stats:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
+  console.log("ROTA: GET /admin/dashboard-stats");
+  try {
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
+    if (snapshot.empty) {
+      return res.status(200).json({ totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
     }
+    const stats = snapshot.docs.reduce((acc, doc) => {
+      const transacao = doc.data();
+      const amount = transacao.amount || 0;
+      acc.saldoTotal += amount;
+      if (transacao.type === 'venda') {
+        acc.totalVendas += amount;
+      } else if (transacao.type === 'despesa') {
+        acc.totalDespesas += amount;
+      }
+      return acc;
+    }, { totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
+    stats.lucroLiquido = stats.totalVendas + stats.totalDespesas;
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error("ERRO em /admin/dashboard-stats:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 
 // --- ROTAS DE CONFIGURAÇÃO (ADMIN) ---
 app.get('/admin/config', async (req, res) => {
-    console.log("ROTA: GET /admin/config");
-    try {
-        const doc = await CONFIG_PATH.get();
-        if (!doc.exists) return res.status(200).json({}); 
-        res.status(200).json(doc.data());
-    } catch (error) {
-        console.error("ERRO em /admin/config:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log("ROTA: GET /admin/config");
+  try {
+    const doc = await CONFIG_PATH.get();
+    if (!doc.exists) return res.status(200).json({});
+    res.status(200).json(doc.data());
+  } catch (error) {
+    console.error("ERRO em /admin/config:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 app.post('/admin/config', async (req, res) => {
-    console.log("ROTA: POST /admin/config");
-    try {
-        const novasConfiguracoes = req.body;
-        await CONFIG_PATH.set(novasConfiguracoes, { merge: true });
-        res.status(200).json(novasConfiguracoes);
-    } catch (error) {
-        console.error("ERRO em POST /admin/config:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log("ROTA: POST /admin/config");
+  try {
+    const novasConfiguracoes = req.body;
+    await CONFIG_PATH.set(novasConfiguracoes, { merge: true });
+    res.status(200).json(novasConfiguracoes);
+  } catch (error) {
+    console.error("ERRO em POST /admin/config:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 
-
+// --- ROTAS DE CATEGORIAS (ADMIN) ---
 app.get('/admin/categories', async (req, res) => {
-    console.log("ROTA: GET /admin/categories");
-    try { 
-        const snapshot = await db.collection(CATEGORIES_COLLECTION).orderBy('name').get();
-        if (snapshot.empty) return res.status(200).json([]);
-        const categories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        res.status(200).json(categories);
-    } catch (error) { 
-        console.error("ERRO em /admin/categories:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
+  console.log("ROTA: GET /admin/categories");
+  try {
+    const snapshot = await db.collection(CATEGORIES_COLLECTION).orderBy('name').get();
+    if (snapshot.empty) return res.status(200).json([]);
+    const categories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(categories);
+  } catch (error) {
+    console.error("ERRO em /admin/categories:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 
 app.post('/admin/categories', async (req, res) => {
-    console.log("ROTA: POST /admin/categories");
-    try {
-        const newCategory = req.body;
-        if (!newCategory || !newCategory.name) {
-            return res.status(400).json({ message: "O 'name' é obrigatório." });
-        }
-        // Verifica se a categoria já existe (case-insensitive)
-        const existingSnapshot = await db.collection(CATEGORIES_COLLECTION)
-                                         .where('name', '==', newCategory.name)
-                                         .get();
-        if (!existingSnapshot.empty) {
-            return res.status(400).json({ message: "Essa categoria já existe." });
-        }
-
-        const docRef = await db.collection(CATEGORIES_COLLECTION).add(newCategory);
-        res.status(201).json({ id: docRef.id, ...newCategory });
-    } catch (error) {
-        console.error("ERRO em POST /admin/categories:", error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
-});
-
-app.delete('/admin/categories/:id', async (req, res) => {
-    console.log(`ROTA: DELETE /admin/categories/${req.params.id}`);
-    try {
-        const { id } = req.params;
-        if (!id) return res.status(400).json({ message: "ID em falta." });
-        
-        // TODO: O ideal seria verificar se algum produto usa esta categoria
-        // Mas, por simplicidade, vamos apenas apagar.
-
-        await db.collection(CATEGORIES_COLLECTION).doc(id).delete();
-        res.status(204).send(); 
-    } catch (error) {
-        console.error(`ERRO em DELETE /admin/categories/${req.params.id}:`, error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
-});
-
-
-app.delete('/admin/categories/:id', async (req, res) => {
-    console.log(`ROTA: DELETE /admin/categories/${req.params.id}`);
-    try {
-        const { id } = req.params;
-        if (!id) return res.status(400).json({ message: "ID em falta." });
-        
-        // --- INÍCIO DA VALIDAÇÃO ---
-        // 1. Obter o nome da categoria que queremos apagar
-        const categoryDoc = await db.collection(CATEGORIES_COLLECTION).doc(id).get();
-        if (!categoryDoc.exists) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
-        }
-        const categoryName = categoryDoc.data().name;
-
-        // 2. Verificar se algum produto usa esta categoria (pelo nome)
-        // (Como o seu sistema salva o nome, verificamos pelo nome)
-        const productsSnapshot = await db.collection(PRODUCTS_COLLECTION)
-                                         .where('category', '==', categoryName)
-                                         .limit(1)
-                                         .get();
-        
-        // 3. Se o snapshot não estiver vazio, significa que encontrámos um produto.
-        if (!productsSnapshot.empty) {
-            return res.status(400).json({ 
-                message: `A categoria "${categoryName}" está em uso por um ou mais produtos e não pode ser apagada.` 
-            });
-        }
-        // --- FIM DA VALIDAÇÃO ---
-
-        // 4. Se estiver livre (empty), podemos apagar.
-        await db.collection(CATEGORIES_COLLECTION).doc(id).delete();
-        res.status(204).send(); 
-    } catch (error) {
-        console.error(`ERRO em DELETE /admin/categories/${req.params.id}:`, error.message);
-        res.status(500).json({ message: "Erro interno.", error: error.message });
-    }
-});
-
-
-// ADICIONE ESTA NOVA ROTA PÚBLICA
-app.get('/categories-public', async (req, res) => {
-  console.log("ROTA: GET /categories-public");
+  console.log("ROTA: POST /admin/categories");
   try {
-    const snapshot = await db.collection(PRODUCTS_COLLECTION)
-                             .where('status', '==', 'ativo')
-                             .get();
-                             
-    if (snapshot.empty) return res.status(200).json([]);
-    
-    // Usamos um Set para garantir nomes de categoria únicos
-    const categorySet = new Set();
-    snapshot.docs.forEach(doc => {
-      const category = doc.data().category;
-      if (category) { // Adiciona apenas se a categoria não for nula ou vazia
-        categorySet.add(category);
-      }
-    });
-    
-    // Converte o Set de volta para um array e ordena
-    const categories = Array.from(categorySet).sort();
-    res.status(200).json(categories);
-    
+    const newCategory = req.body;
+    if (!newCategory || !newCategory.name) {
+      return res.status(400).json({ message: "O 'name' é obrigatório." });
+    }
+    // Verifica se a categoria já existe (case-insensitive)
+    const existingSnapshot = await db.collection(CATEGORIES_COLLECTION)
+      .where('name', '==', newCategory.name)
+      .get();
+    if (!existingSnapshot.empty) {
+      return res.status(400).json({ message: "Essa categoria já existe." });
+    }
+
+    const docRef = await db.collection(CATEGORIES_COLLECTION).add(newCategory);
+    res.status(201).json({ id: docRef.id, ...newCategory });
   } catch (error) {
-    console.error("ERRO em /categories-public:", error.message);
-    res.status(500).json({ message: "Erro interno", error: error.message });
+    console.error("ERRO em POST /admin/categories:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
   }
-});v
+});
+
+// ROTA DE DELETE DE CATEGORIA (CORRIGIDA - Bloco duplicado removido)
+app.delete('/admin/categories/:id', async (req, res) => {
+  console.log(`ROTA: DELETE /admin/categories/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+
+    // --- INÍCIO DA VALIDAÇÃO ---
+    // 1. Obter o nome da categoria que queremos apagar
+    const categoryDoc = await db.collection(CATEGORIES_COLLECTION).doc(id).get();
+    if (!categoryDoc.exists) {
+      return res.status(404).json({ message: "Categoria não encontrada." });
+    }
+    const categoryName = categoryDoc.data().name;
+
+    // 2. Verificar se algum produto usa esta categoria (pelo nome)
+    const productsSnapshot = await db.collection(PRODUCTS_COLLECTION)
+      .where('category', '==', categoryName)
+      .limit(1)
+      .get();
+
+    // 3. Se o snapshot não estiver vazio, significa que encontrámos um produto.
+    if (!productsSnapshot.empty) {
+      return res.status(400).json({
+        message: `A categoria "${categoryName}" está em uso por um ou mais produtos e não pode ser apagada.`
+      });
+    }
+    // --- FIM DA VALIDAÇÃO ---
+
+    // 4. Se estiver livre (empty), podemos apagar.
+    await db.collection(CATEGORIES_COLLECTION).doc(id).delete();
+    res.status(204).send();
+  } catch (error) {
+    console.error(`ERRO em DELETE /admin/categories/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+
+
 // --- 5. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
-
-
 
 // Apenas escuta na porta se NÃO estivermos na Vercel
 if (process.env.VERCEL_ENV !== 'production') {
@@ -487,7 +472,6 @@ if (process.env.VERCEL_ENV !== 'production') {
     console.log(`[API] Backend rodando em http://localhost:${PORT}`);
   });
 }
-
 
 // Exporta o 'app' para a Vercel
 module.exports = app;
