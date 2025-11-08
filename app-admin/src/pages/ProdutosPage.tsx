@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import type { ProdutoAdmin, Fornecedor, Category } from '../types';
-import { getAdminProdutos, deleteAdminProduto, getFornecedores, getCategories } from '../services/apiService';
+import { getAdminProdutos, getFornecedores, getCategories } from '../services/apiService';
 import { Trash2, Edit, Package } from 'lucide-react'; // Adicionado Package
-import { toast, Toaster } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 
 // --- Card de Admin (Reutilizável) ---
@@ -96,7 +96,7 @@ export function ProdutosPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
+  const [produtoSelecionado] = useState<ProdutoAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,11 +144,10 @@ export function ProdutosPage() {
   };
 
   // ... (funções de apagar, adicionar, editar, salvar não mudam) ...
-  const handleApagarProduto = (id: string, nome: string) => { /* ... */ };
-  const executarApagar = async (id: string) => { /* ... */ };
+  const handleApagarProduto = (_id: string, _name: string) => { /* ... */ };
   const handleAdicionar = () => { /* ... */ };
-  const handleEditar = (produto: ProdutoAdmin) => { /* ... */ };
-  const handleProdutoSalvo = (produtoSalvo: ProdutoAdmin) => { /* ... */ };
+  const handleEditar = (_produto: ProdutoAdmin) => { /* ... */ };
+  const handleProdutoSalvo = () => { /* ... */ };
 
   if (loading) return <div>A carregar produtos...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
