@@ -16,7 +16,7 @@ interface ProdutoCatalogo {
   description?: string;
   salePrice?: number;
   status?: 'ativo' | 'inativo';
-  imageUrl?: string; // Corrigido de 'any' para 'string?'
+  imageUrl?: string; // Tipo limpo e correto
 }
 
 // O que esperamos da rota /config-publica
@@ -50,7 +50,7 @@ const getConfigPublica = async (): Promise<ConfigPublica> => {
   return response.data;
 };
 
-// 1. ADICIONADA: Função para buscar as categorias públicas
+// Função para buscar as categorias públicas
 const getPublicCategories = async (): Promise<string[]> => {
   const response = await apiClient.get('/categories-public');
   return response.data;
@@ -82,11 +82,11 @@ export default function App() {
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
 
-  // 2. ADICIONADOS: Estados para o menu de categorias e filtro
+  // Estados para o menu de categorias e filtro
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
-  // 3. ATUALIZADO: Carrega todos os dados da API (produtos, config E categorias)
+  // Carrega todos os dados da API (produtos, config E categorias)
   useEffect(() => {
     async function carregarCatalogo() {
       try {
@@ -141,22 +141,19 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // 4. ATUALIZADO: Lógica de Agrupamento substituída por Filtragem
+  // Lógica de Filtragem
   const produtosFiltrados = useMemo(() => {
-    // Filtra produtos ativos (a API já deve fazer isso, mas é uma boa garantia)
+    // Filtra produtos ativos
     const produtosAtivos = produtos.filter(p => p.status === 'ativo');
     
-    // Se "Todos" estiver selecionado, retorna todos os ativos
     if (selectedCategory === "Todos") {
       return produtosAtivos;
     }
     
-    // Se "Outros" for selecionado (caso a API retorne produtos sem categoria)
     if (selectedCategory === "Outros") {
-        return produtosAtivos.filter(p => !p.category);
+        return produtosAtivos.filter(p => !p.category || p.category === "Sem Categoria");
     }
 
-    // Se uma categoria específica for selecionada
     return produtosAtivos.filter(p => p.category === selectedCategory);
   }, [produtos, selectedCategory]);
 
@@ -187,7 +184,7 @@ export default function App() {
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
-              // 5. CORRIGIDO: Removido 'block' redundante
+              // --- CORREÇÃO DE LAYOUT: Adicionado 'flex' ---
               <span className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                 {totalItens}
               </span>
@@ -196,7 +193,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 6. ADICIONADO: Menu dinâmico de Categorias */}
+      {/* Menu dinâmico de Categorias */}
       <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center h-14 gap-2">
           {categories.map((category) => (
@@ -215,14 +212,13 @@ export default function App() {
         </div>
       </nav>
 
-      {/* 7. ATUALIZADO: Conteúdo Principal (Produtos Filtrados) */}
+      {/* Conteúdo Principal (Produtos Filtrados) */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="space-y-12">
           <section>
             <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
               {selectedCategory}
             </h2>
-            {/* Renderiza os produtos filtrados */}
             {produtosFiltrados.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {produtosFiltrados.map(produto => (
@@ -262,7 +258,7 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
       className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5 }} // Animação de "levantar"
+      whileHover={{ y: -5 }}
     >
       {/* Imagem ou Placeholder */}
       <div className="relative w-full overflow-hidden">
@@ -319,7 +315,6 @@ interface ModalCarrinhoProps {
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
 
-  // Calcula o total de itens E o valor total do pedido
   const { totalItens, valorTotalPedido } = useMemo(() => {
     return itens.reduce((acc, item) => {
       const precoItem = item.produto.salePrice || 0;
@@ -348,7 +343,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       return;
     }
 
-    let message = "🧾 Pedido recebido\n\n"; // Título
+    let message = "🧾 Pedido recebido\n\n";
 
     itens.forEach(item => {
       const precoUnitario = item.produto.salePrice || 0;

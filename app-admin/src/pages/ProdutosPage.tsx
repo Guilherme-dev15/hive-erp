@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import type { ProdutoAdmin, Fornecedor, Category } from '../types';
-import { getAdminProdutos, getFornecedores, getCategories } from '../services/apiService';
-import { Trash2, Edit, Package } from 'lucide-react'; // Adicionado Package
-import { Toaster } from 'react-hot-toast';
+// 1. Corrigido: Importar 'deleteAdminProduto'
+import { getAdminProdutos, deleteAdminProduto, getFornecedores, getCategories } from '../services/apiService';
+import { Trash2, Edit, Package } from 'lucide-react';
+// 2. Corrigido: Importar 'toast'
+import { toast, Toaster } from 'react-hot-toast';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 
 // --- Card de Admin (Reutilizável) ---
@@ -14,6 +16,7 @@ interface ProdutoAdminCardProps {
   onApagar: () => void;
 }
 
+// O seu componente de Card (está perfeito, sem alterações)
 const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ produto, fornecedorNome, onEditar, onApagar }) => {
   const custo = produto.costPrice || 0;
   const venda = produto.salePrice || 0;
@@ -21,7 +24,7 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ produto, fornecedor
   const statusCor = produto.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
 
   return (
-    <motion.div 
+    <motion.div
       className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -50,7 +53,7 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ produto, fornecedor
           <p className="text-sm text-gray-500 font-mono mb-2">{produto.code || 'N/A'}</p>
           <p className="text-sm text-dourado font-semibold">Fornecedor: {fornecedorNome}</p>
         </div>
-        
+
         {/* Finanças */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex justify-between text-sm">
@@ -67,7 +70,7 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ produto, fornecedor
           </div>
         </div>
       </div>
-      
+
       {/* Ações */}
       <div className="flex border-t border-gray-100 bg-gray-50">
         <button
@@ -96,11 +99,12 @@ export function ProdutosPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [produtoSelecionado] = useState<ProdutoAdmin | null>(null);
+  
+  // 3. Corrigido: Faltava o 'setProdutoSelecionado'
+  const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // --- NOVO ESTADO PARA O FILTRO DE CATEGORIA ---
   const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
 
   // Carrega todos os dados (Produtos, Fornecedores, Categorias)
@@ -126,28 +130,83 @@ export function ProdutosPage() {
     carregarDadosPagina();
   }, []);
 
-  // --- LÓGICA DE FILTRAGEM DOS PRODUTOS ---
+  // --- LÓGICA DE FILTRAGEM (O seu código está perfeito) ---
   const produtosFiltrados = useMemo(() => {
     if (categoryFilter === "Todos") {
       return produtos;
     }
-    // Inclui produtos sem categoria se o filtro for "Sem Categoria"
     if (categoryFilter === "Sem Categoria") {
       return produtos.filter(p => !p.category);
     }
     return produtos.filter(p => p.category === categoryFilter);
   }, [produtos, categoryFilter]);
-  
-  // Função para obter o nome do fornecedor (para os cards)
+
   const getFornecedorNome = (id: string) => {
     return fornecedores.find(f => f.id === id)?.name || 'N/A';
   };
 
-  // ... (funções de apagar, adicionar, editar, salvar não mudam) ...
-  const handleApagarProduto = (_id: string, _name: string) => { /* ... */ };
-  const handleAdicionar = () => { /* ... */ };
-  const handleEditar = (_produto: ProdutoAdmin) => { /* ... */ };
-  const handleProdutoSalvo = () => { /* ... */ };
+  // --- 4. RESTAURADA: Lógica de Apagar ---
+  const handleApagarProduto = (id: string, nome: string) => {
+    toast((t) => (
+      <div className="flex flex-col p-2">
+        <p className="font-semibold text-carvao">Tem a certeza?</p>
+        <p className="text-sm text-gray-600 mb-3">Quer mesmo apagar o produto "{nome}"?</p>
+        <div className="flex justify-end gap-2">
+          <button
+            className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            Cancelar
+          </button>
+          <button
+            className="px-3 py-1 text-sm rounded bg-red-600 text-white hover:bg-red-700"
+            onClick={() => {
+              toast.dismiss(t.id);
+              executarApagar(id);
+            }}
+          >
+            Apagar
+          </button>
+        </div>
+      </div>
+    ), { duration: 6000 });
+  };
+  
+  // --- 5. RESTAURADA: Função 'executarApagar' ---
+  const executarApagar = async (id: string) => {
+    const promise = deleteAdminProduto(id);
+    toast.promise(promise, {
+      loading: 'A apagar produto...',
+      success: () => {
+        setProdutos(prevProdutos => prevProdutos.filter(p => p.id !== id));
+        return 'Produto apagado com sucesso!';
+      },
+      error: 'Erro ao apagar o produto.',
+    });
+  };
+  
+  // --- 6. RESTAURADA: Funções de Adicionar e Editar ---
+  const handleAdicionar = () => {
+    setProdutoSelecionado(null); // Limpa a seleção
+    setIsModalOpen(true);
+  };
+  
+  const handleEditar = (produto: ProdutoAdmin) => {
+    setProdutoSelecionado(produto); // Define o produto a editar
+    setIsModalOpen(true);
+  };
+
+  // --- 7. RESTAURADA: Lógica de Salvar (Criação/Edição) ---
+  const handleProdutoSalvo = (produtoSalvo: ProdutoAdmin) => {
+    const produtoExiste = produtos.find(p => p.id === produtoSalvo.id);
+    if (produtoExiste) {
+      // Atualiza o produto na lista
+      setProdutos(prev => prev.map(p => (p.id === produtoSalvo.id ? produtoSalvo : p)));
+    } else {
+      // Adiciona o novo produto à lista
+      setProdutos(prev => [produtoSalvo, ...prev]);
+    }
+  };
 
   if (loading) return <div>A carregar produtos...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -156,7 +215,7 @@ export function ProdutosPage() {
     <>
       <Toaster position="top-right" />
       <div className="space-y-6">
-        <motion.div 
+        <motion.div
           className="flex flex-col md:flex-row justify-between md:items-center gap-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,7 +223,7 @@ export function ProdutosPage() {
         >
           <h1 className="text-3xl font-bold text-carvao">Gestão de Produtos</h1>
           <div className="flex gap-4">
-            {/* --- NOVO FILTRO DE CATEGORIA --- */}
+            {/* Filtro de Categoria (O seu código está perfeito) */}
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -176,9 +235,9 @@ export function ProdutosPage() {
               ))}
               <option value="Sem Categoria">Sem Categoria</option>
             </select>
-            
-            <button 
-              onClick={handleAdicionar}
+
+            <button
+              onClick={handleAdicionar} // Função agora funciona
               className="bg-carvao text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 transform hover:scale-105"
             >
               + Adicionar Produto
@@ -186,7 +245,7 @@ export function ProdutosPage() {
           </div>
         </motion.div>
 
-        {/* --- NOVA LISTAGEM EM GRID --- */}
+        {/* Listagem em Grid (O seu código está perfeito) */}
         {produtosFiltrados.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-gray-500 py-10">
             <p>Nenhum produto encontrado {categoryFilter !== 'Todos' && `na categoria "${categoryFilter}"`}.</p>
@@ -198,23 +257,23 @@ export function ProdutosPage() {
                 key={produto.id}
                 produto={produto}
                 fornecedorNome={getFornecedorNome(produto.supplierId)}
-                onEditar={() => handleEditar(produto)}
-                onApagar={() => handleApagarProduto(produto.id, produto.name)}
+                onEditar={() => handleEditar(produto)} // Função agora funciona
+                onApagar={() => handleApagarProduto(produto.id, produto.name)} // Função agora funciona
               />
             ))}
           </div>
         )}
       </div>
-      
-      {/* Modal (A chamada não muda) */}
+
+      {/* Modal */}
       <ProdutoFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => setIsModalOpen(false)} // 8. Corrigido: Adicionada a prop 'onClose'
         fornecedores={fornecedores}
         categories={categories}
         setCategories={setCategories}
-        produtoParaEditar={produtoSelecionado}
-        onProdutoSalvo={handleProdutoSalvo}
+        produtoParaEditar={produtoSelecionado} // Prop agora é atualizada
+        onProdutoSalvo={handleProdutoSalvo} // Função agora funciona
       />
     </>
   );
