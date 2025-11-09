@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 
+
 // --- 1. INICIALIZAÇÃO DA CHAVE ---
 let serviceAccount;
 
@@ -462,6 +463,80 @@ app.delete('/admin/categories/:id', async (req, res) => {
     res.status(500).json({ message: "Erro interno.", error: error.message });
   }
 });
+
+// --- NOVA ROTA: GEMINI NAMER (IA) ---
+app.post('/admin/generate-name', async (req, res) => {
+  console.log("ROTA: POST /admin/generate-name");
+  try {
+    const { imageDataBase64, imageMimeType } = req.body;
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY; // Puxa a chave do Vercel
+
+    if (!apiKey) {
+      return res.status(500).json({ message: "API Key do Google não configurada no servidor." });
+    }
+    if (!imageDataBase64 || !imageMimeType) {
+      return res.status(400).json({ message: "Dados da imagem em falta." });
+    }
+
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+
+    const systemPrompt = `
+      Você é um especialista em marketing e nomenclatura de joias, especificamente para uma marca de joias de prata de luxo.
+      Sua tarefa é analisar a imagem de uma joia, descrevê-la brevemente e, em seguida, criar um nome único, elegante e memorável para ela.
+      O nome deve evocar sentimentos de beleza, elegância, ou ter relação com o design da peça.
+      Responda APENAS em formato JSON válido, com as chaves "descricao" e "nome_sugerido".
+      Use Português do Brasil.
+    `;
+    
+    const payload = {
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: "Analise esta imagem e forneça a descrição e o nome sugerido." },
+            {
+              inlineData: {
+                mimeType: imageMimeType,
+                data: imageDataBase64
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    };
+
+    // Usando 'fetch' (nativo do Node.js 18+ que a Vercel usa)
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('Erro na API Gemini:', response.status, errorBody);
+      throw new Error(`A API do Google retornou um erro: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Envia a resposta da IA de volta para o seu frontend
+    const jsonText = result.candidates[0].content.parts[0].text;
+    res.status(200).json(JSON.parse(jsonText));
+
+  } catch (error) {
+    console.error("ERRO em /admin/generate-name:", error.message);
+    res.status(500).json({ message: "Erro interno ao processar IA.", error: error.message });
+  }
+});
+
+
 
 
 // --- 5. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---

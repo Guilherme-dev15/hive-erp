@@ -1,13 +1,14 @@
-// 1. Importar 'useState' e o novo ícone 'Plus'
+// 1. Importar 'useState', 'Wand2' (para o botão da IA) e 'NamerModal'
 import React, { useEffect, useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign, Plus } from 'lucide-react'; // <-- Adicionado Plus
+import { X, DollarSign, Plus, Wand2 } from 'lucide-react'; // <-- Adicionado Wand2
 
-// 2. Importar o novo CategoryModal
+// 2. Importar os novos componentes
 import { CategoryModal } from './CategoryModal';
+import { NamerModal } from './NamerModal'; // <-- ADICIONADO
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
 import { produtoSchema, type ProdutoFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto } from '../services/apiService';
@@ -20,7 +21,7 @@ interface ProdutoFormModalProps {
   onClose: () => void;
   fornecedores: Fornecedor[];
   categories: Category[];
-  setCategories: React.Dispatch<React.SetStateAction<Category[]>>; // 3. Adicionar prop
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   produtoParaEditar?: ProdutoAdmin | null;
   onProdutoSalvo: (produto: ProdutoAdmin) => void;
 }
@@ -29,7 +30,7 @@ interface ProdutoFormModalProps {
 // Input Reutilizável
 // ============================================================================
 type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
-  label: string;
+  label?: string; // Label agora é opcional
   name: keyof ProdutoFormData;
   register: ReturnType<typeof useForm<ProdutoFormData>>["register"];
   error?: string;
@@ -45,13 +46,15 @@ const FormInput: React.FC<FormInputProps> = ({
   ...props
 }) => (
   <div>
-    <label
-      htmlFor={String(name)}
-      className="block text-sm font-medium text-gray-700"
-    >
-      {label}
-    </label>
-    <div className="relative mt-1">
+    {label && ( // Renderiza o label apenas se ele for fornecido
+      <label
+        htmlFor={String(name)}
+        className="block text-sm font-medium text-gray-700"
+      >
+        {label}
+      </label>
+    )}
+    <div className={`relative ${label ? 'mt-1' : ''}`}> {/* Adiciona margem apenas se houver label */}
       {icon && (
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
           {icon}
@@ -78,19 +81,18 @@ export function ProdutoFormModal({
   onClose,
   fornecedores,
   categories,
-  setCategories, // 4. Receber a prop
+  setCategories,
   produtoParaEditar,
   onProdutoSalvo,
 }: ProdutoFormModalProps) {
 
   const isEditMode = !!produtoParaEditar;
 
-  // 5. Adicionar 'setValue' do react-hook-form
   const {
     register,
     handleSubmit,
     reset,
-    setValue, // <-- Adicionado
+    setValue, // Já estava aqui
     formState: { errors, isSubmitting },
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
@@ -106,8 +108,10 @@ export function ProdutoFormModal({
     }
   });
 
-  // 6. Adicionar estado para o novo modal
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  // 3. Adicionar estado para o novo NamerModal
+  const [isNamerModalOpen, setIsNamerModalOpen] = useState(false);
+
 
   // Preenche o formulário ao abrir (para Edição ou Criação)
   useEffect(() => {
@@ -132,7 +136,6 @@ export function ProdutoFormModal({
 
   // Função de submit validada
   const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
-
     let promise;
     if (isEditMode && produtoParaEditar) {
       promise = updateAdminProduto(produtoParaEditar.id, data);
@@ -151,12 +154,18 @@ export function ProdutoFormModal({
     });
   };
 
-  // 7. Adicionar função para lidar com a criação de categoria
+  // Função para lidar com a criação de categoria
   const handleCategoryCreated = (newCategory: Category) => {
-    // Seleciona a categoria recém-criada no dropdown
     setValue('category', newCategory.name, { shouldValidate: true });
-    // Fecha o modal de categorias
     setIsCategoryModalOpen(false);
+  };
+
+  // 4. Adicionar função para o NamerModal
+  const handleNameGenerated = (name: string, description: string) => {
+    // Preenche os campos do formulário com os dados da IA
+    setValue('name', name, { shouldValidate: true });
+    setValue('description', description, { shouldValidate: true });
+    setIsNamerModalOpen(false); // Fecha o modal da IA
   };
 
   return (
@@ -194,13 +203,30 @@ export function ProdutoFormModal({
               onSubmit={handleSubmit(onSubmit)}
               className="p-6 space-y-4"
             >
-              <FormInput
-                label="Nome do Produto"
-                name="name"
-                register={register}
-                error={errors.name?.message}
-                placeholder="Ex: Anel Solitário Prata 925"
-              />
+              {/* --- 5. CAMPO DE NOME ATUALIZADO COM BOTÃO IA --- */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                    Nome do Produto
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsNamerModalOpen(true)}
+                    className="flex items-center text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                    title="Sugerir nome com IA"
+                  >
+                    <Wand2 size={14} className="mr-1" />
+                    Sugerir com IA
+                  </button>
+                </div>
+                <FormInput
+                  // O label foi movido para cima
+                  name="name"
+                  register={register}
+                  error={errors.name?.message}
+                  placeholder="Ex: Anel Solitário Prata 925"
+                />
+              </div>
 
               {/* --- CAMPOS DE PREÇO --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -256,13 +282,12 @@ export function ProdutoFormModal({
                   )}
                 </div>
 
-                {/* --- 8. CAMPO DE CATEGORIA ATUALIZADO --- */}
+                {/* --- CAMPO DE CATEGORIA (com botão +) --- */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700">
                       Categoria (Opcional)
                     </label>
-                    {/* Botão de Adicionar/Gerir Categoria */}
                     <button
                       type="button"
                       onClick={() => setIsCategoryModalOpen(true)}
@@ -340,7 +365,7 @@ export function ProdutoFormModal({
                 name="description"
                 register={register}
                 error={errors.description?.message}
-                placeholder="Ex: Prata 925 com zircônia"
+                placeholder="Ex: Prata 925 com zircônia (ou deixe a IA preencher)"
               />
 
               {/* Botão de Salvar */}
@@ -358,13 +383,22 @@ export function ProdutoFormModal({
         </motion.div>
       )}
 
-      {/* 9. RENDERIZAR O NOVO MODAL (Modal-in-Modal) */}
+      {/* 6. RENDERIZAR OS DOIS MODAIS */}
+      
+      {/* Modal de Categoria (já existente) */}
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         setCategories={setCategories}
         onCategoryCreated={handleCategoryCreated}
+      />
+      
+      {/* Modal da IA (Novo) */}
+      <NamerModal
+        isOpen={isNamerModalOpen}
+        onClose={() => setIsNamerModalOpen(false)}
+        onNameGenerated={handleNameGenerated}
       />
     </AnimatePresence>
   );

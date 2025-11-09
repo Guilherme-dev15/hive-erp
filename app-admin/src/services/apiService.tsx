@@ -34,6 +34,26 @@ export interface AppConfig extends ConfigFormData {
   split?: { net: number, reinvest: number, ops: number };
 }
 
+
+
+// ADICIONE ESTA INTERFACE E A FUNÇÃO
+export interface NamerResult {
+  descricao: string;
+  nome_sugerido: string;
+}
+
+export const generateNameFromImage = async (
+  imageDataBase64: string, 
+  imageMimeType: string
+): Promise<NamerResult> => {
+  const response = await apiClient.post('/admin/generate-name', {
+    imageDataBase64,
+    imageMimeType
+  });
+  return response.data;
+};
+
+
 // ============================================================================
 // Módulo: Dashboard
 // ============================================================================
