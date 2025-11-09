@@ -162,7 +162,7 @@ app.get('/categories-public', async (req, res) => {
 // ============================================================================
 
 
-// --- ROTA: GEMINI NAMER (IA) ---
+/* --- ROTA: GEMINI NAMER (IA) ---
 app.post('/admin/generate-name', async (req, res) => {
   console.log("ROTA: POST /admin/generate-name");
   try {
@@ -247,7 +247,7 @@ app.post('/admin/generate-name', async (req, res) => {
     res.status(500).json({ message: "Erro interno ao processar IA.", error: error.message });
   }
 });
-
+*/
 
 // --- ROTAS DE PRODUTOS (ADMIN) ---
 app.get('/admin/produtos', async (req, res) => {

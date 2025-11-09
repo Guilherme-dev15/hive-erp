@@ -36,7 +36,7 @@ export interface AppConfig extends ConfigFormData {
 
 
 
-// ADICIONE ESTA INTERFACE E A FUNÇÃO
+/* ADICIONE ESTA INTERFACE E A FUNÇÃO
 export interface NamerResult {
   descricao: string;
   nome_sugerido: string;
@@ -53,7 +53,7 @@ export const generateNameFromImage = async (
   return response.data;
 };
 
-
+*/
 // ============================================================================
 // Módulo: Dashboard
 // ============================================================================

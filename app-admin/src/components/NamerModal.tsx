@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+/*import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { X, Gem, UploadCloud, Loader2, Wand2 } from 'lucide-react';
@@ -115,7 +115,7 @@ export function NamerModal({ isOpen, onClose, onNameGenerated }: NamerModalProps
             className="bg-white rounded-lg shadow-xl w-full max-w-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabeçalho */}
+            {/* Cabeçalho }
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-xl font-semibold text-carvao flex items-center">
                 <Gem size={20} className="text-blue-600 mr-2" />
@@ -129,7 +129,7 @@ export function NamerModal({ isOpen, onClose, onNameGenerated }: NamerModalProps
               </button>
             </div>
 
-            {/* Corpo */}
+            {/* Corpo }
             <div className="p-6">
               <input
                 id="imageUpload"
@@ -208,4 +208,6 @@ export function NamerModal({ isOpen, onClose, onNameGenerated }: NamerModalProps
       )}
     </AnimatePresence>
   );
+  
 }
+*/

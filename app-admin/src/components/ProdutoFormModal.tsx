@@ -1,14 +1,14 @@
-// 1. Importar 'useState', 'Wand2' (para o botão da IA) e 'NamerModal'
+// 1. 'Wand2' e 'useState' desnecessário removidos
 import React, { useEffect, useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+// 2. Adicionado 'watch' para a precificação
+import { useForm, type SubmitHandler, watch } from 'react-hook-form'; 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign, Plus, Wand2 } from 'lucide-react'; // <-- Adicionado Wand2
+import { X, DollarSign, Plus } from 'lucide-react';
 
-// 2. Importar os novos componentes
+// 3. Import do 'NamerModal' removido
 import { CategoryModal } from './CategoryModal';
-import { NamerModal } from './NamerModal'; // <-- ADICIONADO
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
 import { produtoSchema, type ProdutoFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto } from '../services/apiService';
@@ -37,6 +37,7 @@ type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> 
   icon?: React.ReactNode;
 };
 
+// (Componente FormInput não muda)
 const FormInput: React.FC<FormInputProps> = ({
   label,
   name,
@@ -46,7 +47,7 @@ const FormInput: React.FC<FormInputProps> = ({
   ...props
 }) => (
   <div>
-    {label && ( // Renderiza o label apenas se ele for fornecido
+    {label && (
       <label
         htmlFor={String(name)}
         className="block text-sm font-medium text-gray-700"
@@ -54,7 +55,7 @@ const FormInput: React.FC<FormInputProps> = ({
         {label}
       </label>
     )}
-    <div className={`relative ${label ? 'mt-1' : ''}`}> {/* Adiciona margem apenas se houver label */}
+    <div className={`relative ${label ? 'mt-1' : ''}`}>
       {icon && (
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
           {icon}
@@ -92,7 +93,8 @@ export function ProdutoFormModal({
     register,
     handleSubmit,
     reset,
-    setValue, // Já estava aqui
+    setValue,
+    watch, // 4. 'watch' ADICIONADO para ler o campo de custo
     formState: { errors, isSubmitting },
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
@@ -109,9 +111,7 @@ export function ProdutoFormModal({
   });
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  // 3. Adicionar estado para o novo NamerModal
-  const [isNamerModalOpen, setIsNamerModalOpen] = useState(false);
-
+  // 5. Estado 'isNamerModalOpen' REMOVIDO
 
   // Preenche o formulário ao abrir (para Edição ou Criação)
   useEffect(() => {
@@ -132,6 +132,38 @@ export function ProdutoFormModal({
       }
     }
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
+
+  
+  // --- 6. MÓDULO DE PRECIFICAÇÃO AUTOMÁTICA ADICIONADO ---
+  const custoObservado = watch('costPrice');
+
+  useEffect(() => {
+    // Não executa no modo de edição (para não sobrescrever preços antigos)
+    if (isEditMode) return; 
+
+    const custo = parseFloat(custoObservado as any);
+    
+    if (custo > 0) {
+      let markup = 1.7; // 170% (Nível 2 - Padrão)
+      
+      if (custo <= 25) { // Nível 1
+        markup = 2.0; // 200%
+      } else if (custo > 200) { // Nível 3
+        markup = 0.8; // 80%
+      }
+
+      // A sua lógica: (Custo * (1 + Markup)) - 0.10
+      const precoSugerido = (custo * (1 + markup)) - 0.10;
+      
+      // Seta o valor no campo de Preço de Venda
+      setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
+    } else if (custo === 0) {
+      // Limpa o preço de venda se o custo for 0
+       setValue('salePrice', undefined);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [custoObservado, setValue, isEditMode]); // Dependemos do custoObservado
+  // --- FIM DA PRECIFICAÇÃO ---
 
 
   // Função de submit validada
@@ -159,14 +191,8 @@ export function ProdutoFormModal({
     setValue('category', newCategory.name, { shouldValidate: true });
     setIsCategoryModalOpen(false);
   };
-
-  // 4. Adicionar função para o NamerModal
-  const handleNameGenerated = (name: string, description: string) => {
-    // Preenche os campos do formulário com os dados da IA
-    setValue('name', name, { shouldValidate: true });
-    setValue('description', description, { shouldValidate: true });
-    setIsNamerModalOpen(false); // Fecha o modal da IA
-  };
+  
+  // 7. Função 'handleNameGenerated' REMOVIDA
 
   return (
     <AnimatePresence>
@@ -203,32 +229,16 @@ export function ProdutoFormModal({
               onSubmit={handleSubmit(onSubmit)}
               className="p-6 space-y-4"
             >
-              {/* --- 5. CAMPO DE NOME ATUALIZADO COM BOTÃO IA --- */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                    Nome do Produto
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsNamerModalOpen(true)}
-                    className="flex items-center text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                    title="Sugerir nome com IA"
-                  >
-                    <Wand2 size={14} className="mr-1" />
-                    Sugerir com IA
-                  </button>
-                </div>
-                <FormInput
-                  // O label foi movido para cima
-                  name="name"
-                  register={register}
-                  error={errors.name?.message}
-                  placeholder="Ex: Anel Solitário Prata 925"
-                />
-              </div>
+              {/* --- 8. CAMPO DE NOME (BOTÃO IA REMOVIDO) --- */}
+              <FormInput
+                label="Nome do Produto" // Label restaurado
+                name="name"
+                register={register}
+                error={errors.name?.message}
+                placeholder="Ex: Anel Solitário Prata 925"
+              />
 
-              {/* --- CAMPOS DE PREÇO --- */}
+              {/* --- CAMPOS DE PREÇO (COM AUTOMAÇÃO) --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormInput
                   label="Custo (Fornecedor) R$"
@@ -237,7 +247,7 @@ export function ProdutoFormModal({
                   step="0.01"
                   register={register}
                   error={errors.costPrice?.message}
-                  placeholder="50.00"
+                  placeholder="25.00" // Placeholder atualizado
                   icon={<DollarSign size={16} className="text-gray-400" />}
                 />
 
@@ -248,12 +258,15 @@ export function ProdutoFormModal({
                   step="0.01"
                   register={register}
                   error={errors.salePrice?.message}
-                  placeholder="89.90"
+                  placeholder="Calculado automaticamente" // Placeholder atualizado
                   icon={<DollarSign size={16} className="text-gray-400" />}
                 />
               </div>
               <p className="text-xs text-gray-500 -mt-2 ml-1">
-                Dica: Use a página "Precificação" para calcular o seu Preço de Venda Final.
+                {isEditMode 
+                  ? "Ajuste o preço de venda manualmente se necessário."
+                  : "O preço de venda é calculado automaticamente com base no custo."
+                }
               </p>
 
               {/* --- FORNECEDOR E CATEGORIA --- */}
@@ -365,7 +378,7 @@ export function ProdutoFormModal({
                 name="description"
                 register={register}
                 error={errors.description?.message}
-                placeholder="Ex: Prata 925 com zircônia (ou deixe a IA preencher)"
+                placeholder="Ex: Prata 925 com zircônia"
               />
 
               {/* Botão de Salvar */}
@@ -383,9 +396,7 @@ export function ProdutoFormModal({
         </motion.div>
       )}
 
-      {/* 6. RENDERIZAR OS DOIS MODAIS */}
-      
-      {/* Modal de Categoria (já existente) */}
+      {/* Modal de Categoria (permanece) */}
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
@@ -394,12 +405,8 @@ export function ProdutoFormModal({
         onCategoryCreated={handleCategoryCreated}
       />
       
-      {/* Modal da IA (Novo) */}
-      <NamerModal
-        isOpen={isNamerModalOpen}
-        onClose={() => setIsNamerModalOpen(false)}
-        onNameGenerated={handleNameGenerated}
-      />
+      {/* 9. Modal da IA (REMOVIDO) */}
+
     </AnimatePresence>
   );
 }
