@@ -161,6 +161,7 @@ app.get('/categories-public', async (req, res) => {
 // MÓDULO: ADMIN (app-admin)
 // ============================================================================
 
+
 // --- ROTA: GEMINI NAMER (IA) ---
 app.post('/admin/generate-name', async (req, res) => {
   console.log("ROTA: POST /admin/generate-name");
@@ -174,25 +175,34 @@ app.post('/admin/generate-name', async (req, res) => {
     if (!imageDataBase64 || !imageMimeType) {
       return res.status(400).json({ message: "Dados da imagem em falta." });
     }
+
+    // O URL está correto (gemini-pro-vision)
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
 
-    const systemPrompt = `
-      Você é um especialista em marketing e nomenclatura de joias, especificamente para uma marca de joias de prata de luxo.
-      Sua tarefa é analisar a imagem de uma joia, descrevê-la brevemente e, em seguida, criar um nome único, elegante e memorável para ela.
-      O nome deve evocar sentimentos de beleza, elegância, ou ter relação com o design da peça.
+    // --- INÍCIO DA CORREÇÃO ---
+    // O 'systemPrompt' e o 'userPrompt' agora são combinados
+    const combinedPrompt = `
+      Você é um especialista em marketing e nomenclatura de joias para uma marca de prata de luxo.
+      Sua tarefa é analisar a imagem de uma joia, descrevê-la brevemente e, em seguida, criar um nome único e elegante para ela.
       Responda APENAS em formato JSON válido, com as chaves "descricao" e "nome_sugerido".
       Use Português do Brasil.
+      
+      Exemplo de Resposta:
+      {
+        "descricao": "Um anel de prata polida com um design ondulado e uma pequena pedra de zircônia no centro.",
+        "nome_sugerido": "Sussurro da Maré"
+      }
+
+      Analise esta imagem e forneça a descrição e o nome sugerido:
     `;
 
+    // O payload foi simplificado. 'systemInstruction' e 'generationConfig' foram removidos.
     const payload = {
-      systemInstruction: {
-        parts: [{ text: systemPrompt }]
-      },
       contents: [
         {
           role: "user",
           parts: [
-            { text: "Analise esta imagem e forneça a descrição e o nome sugerido." },
+            { text: combinedPrompt }, // A instrução vai aqui
             {
               inlineData: {
                 mimeType: imageMimeType,
@@ -201,11 +211,9 @@ app.post('/admin/generate-name', async (req, res) => {
             }
           ]
         }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
+      ]
     };
+    // --- FIM DA CORREÇÃO ---
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -220,8 +228,19 @@ app.post('/admin/generate-name', async (req, res) => {
     }
 
     const result = await response.json();
+
+    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+        console.error("Resposta inesperada da IA:", result);
+        throw new Error('A IA não retornou um resultado válido.');
+    }
+    
+    // Como não podemos forçar JSON, extraímos o texto
     const jsonText = result.candidates[0].content.parts[0].text;
-    res.status(200).json(JSON.parse(jsonText));
+    
+    // Tentamos limpar o texto (o Gemini-pro-vision às vezes adiciona '```json' e '```')
+    const cleanedJsonText = jsonText.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    res.status(200).json(JSON.parse(cleanedJsonText));
 
   } catch (error) {
     console.error("ERRO em /admin/generate-name:", error.message);
