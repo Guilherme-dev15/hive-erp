@@ -1,14 +1,18 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-const app = express(); // <-- 1. 'app' definido logo no início
+
+// 1. Definição do 'app' logo no início
+const app = express();
 const PORT = 3001;
 
-// --- 1. CONFIGURAÇÃO DE CORS (Whitelist) ---
+// --- 2. CONFIGURAÇÃO DE CORS (Whitelist) ---
 // (Movido para o topo, para ser usado antes de tudo)
 const allowedOrigins = [
   'https://hiveerp-catalogo.vercel.app',
   'https://hive-erp.vercel.app',
+  // Se você ainda estiver a usar URLs de preview, adicione-os aqui:
+  // 'https://hive-34rkmavzb-guilherme-dev15s-projects.vercel.app', 
   'http://localhost:5173', // app-admin local
   'http://localhost:5174'  // app-catalogo local
 ];
@@ -23,11 +27,12 @@ const corsOptions = {
   }
 };
 
-// --- 2. CONFIGURAÇÃO DE MIDDLEWARE ---
-app.use(cors(corsOptions)); // <-- 'app' já existe
-app.use(express.json({ limit: '10mb' })); // <-- 2. Apenas uma chamada, com o limite de 10mb
+// --- 3. CONFIGURAÇÃO DE MIDDLEWARE ---
+app.use(cors(corsOptions));
+// Apenas UMA chamada de express.json(), com o limite de 10mb
+app.use(express.json({ limit: '10mb' }));
 
-// --- 3. INICIALIZAÇÃO DA CHAVE FIREBASE ---
+// --- 4. INICIALIZAÇÃO DA CHAVE FIREBASE ---
 let serviceAccount;
 
 if (process.env.VERCEL_ENV === 'production') {
@@ -52,9 +57,9 @@ if (process.env.VERCEL_ENV === 'production') {
   }
 }
 
-// --- 4. INICIALIZAÇÃO DO FIREBASE (CORRIGIDA PARA VERCEL) ---
-// (Esta correção já estava correta no seu ficheiro)
+// --- 5. INICIALIZAÇÃO DO FIREBASE (CORRIGIDA PARA VERCEL) ---
 if (!admin.apps.length) {
+  // Verifica se nenhuma app do Firebase foi inicializada ainda
   try {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
@@ -67,7 +72,7 @@ if (!admin.apps.length) {
   }
 }
 
-// --- 5. CONSTANTES DO BANCO DE DADOS ---
+// --- 6. CONSTANTES DO BANCO DE DADOS ---
 const db = admin.firestore();
 const CONFIG_PATH = db.collection('config').doc('settings');
 const PRODUCTS_COLLECTION = 'products';
@@ -287,31 +292,171 @@ app.delete('/admin/produtos/:id', async (req, res) => {
 
 
 // --- ROTAS DE FORNECEDORES (ADMIN) ---
-// (O seu código de fornecedores estava correto, omitido por brevidade)
-app.get('/admin/fornecedores', async (req, res) => { /* ... */ });
-app.post('/admin/fornecedores', async (req, res) => { /* ... */ });
-app.put('/admin/fornecedores/:id', async (req, res) => { /* ... */ });
-app.delete('/admin/fornecedores/:id', async (req, res) => { /* ... */ });
-
+app.get('/admin/fornecedores', async (req, res) => {
+  console.log("ROTA: GET /admin/fornecedores");
+  try {
+    const snapshot = await db.collection(SUPPLIERS_COLLECTION).get();
+    if (snapshot.empty) return res.status(200).json([]);
+    const fornecedores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(fornecedores);
+  } catch (error) {
+    console.error("ERRO em /admin/fornecedores:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.post('/admin/fornecedores', async (req, res) => {
+  console.log("ROTA: POST /admin/fornecedores");
+  try {
+    const novoFornecedor = req.body;
+    if (!novoFornecedor || !novoFornecedor.name) {
+      return res.status(400).json({ message: "O 'name' é obrigatório." });
+    }
+    const docRef = await db.collection(SUPPLIERS_COLLECTION).add(novoFornecedor);
+    res.status(201).json({ id: docRef.id, ...novoFornecedor });
+  } catch (error) {
+    console.error("ERRO em POST /admin/fornecedores:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.put('/admin/fornecedores/:id', async (req, res) => {
+  console.log(`ROTA: PUT /admin/fornecedores/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    const dadosAtualizados = req.body;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    if (!dadosAtualizados || !dadosAtualizados.name) {
+      return res.status(400).json({ message: "O 'name' é obrigatório." });
+    }
+    await db.collection(SUPPLIERS_COLLECTION).doc(id).update(dadosAtualizados);
+    res.status(200).json({ id: id, ...dadosAtualizados });
+  } catch (error) {
+    console.error(`ERRO em PUT /admin/fornecedores/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.delete('/admin/fornecedores/:id', async (req, res) => {
+  console.log(`ROTA: DELETE /admin/fornecedores/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    await db.collection(SUPPLIERS_COLLECTION).doc(id).delete();
+    res.status(204).send();
+  } catch (error) {
+    console.error(`ERRO em DELETE /admin/fornecedores/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
 
 // --- ROTAS DE FINANCEIRO (ADMIN) ---
-// (O seu código de transações estava correto, omitido por brevidade)
-app.get('/admin/transacoes', async (req, res) => { /* ... */ });
-app.post('/admin/transacoes', async (req, res) => { /* ... */ });
-app.put('/admin/transacoes/:id', async (req, res) => { /* ... */ });
-app.delete('/admin/transacoes/:id', async (req, res) => { /* ... */ });
-
+app.get('/admin/transacoes', async (req, res) => {
+  console.log("ROTA: GET /admin/transacoes");
+  try {
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).orderBy('date', 'desc').get();
+    if (snapshot.empty) return res.status(200).json([]);
+    const transacoes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(transacoes);
+  } catch (error) {
+    console.error("ERRO em /admin/transacoes:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.post('/admin/transacoes', async (req, res) => {
+  console.log("ROTA: POST /admin/transacoes");
+  try {
+    const novaTransacao = req.body;
+    if (!novaTransacao || !novaTransacao.type || !novaTransacao.amount || !novaTransacao.description || !novaTransacao.date) {
+      return res.status(400).json({ message: "Dados da transação em falta." });
+    }
+    novaTransacao.amount = parseFloat(novaTransacao.amount);
+    novaTransacao.date = admin.firestore.Timestamp.fromDate(new Date(novaTransacao.date));
+    const docRef = await db.collection(TRANSACTIONS_COLLECTION).add(novaTransacao);
+    res.status(201).json({ id: docRef.id, ...novaTransacao });
+  } catch (error) {
+    console.error("ERRO em POST /admin/transacoes:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.put('/admin/transacoes/:id', async (req, res) => {
+  console.log(`ROTA: PUT /admin/transacoes/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    const dadosAtualizados = req.body;
+    if (!id) return res.status(400).json({ message: "ID em falta." });
+    if (!dadosAtualizados.type || !dadosAtualizados.amount || !dadosAtualizados.description || !dadosAtualizados.date) {
+      return res.status(400).json({ message: "Dados da transação em falta." });
+    }
+    dadosAtualizados.amount = parseFloat(dadosAtualizados.amount);
+    dadosAtualizados.date = admin.firestore.Timestamp.fromDate(new Date(dadosAtualizados.date));
+    await db.collection(TRANSACTIONS_COLLECTION).doc(id).update(dadosAtualizados);
+    res.status(200).json({ id: id, ...dadosAtualizados });
+  } catch (error) {
+    console.error(`ERRO em PUT /admin/transacoes/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.delete('/admin/transacoes/:id', async (req, res) => {
+  console.log(`ROTA: DELETE /admin/transacoes/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "ID em falta." }); // <-- Esta foi a linha que corrigi
+    await db.collection(TRANSACTIONS_COLLECTION).doc(id).delete();
+    res.status(204).send();
+  } catch (error) {
+    console.error(`ERRO em DELETE /admin/transacoes/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
 
 // --- ROTA DO DASHBOARD (ADMIN) ---
-// (O seu código do dashboard estava correto, omitido por brevidade)
-app.get('/admin/dashboard-stats', async (req, res) => { /* ... */ });
-
+app.get('/admin/dashboard-stats', async (req, res) => {
+  console.log("ROTA: GET /admin/dashboard-stats");
+  try {
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
+    if (snapshot.empty) {
+      return res.status(200).json({ totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
+    }
+    const stats = snapshot.docs.reduce((acc, doc) => {
+      const transacao = doc.data();
+      const amount = transacao.amount || 0;
+      acc.saldoTotal += amount;
+      if (transacao.type === 'venda') {
+        acc.totalVendas += amount;
+      } else if (transacao.type === 'despesa') {
+        acc.totalDespesas += amount;
+      }
+      return acc;
+    }, { totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
+    stats.lucroLiquido = stats.totalVendas + stats.totalDespesas;
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error("ERRO em /admin/dashboard-stats:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
 
 // --- ROTAS DE CONFIGURAÇÃO (ADMIN) ---
-// (O seu código de config estava correto, omitido por brevidade)
-app.get('/admin/config', async (req, res) => { /* ... */ });
-app.post('/admin/config', async (req, res) => { /* ... */ });
-
+app.get('/admin/config', async (req, res) => {
+  console.log("ROTA: GET /admin/config");
+  try {
+    const doc = await CONFIG_PATH.get();
+    if (!doc.exists) return res.status(200).json({});
+    res.status(200).json(doc.data());
+  } catch (error) {
+    console.error("ERRO em /admin/config:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+app.post('/admin/config', async (req, res) => {
+  console.log("ROTA: POST /admin/config");
+  try {
+    const novasConfiguracoes = req.body;
+    await CONFIG_PATH.set(novasConfiguracoes, { merge: true });
+    res.status(200).json(novasConfiguracoes);
+  } catch (error) {
+    console.error("ERRO em POST /admin/config:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
 
 // --- ROTAS DE CATEGORIAS (ADMIN) ---
 app.get('/admin/categories', async (req, res) => {
@@ -340,6 +485,7 @@ app.post('/admin/categories', async (req, res) => {
     if (!existingSnapshot.empty) {
       return res.status(400).json({ message: "Essa categoria já existe." });
     }
+
     const docRef = await db.collection(CATEGORIES_COLLECTION).add(newCategory);
     res.status(201).json({ id: docRef.id, ...newCategory });
   } catch (error) {
@@ -348,7 +494,7 @@ app.post('/admin/categories', async (req, res) => {
   }
 });
 
-// 3. ROTA DE DELETE (CORRIGIDA - Bloco duplicado removido)
+// 5. ROTA DE DELETE (CORRIGIDA - Bloco duplicado removido)
 app.delete('/admin/categories/:id', async (req, res) => {
   console.log(`ROTA: DELETE /admin/categories/${req.params.id}`);
   try {
@@ -372,7 +518,7 @@ app.delete('/admin/categories/:id', async (req, res) => {
         message: `A categoria "${categoryName}" está em uso por um ou mais produtos e não pode ser apagada.`
       });
     }
-    
+
     // Se estiver livre, apaga
     await db.collection(CATEGORIES_COLLECTION).doc(id).delete();
     res.status(204).send();
@@ -383,7 +529,7 @@ app.delete('/admin/categories/:id', async (req, res) => {
 });
 
 
-// --- 6. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
+// --- 8. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
 
 // Apenas escuta na porta se NÃO estivermos na Vercel
 if (process.env.VERCEL_ENV !== 'production') {
