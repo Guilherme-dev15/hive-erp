@@ -174,7 +174,7 @@ app.post('/admin/generate-name', async (req, res) => {
     if (!imageDataBase64 || !imageMimeType) {
       return res.status(400).json({ message: "Dados da imagem em falta." });
     }
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
 
     const systemPrompt = `
       Você é um especialista em marketing e nomenclatura de joias, especificamente para uma marca de joias de prata de luxo.
