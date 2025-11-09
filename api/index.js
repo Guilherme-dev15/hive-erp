@@ -490,7 +490,7 @@ app.post('/admin/generate-name', async (req, res) => {
       Responda APENAS em formato JSON válido, com as chaves "descricao" e "nome_sugerido".
       Use Português do Brasil.
     `;
-    
+
     const payload = {
       systemInstruction: {
         parts: [{ text: systemPrompt }]
@@ -528,7 +528,7 @@ app.post('/admin/generate-name', async (req, res) => {
     }
 
     const result = await response.json();
-    
+
     // Envia a resposta da IA de volta para o seu frontend
     const jsonText = result.candidates[0].content.parts[0].text;
     res.status(200).json(JSON.parse(jsonText));
