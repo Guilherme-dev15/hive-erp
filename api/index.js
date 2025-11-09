@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 
+app.use(cors(corsOptions));
+
+app.use(express.json({ limit: '10mb' }));
 
 // --- 1. INICIALIZAÇÃO DA CHAVE ---
 let serviceAccount;
