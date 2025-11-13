@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// Adicionado 'ArrowDownUp' e 'Loader2'
+// 1. Adicionado 'ArrowDownUp' e 'Loader2'
 import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -29,7 +29,7 @@ interface ItemCarrinho {
   quantidade: number;
 }
 
-// --- 1. ADICIONADO: Tipos de Pedido (Order) ---
+// --- 2. ADICIONADO: Tipos de Pedido (Order) ---
 export type OrderStatus =
   | 'Aguardando Pagamento'
   | 'Em Produção'
@@ -85,7 +85,7 @@ const getPublicCategories = async (): Promise<string[]> => {
   return response.data;
 };
 
-// --- 2. ADICIONADO: Função para Salvar o Pedido ---
+// --- 3. ADICIONADO: Função para Salvar o Pedido ---
 const saveOrder = async (payload: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> => {
   const response = await apiClient.post('/orders', payload);
   return response.data;
@@ -121,9 +121,11 @@ export default function App() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
+  // --- 4. ADICIONADO: Estado para ordenação (Filtro mais barato) ---
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
 
+  // --- 5. ADICIONADO: Estado para Zoom de Imagem ---
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,6 +141,7 @@ export default function App() {
 
         setProdutos(produtosData);
         setConfig(configData);
+        // Categorias agora incluem "Todos"
         setCategories(["Todos", ...categoriesData]);
 
         if (!configData.whatsappNumber) {
@@ -178,10 +181,11 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // --- Lógica de Filtragem E Ordenação ---
+  // --- 6. ATUALIZADO: Lógica de Filtragem E Ordenação ---
   const produtosFiltradosEOrdenados = useMemo(() => {
     let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
+    // Filtrar por Categoria
     if (selectedCategory !== "Todos") {
       if (selectedCategory === "Outros") {
          produtosProcessados = produtosProcessados.filter(p => !p.category || p.category === "Sem Categoria");
@@ -190,6 +194,7 @@ export default function App() {
       }
     }
     
+    // Ordenar (Recurso 5)
     if (sortOrder === 'priceAsc') {
       produtosProcessados.sort((a, b) => (a.salePrice || 0) - (b.salePrice || 0));
     } else if (sortOrder === 'priceDesc') {
@@ -226,6 +231,7 @@ export default function App() {
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
+              // 7. CORRIGIDO: Layout do badge do carrinho
               <span className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                 {totalItens}
               </span>
@@ -234,7 +240,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Menu de Categorias e Filtro de Ordenação */}
+      {/* 8. ATUALIZADO: Menu de Categorias e Filtro de Ordenação */}
       <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           {/* Menu de Categorias */}
@@ -254,7 +260,7 @@ export default function App() {
             ))}
           </div>
           
-          {/* Filtro de Ordenação */}
+          {/* Filtro de Ordenação (Recurso 5) */}
           <div className="relative ml-4 flex-shrink-0">
             <select
               value={sortOrder}
@@ -283,7 +289,7 @@ export default function App() {
                   key={produto.id}
                   produto={produto}
                   onAdicionar={() => adicionarAoCarrinho(produto)}
-                  onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)}
+                  onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)} // 9. Prop de Zoom
                 />
               ))}
             </div>
@@ -302,7 +308,7 @@ export default function App() {
         whatsappNumber={config?.whatsappNumber || null}
       />
       
-      {/* Modal de Zoom de Imagem */}
+      {/* 10. ADICIONADO: Modal de Zoom de Imagem */}
       <ImageZoomModal 
         imageUrl={zoomedImageUrl} 
         onClose={() => setZoomedImageUrl(null)} 
@@ -318,7 +324,7 @@ export default function App() {
 interface CardProdutoProps {
   produto: ProdutoCatalogo;
   onAdicionar: () => void;
-  onImageClick: () => void;
+  onImageClick: () => void; // Prop para o zoom
 }
 
 function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
@@ -333,7 +339,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
       <div className="relative w-full overflow-hidden">
         <div 
           className="aspect-square w-full bg-gray-100 flex items-center justify-center cursor-pointer"
-          onClick={onImageClick}
+          onClick={onImageClick} // Ação de Zoom
         >
           {produto.imageUrl ? (
             <img
@@ -345,7 +351,6 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
             <Package size={48} className="text-prata" />
           )}
         </div>
-        {/* Código (SKU) */}
         <span className="absolute top-3 left-3 bg-black bg-opacity-60 text-white text-xs font-mono px-2 py-1 rounded">
           {produto.code || 'N/A'}
         </span>
@@ -355,19 +360,16 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
-          
-          {/* --- CORREÇÃO: Descrição completa --- */}
+          {/* 11. CORRIGIDO: Descrição completa */}
           <p className="text-sm text-gray-600 mt-1">
             {produto.description || 'Sem descrição'}
           </p>
         </div>
 
-        {/* Preço de Venda Final */}
         <p className="text-2xl font-bold text-carvao mt-2">
           {formatCurrency(produto.salePrice)}
         </p>
 
-        {/* Botão */}
         <button
           onClick={onAdicionar}
           className="w-full mt-4 flex items-center justify-center bg-dourado text-carvao px-4 py-2 rounded-lg shadow-md hover:bg-yellow-500 transition-colors duration-200 font-semibold"
@@ -379,7 +381,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   );
 }
 
-// --- Modal do Carrinho (Atualizado com Desconto e saveOrder) ---
+// --- 12. ATUALIZADO: Modal do Carrinho com Desconto e saveOrder ---
 interface ModalCarrinhoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -390,10 +392,9 @@ interface ModalCarrinhoProps {
 
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
-  // 3. ADICIONADO: Estado de 'isSubmitting'
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Estado de loading
 
-  // Lógica de Desconto
+  // --- LÓGICA DE DESCONTO (Recurso 6) ---
   const { totalItens, subtotal, desconto, valorTotalPedido } = useMemo(() => {
     const subTotalCalc = itens.reduce((acc, item) => {
       const precoItem = item.produto.salePrice || 0;
@@ -401,8 +402,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     }, 0);
     
     let descontoCalc = 0;
-    if (subTotalCalc >= 300) {
-      descontoCalc = subTotalCalc * 0.05; // 5% de desconto
+    if (subTotalCalc >= 300) { // Se o subtotal for 300 ou mais
+      descontoCalc = subTotalCalc * 0.10; // Aplica 10%
     }
     
     const totalFinal = subTotalCalc - descontoCalc;
@@ -428,7 +429,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     });
   };
 
-  // --- 4. ATUALIZADO: handleCheckout agora salva o pedido ---
+  // --- ATUALIZADO: handleCheckout agora salva o pedido ---
   const handleCheckout = async () => {
     if (!whatsappNumber) {
       toast.error("Erro: A loja não está aceitando pedidos no momento.");
@@ -464,7 +465,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       toast.dismiss();
       toast.success(`Pedido #${orderId} registado! A abrir WhatsApp...`);
 
-      // 4. Formatar a mensagem do WhatsApp (AGORA COM O ID DO PEDIDO)
+      // 4. Formatar a mensagem do WhatsApp (AGORA COM O ID DO PEDIDO E DESCONTO)
       let message = `🧾 *Novo Pedido: #${orderId}*\n\n`;
 
       itens.forEach(item => {
@@ -475,7 +476,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
 
       message += `*Subtotal: ${formatCurrency(subtotal)}*\n`;
       if (desconto > 0) {
-        message += `*Desconto (5%): ${formatCurrency(-desconto)}*\n`;
+        message += `*Desconto (10%): ${formatCurrency(-desconto)}*\n`;
       }
       message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
 
@@ -585,7 +586,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               )}
             </div>
 
-            {/* Rodapé do Carrinho com Desconto */}
+            {/* --- Rodapé do Carrinho com Desconto --- */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
               <textarea
                 value={obs}
@@ -603,7 +604,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                  </div>
                  {desconto > 0 && (
                    <div className="flex justify-between text-green-600 font-medium">
-                     <span>Desconto (5%):</span>
+                     <span>Desconto (10%):</span>
                      <span>- {formatCurrency(desconto)}</span>
                    </div>
                  )}
@@ -615,7 +616,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                 <span>{formatCurrency(valorTotalPedido)}</span>
               </div>
 
-              {/* 5. ATUALIZADO: Botão com estado 'isSubmitting' */}
+              {/* Botão de Checkout com estado de loading */}
               <button
                 onClick={handleCheckout}
                 disabled={totalItens === 0 || isSubmitting}
@@ -633,7 +634,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
 }
 
 
-// --- Componente ImageZoomModal ---
+// --- 13. ADICIONADO: Componente ImageZoomModal ---
 interface ImageZoomModalProps {
   imageUrl: string | null;
   onClose: () => void;
@@ -657,7 +658,7 @@ function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
             src={imageUrl}
             alt="Zoom do produto"
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} // Impede de fechar ao clicar na imagem
           />
           <button
             onClick={onClose}
