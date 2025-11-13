@@ -7,13 +7,18 @@ import { FornecedoresPage } from './pages/FornecedoresPage.tsx';
 import { FinanceiroPage } from './pages/FinanceiroPage.tsx';
 import { DashboardPage } from './pages/DashboardPage.tsx';
 import { PrecificacaoPage } from './pages/PrecificacaoPage.tsx';
-import { ConfiguracoesPage } from './pages/ConfiguracoesPage.tsx'
+import { ConfiguracoesPage } from './pages/ConfiguracoesPage.tsx';
+// 1. IMPORTE A NOVA PÁGINA DE PEDIDOS
+import { PedidosPage } from './pages/PedidosPage.tsx'; 
 
-type Pagina = 'dashboard' | 'produtos' | 'fornecedores' | 'financeiro' | 'precificacao' | 'configuracoes';
+// 2. ADICIONE 'pedidos' AO TIPO
+type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'precificacao' | 'configuracoes';
 
 // --- A NAVBAR CORRIGIDA com as suas cores ---
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
-  const paginas: Pagina[] = ['dashboard', 'produtos', 'fornecedores', 'financeiro', 'precificacao', 'configuracoes'];
+  
+  // 3. ADICIONE 'pedidos' AO ARRAY DE PÁGINAS (NA ORDEM QUE QUISER)
+  const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'precificacao', 'configuracoes'];
 
   return (
     // Aplicando as cores 'carvao' e 'dourado'
@@ -51,12 +56,17 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
 
 
 export default function App() {
-  const [pagina, setPagina] = useState<Pagina>('produtos');
+  const [pagina, setPagina] = useState<Pagina>('dashboard'); // Alterado o default para 'dashboard'
 
   const renderizarPagina = () => {
     switch (pagina) {
       case 'dashboard':
         return <DashboardPage />;
+      
+      // 4. ADICIONE O 'case' PARA A NOVA PÁGINA
+      case 'pedidos':
+        return <PedidosPage />;
+        
       case 'produtos':
         return <ProdutosPage />;
       case 'fornecedores':
