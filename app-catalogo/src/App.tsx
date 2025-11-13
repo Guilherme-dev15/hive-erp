@@ -603,7 +603,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                  </div>
                  {desconto > 0 && (
                    <div className="flex justify-between text-green-600 font-medium">
-                     <span>Desconto (10%):</span>
+                     <span>Desconto (5%):</span>
                      <span>- {formatCurrency(desconto)}</span>
                    </div>
                  )}
