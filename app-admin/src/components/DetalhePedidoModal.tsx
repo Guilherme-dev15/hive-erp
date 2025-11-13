@@ -1,7 +1,6 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { type Order, type OrderLineItem } from '../types';
+import { type Order, type OrderLineItem } from '../types'; // Verifique se 'Order' e 'OrderLineItem' estão em index.ts
 
 // Função Utilitária para formatar Moeda (R$)
 const formatCurrency = (value: number): string => {

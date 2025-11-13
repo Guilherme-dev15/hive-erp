@@ -10,7 +10,7 @@ import { Package, Truck, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-rea
 const statusConfig: Record<OrderStatus, { icon: React.ReactNode; color: string }> = {
   'Aguardando Pagamento': { icon: <Clock size={16} />, color: 'text-yellow-600' },
   'Em Produção': { icon: <Package size={16} />, color: 'text-blue-600' },
-  'Em Separação': { icon: <Package size={16} />, color: 'text-purple-600' }, // Bônus: Status extra
+  'Em Separação': { icon: <Package size={16} />, color: 'text-purple-600' },
   'Enviado': { icon: <Truck size={16} />, color: 'text-green-600' },
   'Cancelado': { icon: <XCircle size={16} />, color: 'text-red-600' }
 };
