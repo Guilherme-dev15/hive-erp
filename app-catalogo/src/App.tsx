@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Package, X, Plus, Minus, Send } from 'lucide-react';
+// 1. Adicionado 'ArrowDownUp' para o filtro de ordenação
+import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
@@ -16,7 +17,7 @@ interface ProdutoCatalogo {
   description?: string;
   salePrice?: number;
   status?: 'ativo' | 'inativo';
-  imageUrl?: string; // Tipo limpo e correto
+  imageUrl?: string;
 }
 
 // O que esperamos da rota /config-publica
@@ -86,22 +87,27 @@ export default function App() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
-  // Carrega todos os dados da API (produtos, config E categorias)
+  // --- 2. NOVO ESTADO PARA ORDENAÇÃO (Filtro mais barato) ---
+  type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
+  const [sortOrder, setSortOrder] = useState<SortOrder>('default');
+
+  // --- 3. NOVO ESTADO PARA ZOOM DA IMAGEM ---
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
+
+  // Carrega todos os dados da API
   useEffect(() => {
     async function carregarCatalogo() {
       try {
         setLoading(true);
         setError(null);
-        // Busca as 3 rotas em paralelo
         const [produtosData, configData, categoriesData] = await Promise.all([
           getProdutosCatalogo(),
           getConfigPublica(),
-          getPublicCategories() // <-- Nova chamada de API
+          getPublicCategories()
         ]);
 
         setProdutos(produtosData);
         setConfig(configData);
-        // Adiciona "Todos" no início do array de categorias
         setCategories(["Todos", ...categoriesData]);
 
         if (!configData.whatsappNumber) {
@@ -141,21 +147,31 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // Lógica de Filtragem
-  const produtosFiltrados = useMemo(() => {
-    // Filtra produtos ativos
-    const produtosAtivos = produtos.filter(p => p.status === 'ativo');
+  // --- 4. ATUALIZADO: Lógica de Filtragem E Ordenação ---
+  const produtosFiltradosEOrdenados = useMemo(() => {
+    // 1. Filtra produtos ativos
+    let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
-    if (selectedCategory === "Todos") {
-      return produtosAtivos;
+    // 2. Filtra por Categoria
+    if (selectedCategory !== "Todos") {
+      if (selectedCategory === "Outros") {
+         produtosProcessados = produtosProcessados.filter(p => !p.category || p.category === "Sem Categoria");
+      } else {
+         produtosProcessados = produtosProcessados.filter(p => p.category === selectedCategory);
+      }
     }
     
-    if (selectedCategory === "Outros") {
-        return produtosAtivos.filter(p => !p.category || p.category === "Sem Categoria");
+    // 3. Ordena (Recurso 5)
+    if (sortOrder === 'priceAsc') {
+      // Mais Barato
+      produtosProcessados.sort((a, b) => (a.salePrice || 0) - (b.salePrice || 0));
+    } else if (sortOrder === 'priceDesc') {
+      // Mais Caro (bônus)
+      produtosProcessados.sort((a, b) => (b.salePrice || 0) - (a.salePrice || 0));
     }
 
-    return produtosAtivos.filter(p => p.category === selectedCategory);
-  }, [produtos, selectedCategory]);
+    return produtosProcessados;
+  }, [produtos, selectedCategory, sortOrder]);
 
 
   if (loading) return (
@@ -184,7 +200,6 @@ export default function App() {
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
-              // --- CORREÇÃO DE LAYOUT: Adicionado 'flex' ---
               <span className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                 {totalItens}
               </span>
@@ -193,47 +208,63 @@ export default function App() {
         </div>
       </header>
 
-      {/* Menu dinâmico de Categorias */}
+      {/* --- 5. ATUALIZADO: Menu de Categorias e Filtro de Ordenação --- */}
       <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center h-14 gap-2">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-full font-medium text-sm transition-colors whitespace-nowrap
-                ${selectedCategory === category
-                  ? 'bg-carvao text-white'
-                  : 'bg-gray-100 text-carvao hover:bg-gray-200'
-                }`}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+          {/* Menu de Categorias */}
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-2 rounded-full font-medium text-sm transition-colors whitespace-nowrap
+                  ${selectedCategory === category
+                    ? 'bg-carvao text-white'
+                    : 'bg-gray-100 text-carvao hover:bg-gray-200'
+                  }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          
+          {/* Filtro de Ordenação */}
+          <div className="relative ml-4 flex-shrink-0">
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+              className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-2 pl-4 pr-10 text-sm font-medium text-carvao focus:outline-none focus:ring-2 focus:ring-dourado"
             >
-              {category}
-            </button>
-          ))}
+              <option value="default">Ordenar por</option>
+              <option value="priceAsc">Menor Preço</option>
+              <option value="priceDesc">Maior Preço</option>
+            </select>
+            <ArrowDownUp size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
         </div>
       </nav>
 
       {/* Conteúdo Principal (Produtos Filtrados) */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="space-y-12">
-          <section>
-            <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
-              {selectedCategory}
-            </h2>
-            {produtosFiltrados.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {produtosFiltrados.map(produto => (
-                  <CardProduto
-                    key={produto.id}
-                    produto={produto}
-                    onAdicionar={() => adicionarAoCarrinho(produto)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">Nenhum produto encontrado nesta categoria.</p>
-            )}
-          </section>
-        </div>
+        <section>
+          <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
+            {selectedCategory}
+          </h2>
+          {produtosFiltradosEOrdenados.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {produtosFiltradosEOrdenados.map(produto => (
+                <CardProduto
+                  key={produto.id}
+                  produto={produto}
+                  onAdicionar={() => adicionarAoCarrinho(produto)}
+                  onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)} // <-- 6. Prop de Zoom
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">Nenhum produto encontrado nesta categoria.</p>
+          )}
+        </section>
       </main>
 
       {/* Modal do Carrinho */}
@@ -244,6 +275,12 @@ export default function App() {
         setCarrinho={setCarrinho}
         whatsappNumber={config?.whatsappNumber || null}
       />
+      
+      {/* --- 7. ADICIONADO: Modal de Zoom de Imagem --- */}
+      <ImageZoomModal 
+        imageUrl={zoomedImageUrl} 
+        onClose={() => setZoomedImageUrl(null)} 
+      />
     </div>
   );
 }
@@ -252,7 +289,14 @@ export default function App() {
 // Componentes do Catálogo
 // ============================================================================
 
-function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdicionar: () => void }) {
+// --- 8. ATUALIZADO: CardProduto com onImageClick ---
+interface CardProdutoProps {
+  produto: ProdutoCatalogo;
+  onAdicionar: () => void;
+  onImageClick: () => void; // Prop para o zoom
+}
+
+function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   return (
     <motion.div
       className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl"
@@ -262,7 +306,10 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
     >
       {/* Imagem ou Placeholder */}
       <div className="relative w-full overflow-hidden">
-        <div className="aspect-square w-full bg-gray-100 flex items-center justify-center">
+        <div 
+          className="aspect-square w-full bg-gray-100 flex items-center justify-center cursor-pointer"
+          onClick={onImageClick} // <-- Ação de Zoom
+        >
           {produto.imageUrl ? (
             <img
               src={produto.imageUrl}
@@ -303,7 +350,7 @@ function CardProduto({ produto, onAdicionar }: { produto: ProdutoCatalogo, onAdi
   );
 }
 
-// Modal do Carrinho
+// --- 9. ATUALIZADO: Modal do Carrinho com lógica de desconto ---
 interface ModalCarrinhoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -315,14 +362,28 @@ interface ModalCarrinhoProps {
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
 
-  const { totalItens, valorTotalPedido } = useMemo(() => {
-    return itens.reduce((acc, item) => {
+  // --- LÓGICA DE DESCONTO ---
+  const { totalItens, subtotal, desconto, valorTotalPedido } = useMemo(() => {
+    const subTotalCalc = itens.reduce((acc, item) => {
       const precoItem = item.produto.salePrice || 0;
-      acc.totalItens += item.quantidade;
-      acc.valorTotalPedido += precoItem * item.quantidade;
-      return acc;
-    }, { totalItens: 0, valorTotalPedido: 0 });
+      return acc + (precoItem * item.quantidade);
+    }, 0);
+    
+    let descontoCalc = 0;
+    if (subTotalCalc >= 300) { // Se o subtotal for 300 ou mais
+      descontoCalc = subTotalCalc * 0.10; // Aplica 10%
+    }
+    
+    const totalFinal = subTotalCalc - descontoCalc;
+    
+    return {
+      totalItens: itens.reduce((total, item) => total + item.quantidade, 0),
+      subtotal: subTotalCalc,
+      desconto: descontoCalc,
+      valorTotalPedido: totalFinal
+    };
   }, [itens]);
+  // --- Fim da Lógica de Desconto ---
 
 
   const atualizarQuantidade = (id: string, novaQuantidade: number) => {
@@ -337,6 +398,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     });
   };
 
+  // --- Checkout ATUALIZADO com desconto ---
   const handleCheckout = () => {
     if (!whatsappNumber) {
       toast.error("Erro: A loja não está aceitando pedidos no momento.");
@@ -355,6 +417,10 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       message += `Valor total: ${formatCurrency(totalLinha)}\n\n`;
     });
 
+    message += `*Subtotal: ${formatCurrency(subtotal)}*\n`;
+    if (desconto > 0) {
+      message += `*Desconto (10%): ${formatCurrency(-desconto)}*\n`;
+    }
     message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
 
     if (obs) {
@@ -454,7 +520,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               )}
             </div>
 
-            {/* Rodapé do Carrinho (Checkout) */}
+            {/* --- 10. ATUALIZADO: Rodapé do Carrinho com Desconto --- */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
               <textarea
                 value={obs}
@@ -463,10 +529,24 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
               />
+              
+              {/* Detalhes do Preço */}
+              <div className="space-y-1 text-sm">
+                 <div className="flex justify-between text-gray-600">
+                   <span>Subtotal:</span>
+                   <span>{formatCurrency(subtotal)}</span>
+                 </div>
+                 {desconto > 0 && (
+                   <div className="flex justify-between text-green-600 font-medium">
+                     <span>Desconto (10%):</span>
+                     <span>- {formatCurrency(desconto)}</span>
+                   </div>
+                 )}
+              </div>
 
               {/* Total do Pedido */}
-              <div className="flex justify-between items-center text-xl font-bold text-carvao">
-                <span>Total do Pedido:</span>
+              <div className="flex justify-between items-center text-xl font-bold text-carvao pt-2 border-t">
+                <span>Total:</span>
                 <span>{formatCurrency(valorTotalPedido)}</span>
               </div>
 
@@ -479,6 +559,45 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               </button>
             </div>
           </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+
+// --- 11. ADICIONADO: Novo Componente ImageZoomModal ---
+interface ImageZoomModalProps {
+  imageUrl: string | null;
+  onClose: () => void;
+}
+
+function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
+  return (
+    <AnimatePresence>
+      {imageUrl && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
+          onClick={onClose}
+        >
+          <motion.img
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            src={imageUrl}
+            alt="Zoom do produto"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-xl"
+            onClick={(e) => e.stopPropagation()} // Impede de fechar ao clicar na imagem
+          />
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/40 transition-colors"
+          >
+            <X size={24} />
+          </button>
         </motion.div>
       )}
     </AnimatePresence>

@@ -13,6 +13,7 @@ export interface ProdutoAdmin {
   salePrice?: number;   
   marginPercent?: number; 
   status?: 'ativo' | 'inativo';
+  supplierProductUrl?: string;
 }
 
 export interface Fornecedor {

@@ -1,11 +1,11 @@
 // 1. 'Wand2' e 'useState' desnecessário removidos
 import React, { useEffect, useState } from 'react';
 // 2. Adicionado 'watch' para a precificação
-import { useForm, type SubmitHandler, watch } from 'react-hook-form'; 
+import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign, Plus } from 'lucide-react';
+import { X, DollarSign, Plus, Link } from 'lucide-react';
 
 // 3. Import do 'NamerModal' removido
 import { CategoryModal } from './CategoryModal';
@@ -133,19 +133,19 @@ export function ProdutoFormModal({
     }
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
-  
+
   // --- 6. MÓDULO DE PRECIFICAÇÃO AUTOMÁTICA ADICIONADO ---
   const custoObservado = watch('costPrice');
 
   useEffect(() => {
     // Não executa no modo de edição (para não sobrescrever preços antigos)
-    if (isEditMode) return; 
+    if (isEditMode) return;
 
     const custo = parseFloat(custoObservado as any);
-    
+
     if (custo > 0) {
       let markup = 1.7; // 170% (Nível 2 - Padrão)
-      
+
       if (custo <= 25) { // Nível 1
         markup = 2.0; // 200%
       } else if (custo > 200) { // Nível 3
@@ -154,14 +154,14 @@ export function ProdutoFormModal({
 
       // A sua lógica: (Custo * (1 + Markup)) - 0.10
       const precoSugerido = (custo * (1 + markup)) - 0.10;
-      
+
       // Seta o valor no campo de Preço de Venda
       setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
     } else if (custo === 0) {
       // Limpa o preço de venda se o custo for 0
-       setValue('salePrice', undefined);
+      setValue('salePrice', undefined);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [custoObservado, setValue, isEditMode]); // Dependemos do custoObservado
   // --- FIM DA PRECIFICAÇÃO ---
 
@@ -191,7 +191,7 @@ export function ProdutoFormModal({
     setValue('category', newCategory.name, { shouldValidate: true });
     setIsCategoryModalOpen(false);
   };
-  
+
   // 7. Função 'handleNameGenerated' REMOVIDA
 
   return (
@@ -263,7 +263,7 @@ export function ProdutoFormModal({
                 />
               </div>
               <p className="text-xs text-gray-500 -mt-2 ml-1">
-                {isEditMode 
+                {isEditMode
                   ? "Ajuste o preço de venda manualmente se necessário."
                   : "O preço de venda é calculado automaticamente com base no custo."
                 }
@@ -363,7 +363,16 @@ export function ProdutoFormModal({
                   )}
                 </div>
               </div>
-
+              {/* --- 4. NOVO CAMPO ADICIONADO --- */}
+              <FormInput
+                label="Link do Produto no Fornecedor (Opcional)"
+                name="supplierProductUrl"
+                type="url"
+                register={register}
+                error={errors.supplierProductUrl?.message}
+                placeholder="https://fornecedor.com/produto/123"
+                icon={<Link size={16} className="text-gray-400" />}
+              />
               <FormInput
                 label="URL da Imagem (Opcional)"
                 name="imageUrl"
@@ -404,7 +413,7 @@ export function ProdutoFormModal({
         setCategories={setCategories}
         onCategoryCreated={handleCategoryCreated}
       />
-      
+
       {/* 9. Modal da IA (REMOVIDO) */}
 
     </AnimatePresence>

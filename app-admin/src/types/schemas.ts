@@ -3,20 +3,20 @@ import { z } from 'zod';
 // 1. Schema de Produto
 export const produtoSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres."),
-  
+
   // --- CORREÇÃO AQUI ---
   // Usamos 'z.coerce.number()' para converter a string do input
   // (ex: "50.00") para um número (ex: 50.00) antes de validar.
   costPrice: z.coerce
     .number()
     .positive("O custo deve ser um número positivo."),
-    
+
   supplierId: z.string().min(1, "Tem de selecionar um fornecedor."),
   code: z.string().optional(),
   category: z.string().optional(),
   description: z.string().optional(),
   imageUrl: z.string().url("Deve ser um URL de imagem válido.").optional().or(z.literal('')),
-
+  supplierProductUrl: z.string().url("Deve ser um URL válido (ex: https://...)").optional().or(z.literal('')),
 
   // --- CAMPOS NOVOS (Opcionais no formulário base) ---
   salePrice: z.coerce.number().optional(),
@@ -45,7 +45,7 @@ export const configSchema = z.object({
     .min(10, "Número parece curto demais")
     .optional()
     .or(z.literal('')),
-    
+
   // --- CORREÇÃO AQUI ---
   monthlyGoal: z.coerce
     .number()

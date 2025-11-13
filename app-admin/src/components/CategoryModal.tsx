@@ -33,7 +33,16 @@ export function CategoryModal({
       return;
     }
     setIsSubmitting(true);
-    const promise = createCategory({ name: newCategoryName });
+
+    // --- CORREÇÃO AQUI ---
+    // 1. Prepara o nome em maiúsculas
+    const categoryData = { 
+      name: newCategoryName.trim().toUpperCase() 
+    };
+    
+    // 2. Envia os 'categoryData' corrigidos para a API
+    const promise = createCategory(categoryData); 
+    // --- FIM DA CORREÇÃO ---
 
     toast.promise(promise, {
       loading: 'A salvar categoria...',
@@ -82,9 +91,7 @@ export function CategoryModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          // --- CORREÇÃO DO Z-INDEX ---
-          // z-[60] força o Tailwind a criar z-index: 60,
-          // que é maior que o z-50 do modal de produto.
+          // z-[60] para ficar SOBRE o modal de produto (z-50)
           className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70"
           onClick={onClose}
         >
