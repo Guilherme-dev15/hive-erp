@@ -46,3 +46,32 @@ export interface Category {
   id: string;
   name: string;
 }
+
+// O Status que um pedido pode ter
+export type OrderStatus = 
+  | 'Aguardando Pagamento' 
+  | 'Em Produção' 
+  | 'Em Separação' 
+  | 'Enviado' 
+  | 'Cancelado';
+
+// Um item dentro de um pedido
+export interface OrderLineItem {
+  id: string; // O ID do produto
+  name: string;
+  code?: string;
+  salePrice: number;
+  quantidade: number;
+}
+
+// A estrutura do Pedido como salva no Firebase
+export interface Order {
+  id: string;
+  createdAt: any; // Firestore Timestamp
+  items: OrderLineItem[];
+  subtotal: number;
+  desconto: number;
+  total: number;
+  observacoes?: string;
+  status: OrderStatus;
+}

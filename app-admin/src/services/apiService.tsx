@@ -6,7 +6,9 @@ import type {
   Fornecedor, 
   Transacao, 
   DashboardStats,
-  Category
+  Category,
+  Order, 
+  OrderStatus 
 } from '../types/index.ts'; // Remova as extensões .ts
 
 // 2. Importar TODOS os tipos de formulário de 'schemas'
@@ -157,4 +159,19 @@ export const createCategory = async (data: { name: string }): Promise<Category> 
 
 export const deleteCategory = async (id: string): Promise<void> => {
   await apiClient.delete(`/admin/categories/${id}`);
+};
+
+
+// ============================================================================
+// Módulo: Pedidos (Orders)
+// ============================================================================
+
+export const getAdminOrders = async (): Promise<Order[]> => {
+  const response = await apiClient.get('/admin/orders');
+  return response.data;
+};
+
+export const updateAdminOrderStatus = async (id: string, status: OrderStatus): Promise<Order> => {
+  const response = await apiClient.put(`/admin/orders/${id}`, { status });
+  return response.data;
 };

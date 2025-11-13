@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// 1. Adicionado 'ArrowDownUp' para o filtro de ordenação
-import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp } from 'lucide-react';
+// Adicionado 'ArrowDownUp' e 'Loader2'
+import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
-// Tipos de Dados (para o Catálogo)
+// Tipos de Dados
 // ============================================================================
 
 interface ProdutoCatalogo {
@@ -20,18 +20,47 @@ interface ProdutoCatalogo {
   imageUrl?: string;
 }
 
-// O que esperamos da rota /config-publica
 interface ConfigPublica {
   whatsappNumber: string | null;
 }
 
-// O que guardamos no carrinho
 interface ItemCarrinho {
   produto: ProdutoCatalogo;
   quantidade: number;
 }
 
-// O URL do nosso Backend
+// --- 1. ADICIONADO: Tipos de Pedido (Order) ---
+export type OrderStatus =
+  | 'Aguardando Pagamento'
+  | 'Em Produção'
+  | 'Em Separação'
+  | 'Enviado'
+  | 'Cancelado';
+
+export interface OrderLineItem {
+  id: string;
+  name: string;
+  code?: string;
+  salePrice: number;
+  quantidade: number;
+}
+
+export interface Order {
+  id: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createdAt: any;
+  items: OrderLineItem[];
+  subtotal: number;
+  desconto: number;
+  total: number;
+  observacoes?: string;
+  status: OrderStatus;
+}
+// --- Fim dos Tipos de Pedido ---
+
+// ============================================================================
+// Configuração da API
+// ============================================================================
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const apiClient = axios.create({
@@ -51,11 +80,17 @@ const getConfigPublica = async (): Promise<ConfigPublica> => {
   return response.data;
 };
 
-// Função para buscar as categorias públicas
 const getPublicCategories = async (): Promise<string[]> => {
   const response = await apiClient.get('/categories-public');
   return response.data;
 };
+
+// --- 2. ADICIONADO: Função para Salvar o Pedido ---
+const saveOrder = async (payload: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> => {
+  const response = await apiClient.post('/orders', payload);
+  return response.data;
+};
+
 
 // ============================================================================
 // Função Utilitária para formatar Moeda (R$)
@@ -83,18 +118,14 @@ export default function App() {
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
 
-  // Estados para o menu de categorias e filtro
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
-  // Estado para ordenação (Filtro mais barato)
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
 
-  // Estado para Zoom de Imagem
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
-  // Carrega todos os dados da API
   useEffect(() => {
     async function carregarCatalogo() {
       try {
@@ -325,8 +356,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
         <div>
           <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
           
-          {/* --- CORREÇÃO AQUI --- */}
-          {/* Classes 'h-10' e 'overflow-hidden' removidas */}
+          {/* --- CORREÇÃO: Descrição completa --- */}
           <p className="text-sm text-gray-600 mt-1">
             {produto.description || 'Sem descrição'}
           </p>
@@ -349,7 +379,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   );
 }
 
-// --- Modal do Carrinho (Atualizado com lógica de desconto) ---
+// --- Modal do Carrinho (Atualizado com Desconto e saveOrder) ---
 interface ModalCarrinhoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -360,8 +390,10 @@ interface ModalCarrinhoProps {
 
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
+  // 3. ADICIONADO: Estado de 'isSubmitting'
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- LÓGICA DE DESCONTO ---
+  // Lógica de Desconto
   const { totalItens, subtotal, desconto, valorTotalPedido } = useMemo(() => {
     const subTotalCalc = itens.reduce((acc, item) => {
       const precoItem = item.produto.salePrice || 0;
@@ -369,8 +401,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     }, 0);
     
     let descontoCalc = 0;
-    if (subTotalCalc >= 300) { // Se o subtotal for 300 ou mais
-      descontoCalc = subTotalCalc * 0.10; // Aplica 10%
+    if (subTotalCalc >= 300) {
+      descontoCalc = subTotalCalc * 0.10;
     }
     
     const totalFinal = subTotalCalc - descontoCalc;
@@ -382,7 +414,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       valorTotalPedido: totalFinal
     };
   }, [itens]);
-  // --- Fim da Lógica de Desconto ---
 
 
   const atualizarQuantidade = (id: string, novaQuantidade: number) => {
@@ -397,45 +428,80 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     });
   };
 
-  // --- Checkout ATUALIZADO com desconto ---
-  const handleCheckout = () => {
+  // --- 4. ATUALIZADO: handleCheckout agora salva o pedido ---
+  const handleCheckout = async () => {
     if (!whatsappNumber) {
       toast.error("Erro: A loja não está aceitando pedidos no momento.");
       return;
     }
 
-    let message = "🧾 Pedido recebido\n\n";
+    setIsSubmitting(true);
+    toast.loading('A registar o seu pedido...');
 
-    itens.forEach(item => {
-      const precoUnitario = item.produto.salePrice || 0;
-      const totalLinha = precoUnitario * item.quantidade;
+    // 1. Mapear os itens do carrinho
+    const itemsPayload: OrderLineItem[] = itens.map(item => ({
+      id: item.produto.id,
+      name: item.produto.name,
+      code: item.produto.code,
+      salePrice: item.produto.salePrice || 0,
+      quantidade: item.quantidade
+    }));
 
-      message += `Produto: ${item.produto.name} (${item.produto.code || 'N/A'})\n`;
-      message += `Qtde: ${item.quantidade}\n`;
-      message += `Valor unitário: ${formatCurrency(precoUnitario)}\n`;
-      message += `Valor total: ${formatCurrency(totalLinha)}\n\n`;
-    });
+    // 2. Montar o payload do pedido
+    const orderPayload = {
+      items: itemsPayload,
+      subtotal: subtotal,
+      desconto: desconto,
+      total: valorTotalPedido,
+      observacoes: obs || ''
+    };
 
-    message += `*Subtotal: ${formatCurrency(subtotal)}*\n`;
-    if (desconto > 0) {
-      message += `*Desconto (10%): ${formatCurrency(-desconto)}*\n`;
+    try {
+      // 3. Salvar o pedido na API
+      const novoPedido = await saveOrder(orderPayload as Omit<Order, 'id' | 'createdAt' | 'status'>);
+      const orderId = novoPedido.id.substring(0, 5).toUpperCase(); // Pega os 5 primeiros dígitos
+
+      toast.dismiss();
+      toast.success(`Pedido #${orderId} registado! A abrir WhatsApp...`);
+
+      // 4. Formatar a mensagem do WhatsApp (AGORA COM O ID DO PEDIDO)
+      let message = `🧾 *Novo Pedido: #${orderId}*\n\n`;
+
+      itens.forEach(item => {
+        message += `Produto: ${item.produto.name} (${item.produto.code || 'N/A'})\n`;
+        message += `Qtde: ${item.quantidade}\n`;
+        message += `Valor total: ${formatCurrency((item.produto.salePrice || 0) * item.quantidade)}\n\n`;
+      });
+
+      message += `*Subtotal: ${formatCurrency(subtotal)}*\n`;
+      if (desconto > 0) {
+        message += `*Desconto (10%): ${formatCurrency(-desconto)}*\n`;
+      }
+      message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
+
+      if (obs) {
+        message += `*Observação:*\n${obs}\n\n`;
+      }
+
+      message += "Obrigado! Aguardo confirmação para o pagamento.";
+
+      // 5. Abrir WhatsApp e limpar o carrinho
+      const encodedMessage = encodeURIComponent(message);
+      const waLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+      
+      window.open(waLink, '_blank');
+      
+      setCarrinho({});
+      setObs('');
+      onClose();
+
+    } catch (err) {
+      console.error(err);
+      toast.dismiss();
+      toast.error("Falha ao registar o pedido. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
     }
-    message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
-
-    if (obs) {
-      message += `*Observação:*\n${obs}\n\n`;
-    }
-
-    message += "Obrigado! Aguardo confirmação para consultar o fornecedor e enviar prazo.";
-
-    const encodedMessage = encodeURIComponent(message);
-    const waLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
-
-    window.open(waLink, '_blank');
-
-    setCarrinho({});
-    setObs('');
-    onClose();
   };
 
   return (
@@ -519,7 +585,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               )}
             </div>
 
-            {/* --- Rodapé do Carrinho com Desconto --- */}
+            {/* Rodapé do Carrinho com Desconto */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
               <textarea
                 value={obs}
@@ -549,12 +615,14 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                 <span>{formatCurrency(valorTotalPedido)}</span>
               </div>
 
+              {/* 5. ATUALIZADO: Botão com estado 'isSubmitting' */}
               <button
                 onClick={handleCheckout}
-                disabled={totalItens === 0}
-                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+                disabled={totalItens === 0 || isSubmitting}
+                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait"
               >
-                <Send size={18} className="mr-2" /> Enviar Pedido via WhatsApp
+                {isSubmitting ? <Loader2 size={18} className="animate-spin mr-2" /> : <Send size={18} className="mr-2" />}
+                {isSubmitting ? "A registar..." : "Enviar Pedido via WhatsApp"}
               </button>
             </div>
           </motion.div>
@@ -589,7 +657,7 @@ function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
             src={imageUrl}
             alt="Zoom do produto"
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-xl"
-            onClick={(e) => e.stopPropagation()} // Impede de fechar ao clicar na imagem
+            onClick={(e) => e.stopPropagation()}
           />
           <button
             onClick={onClose}

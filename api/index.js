@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-
+const ORDERS_COLLECTION = 'orders'; // 
 // 1. Definição do 'app' logo no início
 const app = express();
 const PORT = 3001;
@@ -546,6 +546,77 @@ app.delete('/admin/categories/:id', async (req, res) => {
   }
 });
 
+
+// --- 2. NOVA ROTA PÚBLICA: CRIAR PEDIDO ---
+app.post('/orders', async (req, res) => {
+  console.log("ROTA: POST /orders (Novo Pedido do Catálogo)");
+  try {
+    const pedidoData = req.body;
+
+    // Validação básica
+    if (!pedidoData || !pedidoData.items || pedidoData.items.length === 0 || !pedidoData.total) {
+      return res.status(400).json({ message: "Dados do pedido incompletos." });
+    }
+
+    const novoPedido = {
+      ...pedidoData,
+      status: 'Aguardando Pagamento', // Status inicial
+      createdAt: admin.firestore.FieldValue.serverTimestamp() // Data de criação
+    };
+
+    const docRef = await db.collection(ORDERS_COLLECTION).add(novoPedido);
+    
+    // Retorna o pedido completo com o ID
+    res.status(201).json({ id: docRef.id, ...novoPedido });
+
+  } catch (error) {
+    console.error("ERRO em POST /orders:", error.message);
+    res.status(500).json({ message: "Erro ao registrar pedido.", error: error.message });
+  }
+});
+
+// --- 3. NOVAS ROTAS DE ADMIN: GERIR PEDIDOS ---
+
+// Listar todos os pedidos (para o painel de admin)
+app.get('/admin/orders', async (req, res) => {
+  console.log("ROTA: GET /admin/orders");
+  try {
+    const snapshot = await db.collection(ORDERS_COLLECTION)
+                             .orderBy('createdAt', 'desc') // Mais recentes primeiro
+                             .get();
+    
+    if (snapshot.empty) return res.status(200).json([]);
+    
+    const pedidos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(pedidos);
+  } catch (error) {
+    console.error("ERRO em GET /admin/orders:", error.message);
+    res.status(500).json({ message: "Erro interno ao buscar pedidos.", error: error.message });
+  }
+});
+
+// Atualizar o status de um pedido
+app.put('/admin/orders/:id', async (req, res) => {
+  console.log(`ROTA: PUT /admin/orders/${req.params.id}`);
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // O admin só pode atualizar o status
+
+    if (!id || !status) {
+      return res.status(400).json({ message: "ID do pedido ou novo status em falta." });
+    }
+
+    const docRef = db.collection(ORDERS_COLLECTION).doc(id);
+    await docRef.update({ status: status });
+    
+    const pedidoAtualizado = await docRef.get();
+    res.status(200).json({ id: pedidoAtualizado.id, ...pedidoAtualizado.data() });
+
+  } catch (error) {
+    console.error(`ERRO em PUT /admin/orders/${req.params.id}:`, error.message);
+    res.status(500).json({ message: "Erro ao atualizar status do pedido.", error: error.message });
+  }
+});
 
 // --- 8. INICIALIZAÇÃO DO SERVIDOR (Local vs. Vercel) ---
 
