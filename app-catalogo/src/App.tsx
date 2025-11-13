@@ -402,7 +402,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     
     let descontoCalc = 0;
     if (subTotalCalc >= 300) {
-      descontoCalc = subTotalCalc * 0.10;
+      descontoCalc = subTotalCalc * 0.05; // 5% de desconto
     }
     
     const totalFinal = subTotalCalc - descontoCalc;
@@ -475,7 +475,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
 
       message += `*Subtotal: ${formatCurrency(subtotal)}*\n`;
       if (desconto > 0) {
-        message += `*Desconto (10%): ${formatCurrency(-desconto)}*\n`;
+        message += `*Desconto (5%): ${formatCurrency(-desconto)}*\n`;
       }
       message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
 
