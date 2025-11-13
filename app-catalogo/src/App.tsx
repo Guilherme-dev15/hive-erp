@@ -87,11 +87,11 @@ export default function App() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
-  // --- 2. NOVO ESTADO PARA ORDENAÇÃO (Filtro mais barato) ---
+  // Estado para ordenação (Filtro mais barato)
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
 
-  // --- 3. NOVO ESTADO PARA ZOOM DA IMAGEM ---
+  // Estado para Zoom de Imagem
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   // Carrega todos os dados da API
@@ -147,12 +147,10 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // --- 4. ATUALIZADO: Lógica de Filtragem E Ordenação ---
+  // --- Lógica de Filtragem E Ordenação ---
   const produtosFiltradosEOrdenados = useMemo(() => {
-    // 1. Filtra produtos ativos
     let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
-    // 2. Filtra por Categoria
     if (selectedCategory !== "Todos") {
       if (selectedCategory === "Outros") {
          produtosProcessados = produtosProcessados.filter(p => !p.category || p.category === "Sem Categoria");
@@ -161,12 +159,9 @@ export default function App() {
       }
     }
     
-    // 3. Ordena (Recurso 5)
     if (sortOrder === 'priceAsc') {
-      // Mais Barato
       produtosProcessados.sort((a, b) => (a.salePrice || 0) - (b.salePrice || 0));
     } else if (sortOrder === 'priceDesc') {
-      // Mais Caro (bônus)
       produtosProcessados.sort((a, b) => (b.salePrice || 0) - (a.salePrice || 0));
     }
 
@@ -208,7 +203,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* --- 5. ATUALIZADO: Menu de Categorias e Filtro de Ordenação --- */}
+      {/* Menu de Categorias e Filtro de Ordenação */}
       <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           {/* Menu de Categorias */}
@@ -257,7 +252,7 @@ export default function App() {
                   key={produto.id}
                   produto={produto}
                   onAdicionar={() => adicionarAoCarrinho(produto)}
-                  onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)} // <-- 6. Prop de Zoom
+                  onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)}
                 />
               ))}
             </div>
@@ -276,7 +271,7 @@ export default function App() {
         whatsappNumber={config?.whatsappNumber || null}
       />
       
-      {/* --- 7. ADICIONADO: Modal de Zoom de Imagem --- */}
+      {/* Modal de Zoom de Imagem */}
       <ImageZoomModal 
         imageUrl={zoomedImageUrl} 
         onClose={() => setZoomedImageUrl(null)} 
@@ -289,11 +284,10 @@ export default function App() {
 // Componentes do Catálogo
 // ============================================================================
 
-// --- 8. ATUALIZADO: CardProduto com onImageClick ---
 interface CardProdutoProps {
   produto: ProdutoCatalogo;
   onAdicionar: () => void;
-  onImageClick: () => void; // Prop para o zoom
+  onImageClick: () => void;
 }
 
 function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
@@ -308,7 +302,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
       <div className="relative w-full overflow-hidden">
         <div 
           className="aspect-square w-full bg-gray-100 flex items-center justify-center cursor-pointer"
-          onClick={onImageClick} // <-- Ação de Zoom
+          onClick={onImageClick}
         >
           {produto.imageUrl ? (
             <img
@@ -330,7 +324,12 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
-          <p className="text-sm text-gray-600 mt-1 h-10 overflow-hidden">{produto.description || 'Sem descrição'}</p>
+          
+          {/* --- CORREÇÃO AQUI --- */}
+          {/* Classes 'h-10' e 'overflow-hidden' removidas */}
+          <p className="text-sm text-gray-600 mt-1">
+            {produto.description || 'Sem descrição'}
+          </p>
         </div>
 
         {/* Preço de Venda Final */}
@@ -350,7 +349,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   );
 }
 
-// --- 9. ATUALIZADO: Modal do Carrinho com lógica de desconto ---
+// --- Modal do Carrinho (Atualizado com lógica de desconto) ---
 interface ModalCarrinhoProps {
   isOpen: boolean;
   onClose: () => void;
@@ -520,7 +519,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               )}
             </div>
 
-            {/* --- 10. ATUALIZADO: Rodapé do Carrinho com Desconto --- */}
+            {/* --- Rodapé do Carrinho com Desconto --- */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
               <textarea
                 value={obs}
@@ -566,7 +565,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
 }
 
 
-// --- 11. ADICIONADO: Novo Componente ImageZoomModal ---
+// --- Componente ImageZoomModal ---
 interface ImageZoomModalProps {
   imageUrl: string | null;
   onClose: () => void;
