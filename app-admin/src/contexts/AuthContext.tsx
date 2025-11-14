@@ -12,7 +12,7 @@ import { toast } from 'react-hot-toast'; // Importamos o 'toast' para dar o feed
 // --- 1. LISTA DE ADMINS (A "ALLOW-LIST") ---
 // Adicione aqui todos os emails que podem aceder ao painel
 const adminEmails = [
-  'seu-email-principal@gmail.com',
+  'hivepratas@gmail.com',
   'outro-email-seu@gmail.com'
 ];
 // -------------------------------------------
