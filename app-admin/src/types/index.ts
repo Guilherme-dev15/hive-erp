@@ -74,4 +74,5 @@ export interface Order {
   total: number;
   observacoes?: string;
   status: OrderStatus;
+  financeiroRegistrado?: boolean;
 }
