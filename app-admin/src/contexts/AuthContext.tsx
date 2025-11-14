@@ -6,7 +6,16 @@ import {
   GoogleAuthProvider, 
   signOut as firebaseSignOut 
 } from 'firebase/auth';
-import { auth } from '../firebaseConfig'; // Importa a configuração que corrigimos
+import { auth } from '../firebaseConfig'; // Importa a configuração
+import { toast } from 'react-hot-toast'; // Importamos o 'toast' para dar o feedback de erro
+
+// --- 1. LISTA DE ADMINS (A "ALLOW-LIST") ---
+// Adicione aqui todos os emails que podem aceder ao painel
+const adminEmails = [
+  'seu-email-principal@gmail.com',
+  'outro-email-seu@gmail.com'
+];
+// -------------------------------------------
 
 interface AuthContextType {
   user: User | null;
@@ -28,9 +37,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Escuta alterações no estado de autenticação (Login/Logout)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      
+      // --- 2. LÓGICA DO "GATEKEEPER" ---
+      if (currentUser) {
+        // Utilizador fez login. VERIFICAMOS se ele tem permissão.
+        if (adminEmails.includes(currentUser.email || '')) {
+          // PERMITIDO: O email está na lista.
+          setUser(currentUser);
+        } else {
+          // NÃO PERMITIDO: O email não está na lista.
+          toast.error("Você não tem permissão para aceder a esta área.");
+          firebaseSignOut(auth); // Expulsa o utilizador
+          setUser(null);
+        }
+      } else {
+        // Utilizador fez logout
+        setUser(null);
+      }
       setLoading(false);
+      // --- FIM DA LÓGICA ---
     });
+    
     return unsubscribe;
   }, []);
 
@@ -57,7 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout
   };
 
-  // Renderiza os filhos (a aplicação) apenas quando o estado de auth for verificado
   return (
     <AuthContext.Provider value={value}>
       {!loading && children}
