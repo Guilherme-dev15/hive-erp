@@ -18,6 +18,14 @@ export const produtoSchema = z.object({
   imageUrl: z.string().url("Deve ser um URL de imagem válido.").optional().or(z.literal('')),
   supplierProductUrl: z.string().url("Deve ser um URL válido (ex: https://...)").optional().or(z.literal('')),
 
+  // --- NOVO CAMPO DE STOCK ---
+  quantity: z.coerce
+    .number()
+    .int("A quantidade deve ser um número inteiro")
+    .min(0, "O stock não pode ser negativo")
+    .default(0),
+
+
   // --- CAMPOS NOVOS (Opcionais no formulário base) ---
   salePrice: z.coerce.number().optional(),
   marginPercent: z.coerce.number().optional(),

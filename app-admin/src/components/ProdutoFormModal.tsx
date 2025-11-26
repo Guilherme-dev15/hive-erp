@@ -1,13 +1,11 @@
-// 1. 'Wand2' e 'useState' desnecessário removidos
 import React, { useEffect, useState } from 'react';
-// 2. Adicionado 'watch' para a precificação
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign, Plus, Link } from 'lucide-react';
+// Adicionámos 'Box' para o ícone de stock e 'Link' para o fornecedor
+import { X, DollarSign, Plus, Link, Box } from 'lucide-react';
 
-// 3. Import do 'NamerModal' removido
 import { CategoryModal } from './CategoryModal';
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
 import { produtoSchema, type ProdutoFormData } from '../types/schemas';
@@ -30,14 +28,13 @@ interface ProdutoFormModalProps {
 // Input Reutilizável
 // ============================================================================
 type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
-  label?: string; // Label agora é opcional
+  label?: string;
   name: keyof ProdutoFormData;
   register: ReturnType<typeof useForm<ProdutoFormData>>["register"];
   error?: string;
   icon?: React.ReactNode;
 };
 
-// (Componente FormInput não muda)
 const FormInput: React.FC<FormInputProps> = ({
   label,
   name,
@@ -94,24 +91,25 @@ export function ProdutoFormModal({
     handleSubmit,
     reset,
     setValue,
-    watch, // 4. 'watch' ADICIONADO para ler o campo de custo
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
     defaultValues: {
       name: '',
       costPrice: undefined,
+      salePrice: undefined,
+      quantity: 0, // Valor inicial do stock
       supplierId: '',
+      supplierProductUrl: '',
       category: '',
       code: '',
       imageUrl: '',
-      salePrice: undefined,
       status: 'ativo',
     }
   });
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  // 5. Estado 'isNamerModalOpen' REMOVIDO
 
   // Preenche o formulário ao abrir (para Edição ou Criação)
   useEffect(() => {
@@ -122,11 +120,13 @@ export function ProdutoFormModal({
         reset({
           name: '',
           costPrice: undefined,
+          salePrice: undefined,
+          quantity: 0,
           supplierId: '',
+          supplierProductUrl: '',
           category: '',
           code: '',
           imageUrl: '',
-          salePrice: undefined,
           status: 'ativo',
         });
       }
@@ -134,39 +134,35 @@ export function ProdutoFormModal({
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
 
-  // --- 6. MÓDULO DE PRECIFICAÇÃO AUTOMÁTICA ADICIONADO ---
+  // --- MÓDULO DE PRECIFICAÇÃO AUTOMÁTICA ---
   const custoObservado = watch('costPrice');
 
   useEffect(() => {
-    // Não executa no modo de edição (para não sobrescrever preços antigos)
+    // Não executa no modo de edição para evitar sobrescrever preços manuais
     if (isEditMode) return;
 
     const custo = parseFloat(custoObservado as any);
-
+    
     if (custo > 0) {
       let markup = 1.7; // 170% (Nível 2 - Padrão)
-
+      
       if (custo <= 25) { // Nível 1
         markup = 2.0; // 200%
       } else if (custo > 200) { // Nível 3
         markup = 0.8; // 80%
       }
 
-      // A sua lógica: (Custo * (1 + Markup)) - 0.10
+      // Cálculo: (Custo * (1 + Markup)) - 0.10
       const precoSugerido = (custo * (1 + markup)) - 0.10;
-
-      // Seta o valor no campo de Preço de Venda
+      
       setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
     } else if (custo === 0) {
-      // Limpa o preço de venda se o custo for 0
-      setValue('salePrice', undefined);
+       setValue('salePrice', undefined);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [custoObservado, setValue, isEditMode]); // Dependemos do custoObservado
+  }, [custoObservado, setValue, isEditMode]);
   // --- FIM DA PRECIFICAÇÃO ---
 
 
-  // Função de submit validada
   const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
     let promise;
     if (isEditMode && produtoParaEditar) {
@@ -186,13 +182,10 @@ export function ProdutoFormModal({
     });
   };
 
-  // Função para lidar com a criação de categoria
   const handleCategoryCreated = (newCategory: Category) => {
     setValue('category', newCategory.name, { shouldValidate: true });
     setIsCategoryModalOpen(false);
   };
-
-  // 7. Função 'handleNameGenerated' REMOVIDA
 
   return (
     <AnimatePresence>
@@ -229,42 +222,53 @@ export function ProdutoFormModal({
               onSubmit={handleSubmit(onSubmit)}
               className="p-6 space-y-4"
             >
-              {/* --- 8. CAMPO DE NOME (BOTÃO IA REMOVIDO) --- */}
               <FormInput
-                label="Nome do Produto" // Label restaurado
+                label="Nome do Produto"
                 name="name"
                 register={register}
                 error={errors.name?.message}
                 placeholder="Ex: Anel Solitário Prata 925"
               />
 
-              {/* --- CAMPOS DE PREÇO (COM AUTOMAÇÃO) --- */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* --- GRID DE PREÇOS E STOCK --- */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormInput
-                  label="Custo (Fornecedor) R$"
+                  label="Custo (R$)"
                   name="costPrice"
                   type="number"
                   step="0.01"
                   register={register}
                   error={errors.costPrice?.message}
-                  placeholder="25.00" // Placeholder atualizado
+                  placeholder="25.00"
                   icon={<DollarSign size={16} className="text-gray-400" />}
                 />
 
                 <FormInput
-                  label="Preço de Venda Final R$"
+                  label="Venda (R$)"
                   name="salePrice"
                   type="number"
                   step="0.01"
                   register={register}
                   error={errors.salePrice?.message}
-                  placeholder="Calculado automaticamente" // Placeholder atualizado
+                  placeholder="Auto"
                   icon={<DollarSign size={16} className="text-gray-400" />}
+                />
+                
+                {/* Novo Campo de Stock */}
+                <FormInput 
+                  label="Stock (Qtd)" 
+                  name="quantity" 
+                  type="number" 
+                  step="1" 
+                  register={register} 
+                  error={errors.quantity?.message} 
+                  placeholder="0" 
+                  icon={<Box size={16} className="text-gray-400" />} 
                 />
               </div>
               <p className="text-xs text-gray-500 -mt-2 ml-1">
-                {isEditMode
-                  ? "Ajuste o preço de venda manualmente se necessário."
+                {isEditMode 
+                  ? "Ajuste o preço manualmente se necessário."
                   : "O preço de venda é calculado automaticamente com base no custo."
                 }
               </p>
@@ -295,7 +299,7 @@ export function ProdutoFormModal({
                   )}
                 </div>
 
-                {/* --- CAMPO DE CATEGORIA (com botão +) --- */}
+                {/* Campo de Categoria com Botão + */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700">
@@ -318,7 +322,7 @@ export function ProdutoFormModal({
                   >
                     <option value="">Selecione uma categoria</option>
                     {categories
-                      .sort((a, b) => a.name.localeCompare(b.name)) // Ordena alfabeticamente
+                      .sort((a, b) => a.name.localeCompare(b.name))
                       .map((c) => (
                         <option key={c.id} value={c.name}>
                           {c.name}
@@ -353,8 +357,8 @@ export function ProdutoFormModal({
                     className={`mt-1 block w-full px-3 py-2 border ${errors.status ? "border-red-500" : "border-gray-300"
                       } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
                   >
-                    <option value="ativo">Ativo (Visível no catálogo)</option>
-                    <option value="inativo">Inativo (Oculto do catálogo)</option>
+                    <option value="ativo">Ativo (Visível)</option>
+                    <option value="inativo">Inativo (Oculto)</option>
                   </select>
                   {errors.status && (
                     <p className="mt-1 text-xs text-red-600">
@@ -363,7 +367,8 @@ export function ProdutoFormModal({
                   )}
                 </div>
               </div>
-              {/* --- 4. NOVO CAMPO ADICIONADO --- */}
+              
+              {/* --- Novo Campo: Link do Fornecedor --- */}
               <FormInput
                 label="Link do Produto no Fornecedor (Opcional)"
                 name="supplierProductUrl"
@@ -373,6 +378,7 @@ export function ProdutoFormModal({
                 placeholder="https://fornecedor.com/produto/123"
                 icon={<Link size={16} className="text-gray-400" />}
               />
+
               <FormInput
                 label="URL da Imagem (Opcional)"
                 name="imageUrl"
@@ -405,7 +411,7 @@ export function ProdutoFormModal({
         </motion.div>
       )}
 
-      {/* Modal de Categoria (permanece) */}
+      {/* Modal de Categoria */}
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
@@ -413,9 +419,6 @@ export function ProdutoFormModal({
         setCategories={setCategories}
         onCategoryCreated={handleCategoryCreated}
       />
-
-      {/* 9. Modal da IA (REMOVIDO) */}
-
     </AnimatePresence>
   );
 }

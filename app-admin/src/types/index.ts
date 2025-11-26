@@ -9,7 +9,8 @@ export interface ProdutoAdmin {
   imageUrl?: string;
   costPrice: number;    
   supplierId: string; 
-  
+  // --- NOVO CAMPO ---
+  quantity: number; // Stock atual
   salePrice?: number;   
   marginPercent?: number; 
   status?: 'ativo' | 'inativo';
