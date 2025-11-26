@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -5,7 +6,7 @@ import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2 } fro
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
-// Tipos de Dados
+// 1. TIPOS DE DADOS (Todos definidos no topo para evitar erros)
 // ============================================================================
 
 interface ProdutoCatalogo {
@@ -17,6 +18,7 @@ interface ProdutoCatalogo {
   salePrice?: number;
   status?: 'ativo' | 'inativo';
   imageUrl?: string;
+  quantity?: number;
 }
 
 interface ConfigPublica {
@@ -28,7 +30,7 @@ interface ItemCarrinho {
   quantidade: number;
 }
 
-// Tipos de Pedido (Order)
+// Tipos de Pedido
 export type OrderStatus =
   | 'Aguardando Pagamento'
   | 'Em Produção'
@@ -46,7 +48,6 @@ export interface OrderLineItem {
 
 export interface Order {
   id: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createdAt: any;
   items: OrderLineItem[];
   subtotal: number;
@@ -56,8 +57,29 @@ export interface Order {
   status: OrderStatus;
 }
 
+// Props dos Componentes
+interface CardProdutoProps {
+  produto: ProdutoCatalogo;
+  onAdicionar: () => void;
+  onImageClick: () => void;
+}
+
+interface ModalCarrinhoProps {
+  isOpen: boolean;
+  onClose: () => void;
+  itens: ItemCarrinho[];
+  setCarrinho: React.Dispatch<React.SetStateAction<Record<string, ItemCarrinho>>>;
+  whatsappNumber: string | null;
+}
+
+// --- AQUI ESTÁ A INTERFACE QUE FALTAVA ---
+interface ImageZoomModalProps {
+  imageUrl: string | null;
+  onClose: () => void;
+}
+
 // ============================================================================
-// Configuração da API
+// 2. CONFIGURAÇÃO DA API
 // ============================================================================
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -66,7 +88,7 @@ const apiClient = axios.create({
 });
 
 // ============================================================================
-// Serviço de API
+// 3. SERVIÇOS DE API
 // ============================================================================
 const getProdutosCatalogo = async (): Promise<ProdutoCatalogo[]> => {
   const response = await apiClient.get('/produtos-catalogo');
@@ -83,14 +105,13 @@ const getPublicCategories = async (): Promise<string[]> => {
   return response.data;
 };
 
-// Função para Salvar o Pedido
 const saveOrder = async (payload: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> => {
   const response = await apiClient.post('/orders', payload);
   return response.data;
 };
 
 // ============================================================================
-// Função Utilitária para formatar Moeda (R$)
+// 4. UTILITÁRIOS
 // ============================================================================
 const formatCurrency = (value?: number): string => {
   if (value === undefined || value === null) {
@@ -103,7 +124,7 @@ const formatCurrency = (value?: number): string => {
 };
 
 // ============================================================================
-// Componente Principal
+// 5. COMPONENTE PRINCIPAL (APP)
 // ============================================================================
 export default function App() {
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
@@ -117,7 +138,7 @@ export default function App() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
-  // Estado para ordenação (Filtro mais barato)
+  // Estado para ordenação
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
 
@@ -154,10 +175,27 @@ export default function App() {
     carregarCatalogo();
   }, []);
 
-  // Lógica do Carrinho
+  // Adicionar ao Carrinho (com verificação de stock)
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
+    const stockDisponivel = produto.quantity || 0;
+
+    if (stockDisponivel <= 0) {
+      toast.error("Produto esgotado!");
+      return;
+    }
+
     setCarrinho(prevCarrinho => {
       const itemExistente = prevCarrinho[produto.id];
+      const quantidadeAtualNoCarrinho = itemExistente ? itemExistente.quantidade : 0;
+
+      if (quantidadeAtualNoCarrinho + 1 > stockDisponivel) {
+        toast.error(`Apenas ${stockDisponivel} unidades disponíveis.`);
+        return prevCarrinho;
+      }
+
+      toast.success(`${produto.name} adicionado!`);
+      setIsCarrinhoAberto(true);
+
       if (itemExistente) {
         return {
           ...prevCarrinho,
@@ -169,14 +207,12 @@ export default function App() {
         [produto.id]: { produto, quantidade: 1 }
       };
     });
-    toast.success(`${produto.name} adicionado ao pedido!`);
-    setIsCarrinhoAberto(true);
   };
 
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // Lógica de Filtragem E Ordenação
+  // Filtragem e Ordenação
   const produtosFiltradosEOrdenados = useMemo(() => {
     let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
@@ -232,10 +268,9 @@ export default function App() {
         </div>
       </header>
 
-      {/* Menu de Categorias e Filtro de Ordenação */}
+      {/* Menu e Filtros */}
       <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-          {/* Menu de Categorias */}
           <div className="flex items-center gap-2 overflow-x-auto">
             {categories.map((category) => (
               <button
@@ -252,7 +287,6 @@ export default function App() {
             ))}
           </div>
           
-          {/* Filtro de Ordenação */}
           <div className="relative ml-4 flex-shrink-0">
             <select
               value={sortOrder}
@@ -268,7 +302,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Conteúdo Principal (Produtos Filtrados) */}
+      {/* Grid de Produtos */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <section>
           <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
@@ -291,7 +325,7 @@ export default function App() {
         </section>
       </main>
 
-      {/* Modal do Carrinho */}
+      {/* Modais */}
       <ModalCarrinho
         isOpen={isCarrinhoAberto}
         onClose={() => setIsCarrinhoAberto(false)}
@@ -300,7 +334,6 @@ export default function App() {
         whatsappNumber={config?.whatsappNumber || null}
       />
       
-      {/* Modal de Zoom de Imagem */}
       <ImageZoomModal 
         imageUrl={zoomedImageUrl} 
         onClose={() => setZoomedImageUrl(null)} 
@@ -310,16 +343,14 @@ export default function App() {
 }
 
 // ============================================================================
-// Componentes do Catálogo
+// 6. COMPONENTES AUXILIARES
 // ============================================================================
 
-interface CardProdutoProps {
-  produto: ProdutoCatalogo;
-  onAdicionar: () => void;
-  onImageClick: () => void;
-}
-
+// Componente: CardProduto
 function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
+  const stock = produto.quantity !== undefined ? produto.quantity : 0;
+  const temStock = stock > 0;
+
   return (
     <motion.div
       className="bg-white shadow-lg rounded-xl border border-gray-200 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl"
@@ -327,7 +358,6 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }}
     >
-      {/* Imagem ou Placeholder */}
       <div className="relative w-full overflow-hidden">
         <div 
           className="aspect-square w-full bg-gray-100 flex items-center justify-center cursor-pointer"
@@ -337,24 +367,33 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
             <img
               src={produto.imageUrl}
               alt={produto.name}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover ${!temStock ? 'opacity-50 grayscale' : ''}`} 
             />
           ) : (
             <Package size={48} className="text-prata" />
           )}
         </div>
-        <span className="absolute top-3 left-3 bg-black bg-opacity-60 text-white text-xs font-mono px-2 py-1 rounded">
-          {produto.code || 'N/A'}
-        </span>
+        
+        {!temStock ? (
+           <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded shadow">
+             ESGOTADO
+           </span>
+        ) : (
+           <span className="absolute top-3 left-3 bg-black bg-opacity-60 text-white text-xs font-mono px-2 py-1 rounded">
+             {produto.code || 'N/A'}
+           </span>
+        )}
       </div>
 
-      {/* Info */}
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
           <p className="text-sm text-gray-600 mt-1">
             {produto.description || 'Sem descrição'}
           </p>
+          {temStock && stock < 3 && (
+             <p className="text-xs text-orange-600 font-bold mt-1">Restam apenas {stock}!</p>
+          )}
         </div>
 
         <p className="text-2xl font-bold text-carvao mt-2">
@@ -363,29 +402,28 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
 
         <button
           onClick={onAdicionar}
-          className="w-full mt-4 flex items-center justify-center bg-dourado text-carvao px-4 py-2 rounded-lg shadow-md hover:bg-yellow-500 transition-colors duration-200 font-semibold"
+          disabled={!temStock}
+          className={`w-full mt-4 flex items-center justify-center px-4 py-2 rounded-lg shadow-md transition-colors duration-200 font-semibold
+            ${temStock 
+              ? 'bg-dourado text-carvao hover:bg-yellow-500' 
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
         >
-          <Plus size={18} className="mr-2" /> Adicionar
+          {temStock ? (
+            <> <Plus size={18} className="mr-2" /> Adicionar </>
+          ) : (
+            "Indisponível"
+          )}
         </button>
       </div>
     </motion.div>
   );
 }
 
-// --- Modal do Carrinho (Atualizado com Desconto e saveOrder) ---
-interface ModalCarrinhoProps {
-  isOpen: boolean;
-  onClose: () => void;
-  itens: ItemCarrinho[];
-  setCarrinho: React.Dispatch<React.SetStateAction<Record<string, ItemCarrinho>>>;
-  whatsappNumber: string | null;
-}
-
+// Componente: ModalCarrinho
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Lógica de Desconto
   const { totalItens, subtotal, desconto, valorTotalPedido } = useMemo(() => {
     const subTotalCalc = itens.reduce((acc, item) => {
       const precoItem = item.produto.salePrice || 0;
@@ -407,9 +445,18 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
     };
   }, [itens]);
 
-
   const atualizarQuantidade = (id: string, novaQuantidade: number) => {
     setCarrinho(prev => {
+      const item = prev[id];
+      if (!item) return prev;
+
+      const stockDisponivel = item.produto.quantity || 0;
+
+      if (novaQuantidade > item.quantidade && novaQuantidade > stockDisponivel) {
+        toast.error(`Máximo de ${stockDisponivel} unidades.`);
+        return prev;
+      }
+
       const novoCarrinho = { ...prev };
       if (novaQuantidade <= 0) {
         delete novoCarrinho[id];
@@ -510,10 +557,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-carvao">Meu Pedido</h2>
-              <button
-                onClick={onClose}
-                className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-              >
+              <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
                 <X size={24} />
               </button>
             </div>
@@ -538,7 +582,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                         <Package size={24} className="text-prata" />
                       )}
                     </div>
-
                     <div className="flex-grow">
                       <p className="font-semibold text-carvao">{item.produto.name}</p>
                       <p className="text-sm text-gray-500 font-mono">{item.produto.code}</p>
@@ -547,17 +590,11 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                       </p>
                     </div>
                     <div className="flex items-center border border-gray-300 rounded-lg">
-                      <button
-                        onClick={() => atualizarQuantidade(item.produto.id, item.quantidade - 1)}
-                        className="p-2 text-gray-600 hover:text-red-600 transition-colors"
-                      >
+                      <button onClick={() => atualizarQuantidade(item.produto.id, item.quantidade - 1)} className="p-2 text-gray-600 hover:text-red-600 transition-colors">
                         <Minus size={16} />
                       </button>
                       <span className="px-2 text-carvao font-semibold">{item.quantidade}</span>
-                      <button
-                        onClick={() => atualizarQuantidade(item.produto.id, item.quantidade + 1)}
-                        className="p-2 text-gray-600 hover:text-green-600 transition-colors"
-                      >
+                      <button onClick={() => atualizarQuantidade(item.produto.id, item.quantidade + 1)} className="p-2 text-gray-600 hover:text-green-600 transition-colors">
                         <Plus size={16} />
                       </button>
                     </div>
@@ -567,14 +604,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
             </div>
 
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
-              <textarea
-                value={obs}
-                onChange={(e) => setObs(e.target.value)}
-                placeholder="Observações do pedido (opcional)..."
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
-              />
-              
+              <textarea value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Observações do pedido (opcional)..." rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado" />
               <div className="space-y-1 text-sm">
                  <div className="flex justify-between text-gray-600">
                    <span>Subtotal:</span>
@@ -587,17 +617,11 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                    </div>
                  )}
               </div>
-
               <div className="flex justify-between items-center text-xl font-bold text-carvao pt-2 border-t">
                 <span>Total:</span>
                 <span>{formatCurrency(valorTotalPedido)}</span>
               </div>
-
-              <button
-                onClick={handleCheckout}
-                disabled={totalItens === 0 || isSubmitting}
-                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait"
-              >
+              <button onClick={handleCheckout} disabled={totalItens === 0 || isSubmitting} className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait">
                 {isSubmitting ? <Loader2 size={18} className="animate-spin mr-2" /> : <Send size={18} className="mr-2" />}
                 {isSubmitting ? "A registar..." : "Enviar Pedido via WhatsApp"}
               </button>
@@ -609,13 +633,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
   );
 }
 
-
 // --- Componente ImageZoomModal ---
-interface ImageZoomModalProps {
-  imageUrl: string | null;
-  onClose: () => void;
-}
-
 function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
   return (
     <AnimatePresence>
@@ -636,10 +654,7 @@ function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-xl"
             onClick={(e) => e.stopPropagation()}
           />
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/40 transition-colors"
-          >
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/40 transition-colors">
             <X size={24} />
           </button>
         </motion.div>
