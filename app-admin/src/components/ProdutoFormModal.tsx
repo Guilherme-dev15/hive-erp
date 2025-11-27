@@ -3,7 +3,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign, Plus, Link, Box } from 'lucide-react';
+import { X, DollarSign, Plus, Link, Box, Wand2 } from 'lucide-react'; // Adicionei Wand2 para indicar "mágica"
 
 import { CategoryModal } from './CategoryModal';
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
@@ -131,26 +131,62 @@ export function ProdutoFormModal({
     }
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
-  // Precificação Automática
+
+  // --- MÓDULO 1: PRECIFICAÇÃO AUTOMÁTICA ---
   const custoObservado = watch('costPrice');
 
   useEffect(() => {
     if (isEditMode) return;
-
-    const custo = Number(custoObservado); // Usa Number() para ser mais seguro
-
+    const custo = Number(custoObservado);
     if (!isNaN(custo) && custo > 0) {
       let markup = 1.7;
       if (custo <= 25) { markup = 2.0; }
       else if (custo > 200) { markup = 0.8; }
-      
       const precoSugerido = (custo * (1 + markup)) - 0.10;
       setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
-    } else {
-       // Se for 0 ou inválido, não força nada ou limpa se necessário
-       // setValue('salePrice', undefined); 
     }
   }, [custoObservado, setValue, isEditMode]);
+
+
+  // --- MÓDULO 2: GERADOR DE SKU AUTOMÁTICO (Novo) ---
+  const categoriaObservada = watch('category');
+  const fornecedorObservado = watch('supplierId');
+
+  useEffect(() => {
+    // Só gera se NÃO estiver em modo de edição e se o código estiver vazio
+    if (isEditMode) return;
+
+    if (categoriaObservada && fornecedorObservado) {
+      // 1. Pega a inicial da Categoria (ex: 'A'nel -> A)
+      const catInicial = categoriaObservada.charAt(0).toUpperCase();
+      
+      // 2. Pega o nome do fornecedor e as suas iniciais (ou 2 primeiras letras)
+      const fornecedor = fornecedores.find(f => f.id === fornecedorObservado);
+      let fornIniciais = 'XX';
+      
+      if (fornecedor) {
+        // Tenta pegar as iniciais de cada palavra (ex: "Mosur Silver" -> MS)
+        const palavras = fornecedor.name.split(' ');
+        if (palavras.length >= 2) {
+            fornIniciais = (palavras[0][0] + palavras[1][0]).toUpperCase();
+        } else {
+            // Se for só uma palavra, pega as 2 primeiras letras (ex: "Mosur" -> MO)
+            fornIniciais = fornecedor.name.substring(0, 2).toUpperCase();
+        }
+      }
+
+      // 3. Gera 3 números aleatórios (ex: 492)
+      const randomNum = Math.floor(100 + Math.random() * 900);
+
+      // 4. Monta o SKU: A-MO-492
+      const skuGerado = `${catInicial}${fornIniciais}${randomNum}`;
+
+      // Preenche o campo
+      setValue('code', skuGerado);
+    }
+  }, [categoriaObservada, fornecedorObservado, fornecedores, isEditMode, setValue]);
+  // --- FIM DO GERADOR DE SKU ---
+
 
   const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
     let promise;
@@ -193,6 +229,7 @@ export function ProdutoFormModal({
             className="bg-white rounded-lg shadow-xl w-full max-w-2xl"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Cabeçalho */}
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-xl font-semibold text-carvao">
                 {isEditMode ? "Editar Produto" : "Adicionar Novo Produto"}
@@ -202,6 +239,7 @@ export function ProdutoFormModal({
               </button>
             </div>
 
+            {/* Formulário */}
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <FormInput
                 label="Nome do Produto"
@@ -244,7 +282,7 @@ export function ProdutoFormModal({
                 />
               </div>
               <p className="text-xs text-gray-500 -mt-2 ml-1">
-                {isEditMode ? "Ajuste o preço manualmente se necessário." : "O preço de venda é calculado automaticamente."}
+                {isEditMode ? "Ajuste o preço manualmente se necessário." : "Preço e Código gerados automaticamente."}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -270,7 +308,16 @@ export function ProdutoFormModal({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput label="Código (SKU) (Opcional)" name="code" register={register} error={errors.code?.message} placeholder="Ex: ANL-001" />
+                {/* O campo Código agora tem um ícone mágico para indicar automação */}
+                <FormInput 
+                  label="Código (SKU)" 
+                  name="code" 
+                  register={register} 
+                  error={errors.code?.message} 
+                  placeholder="Auto (Ex: BMO123)"
+                  icon={<Wand2 size={16} className="text-dourado" />}
+                />
+                
                 <div>
                   <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
                   <select id="status" {...register("status")} className={`mt-1 block w-full px-3 py-2 border ${errors.status ? "border-red-500" : "border-gray-300"} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}>
