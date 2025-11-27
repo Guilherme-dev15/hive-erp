@@ -1,6 +1,8 @@
+
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-import { type Order, type OrderLineItem } from '../types'; // Verifique se 'Order' e 'OrderLineItem' estão em index.ts
+// 1. Importados os ícones User, Phone e MessageCircle
+import { X, User, Phone, MessageCircle } from 'lucide-react';
+import { type Order, type OrderLineItem } from '../types';
 
 // Função Utilitária para formatar Moeda (R$)
 const formatCurrency = (value: number): string => {
@@ -23,6 +25,11 @@ export function DetalhePedidoModal({ isOpen, onClose, pedido }: DetalhePedidoMod
     ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
     : 'Data indisponível';
 
+  // 2. Lógica para criar o link do WhatsApp
+  const linkWhatsAppCliente = pedido.clienteTelefone 
+    ? `https://wa.me/55${pedido.clienteTelefone.replace(/\D/g, '')}` 
+    : null;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -44,7 +51,7 @@ export function DetalhePedidoModal({ isOpen, onClose, pedido }: DetalhePedidoMod
             <div className="flex items-center justify-between p-4 border-b">
               <div>
                 <h2 className="text-xl font-semibold text-carvao">
-                  Detalhes do Pedido #{pedido.id.substring(0, 5).toUpperCase()}
+                  Pedido #{pedido.id.substring(0, 5).toUpperCase()}
                 </h2>
                 <p className="text-sm text-gray-500">Recebido em: {dataPedido}</p>
               </div>
@@ -58,6 +65,36 @@ export function DetalhePedidoModal({ isOpen, onClose, pedido }: DetalhePedidoMod
 
             {/* Corpo do Modal */}
             <div className="p-6 max-h-[70vh] overflow-y-auto">
+              
+              {/* --- 3. NOVO BLOCO: DADOS DO CLIENTE --- */}
+              <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase font-bold mb-1">Dados do Cliente</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <User size={16} className="text-blue-600" />
+                    <p className="text-gray-900 font-bold text-lg">{pedido.clienteNome || 'Nome não informado'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone size={14} className="text-gray-500" />
+                    <p className="text-gray-600 text-sm">{pedido.clienteTelefone || 'Telefone não informado'}</p>
+                  </div>
+                </div>
+                
+                {linkWhatsAppCliente && (
+                  <a 
+                    href={linkWhatsAppCliente} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-sm w-full sm:w-auto justify-center"
+                  >
+                    <MessageCircle size={18} /> 
+                    Chamar no Zap
+                  </a>
+                )}
+              </div>
+              {/* --- FIM DO BLOCO DO CLIENTE --- */}
+
+
               {/* Itens do Pedido */}
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-carvao mb-2">Itens do Pedido</h3>

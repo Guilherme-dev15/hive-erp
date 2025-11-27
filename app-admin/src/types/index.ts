@@ -76,4 +76,7 @@ export interface Order {
   observacoes?: string;
   status: OrderStatus;
   financeiroRegistrado?: boolean;
+  // --- NOVOS CAMPOS ---
+  clienteNome?: string;
+  clienteTelefone?: string;
 }
