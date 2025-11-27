@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2 } from 'lucide-react';
+// Importamos ícones de User e Phone para os inputs
+import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
-// 1. TIPOS DE DADOS (Todos definidos no topo para evitar erros)
+// 1. TIPOS DE DADOS
 // ============================================================================
-
 interface ProdutoCatalogo {
   id: string;
   name: string;
@@ -55,6 +55,9 @@ export interface Order {
   total: number;
   observacoes?: string;
   status: OrderStatus;
+  // Campos do Cliente
+  clienteNome: string;
+  clienteTelefone: string;
 }
 
 // Props dos Componentes
@@ -72,7 +75,6 @@ interface ModalCarrinhoProps {
   whatsappNumber: string | null;
 }
 
-// --- AQUI ESTÁ A INTERFACE QUE FALTAVA ---
 interface ImageZoomModalProps {
   imageUrl: string | null;
   onClose: () => void;
@@ -138,11 +140,9 @@ export default function App() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
-  // Estado para ordenação
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
 
-  // Estado para Zoom de Imagem
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -175,7 +175,6 @@ export default function App() {
     carregarCatalogo();
   }, []);
 
-  // Adicionar ao Carrinho (com verificação de stock)
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
     const stockDisponivel = produto.quantity || 0;
 
@@ -212,7 +211,6 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // Filtragem e Ordenação
   const produtosFiltradosEOrdenados = useMemo(() => {
     let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
@@ -250,7 +248,6 @@ export default function App() {
     <div className="min-h-screen bg-off-white text-carvao">
       <Toaster position="top-right" />
 
-      {/* Header Fixo */}
       <header className="bg-carvao shadow-lg sticky top-0 z-40 border-b-4 border-dourado">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
           <h1 className="text-2xl font-bold text-dourado">HivePratas</h1>
@@ -268,7 +265,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Menu e Filtros */}
       <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           <div className="flex items-center gap-2 overflow-x-auto">
@@ -302,7 +298,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Grid de Produtos */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <section>
           <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
@@ -325,7 +320,6 @@ export default function App() {
         </section>
       </main>
 
-      {/* Modais */}
       <ModalCarrinho
         isOpen={isCarrinhoAberto}
         onClose={() => setIsCarrinhoAberto(false)}
@@ -346,7 +340,6 @@ export default function App() {
 // 6. COMPONENTES AUXILIARES
 // ============================================================================
 
-// Componente: CardProduto
 function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   const stock = produto.quantity !== undefined ? produto.quantity : 0;
   const temStock = stock > 0;
@@ -419,9 +412,10 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   );
 }
 
-// Componente: ModalCarrinho
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
+  const [clienteNome, setClienteNome] = useState('');
+  const [clienteTelefone, setClienteTelefone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { totalItens, subtotal, desconto, valorTotalPedido } = useMemo(() => {
@@ -473,6 +467,16 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       return;
     }
 
+    // Validação dos campos
+    if (!clienteNome.trim()) {
+      toast.error("Por favor, digite o seu nome.");
+      return;
+    }
+    if (!clienteTelefone.trim() || clienteTelefone.length < 8) {
+      toast.error("Por favor, digite um telefone válido.");
+      return;
+    }
+
     setIsSubmitting(true);
     toast.loading('A registar o seu pedido...');
 
@@ -489,7 +493,9 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       subtotal: subtotal,
       desconto: desconto,
       total: valorTotalPedido,
-      observacoes: obs || ''
+      observacoes: obs || '',
+      clienteNome: clienteNome,
+      clienteTelefone: clienteTelefone
     };
 
     try {
@@ -499,25 +505,24 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       toast.dismiss();
       toast.success(`Pedido #${orderId} registado! A abrir WhatsApp...`);
 
-      let message = `🧾 *Novo Pedido: #${orderId}*\n\n`;
+      let message = `🧾 *Novo Pedido: #${orderId}*\n`;
+      message += `👤 Cliente: ${clienteNome}\n\n`;
 
       itens.forEach(item => {
-        message += `Produto: ${item.produto.name} (${item.produto.code || 'N/A'})\n`;
-        message += `Qtde: ${item.quantidade}\n`;
-        message += `Valor total: ${formatCurrency((item.produto.salePrice || 0) * item.quantidade)}\n\n`;
+        message += `▪️ ${item.quantidade}x ${item.produto.name} (${item.produto.code || 'N/A'})\n`;
       });
 
-      message += `*Subtotal: ${formatCurrency(subtotal)}*\n`;
+      message += `\n*Subtotal: ${formatCurrency(subtotal)}*\n`;
       if (desconto > 0) {
         message += `*Desconto (10%): ${formatCurrency(-desconto)}*\n`;
       }
-      message += `*Valor Total do Pedido: ${formatCurrency(valorTotalPedido)}*\n\n`;
+      message += `*Total: ${formatCurrency(valorTotalPedido)}*\n`;
 
       if (obs) {
-        message += `*Observação:*\n${obs}\n\n`;
+        message += `\nObs: ${obs}\n`;
       }
 
-      message += "Obrigado! Aguardo confirmação para o pagamento.";
+      message += "\nAguardo confirmação para pagamento!";
 
       const encodedMessage = encodeURIComponent(message);
       const waLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
@@ -526,6 +531,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       
       setCarrinho({});
       setObs('');
+      setClienteNome('');
+      setClienteTelefone('');
       onClose();
 
     } catch (err) {
@@ -563,6 +570,32 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
             </div>
 
             <div className="flex-grow p-4 space-y-4 overflow-y-auto">
+              
+              {/* --- DADOS DO CLIENTE (VISÍVEIS AGORA) --- */}
+              <div className="space-y-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                <h4 className="text-sm font-bold text-carvao flex items-center gap-2">
+                  <User size={16} className="text-dourado" /> Seus Dados
+                </h4>
+                <div>
+                  <input
+                    type="text"
+                    value={clienteNome}
+                    onChange={(e) => setClienteNome(e.target.value)}
+                    placeholder="Seu Nome Completo"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="tel"
+                    value={clienteTelefone}
+                    onChange={(e) => setClienteTelefone(e.target.value)}
+                    placeholder="Seu WhatsApp (DDD + Número)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado text-sm outline-none"
+                  />
+                </div>
+              </div>
+
               {itens.length === 0 ? (
                 <p className="text-gray-500 text-center pt-10">O seu carrinho está vazio.</p>
               ) : (
@@ -604,7 +637,14 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
             </div>
 
             <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
-              <textarea value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Observações do pedido (opcional)..." rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado" />
+              <textarea
+                value={obs}
+                onChange={(e) => setObs(e.target.value)}
+                placeholder="Observações do pedido (opcional)..."
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
+              />
+              
               <div className="space-y-1 text-sm">
                  <div className="flex justify-between text-gray-600">
                    <span>Subtotal:</span>
@@ -617,13 +657,19 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                    </div>
                  )}
               </div>
+
               <div className="flex justify-between items-center text-xl font-bold text-carvao pt-2 border-t">
                 <span>Total:</span>
                 <span>{formatCurrency(valorTotalPedido)}</span>
               </div>
-              <button onClick={handleCheckout} disabled={totalItens === 0 || isSubmitting} className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait">
+
+              <button
+                onClick={handleCheckout}
+                disabled={totalItens === 0 || isSubmitting}
+                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait"
+              >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin mr-2" /> : <Send size={18} className="mr-2" />}
-                {isSubmitting ? "A registar..." : "Enviar Pedido via WhatsApp"}
+                {isSubmitting ? "A registar..." : "Finalizar no WhatsApp"}
               </button>
             </div>
           </motion.div>
@@ -633,7 +679,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
   );
 }
 
-// --- Componente ImageZoomModal ---
 function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
   return (
     <AnimatePresence>
