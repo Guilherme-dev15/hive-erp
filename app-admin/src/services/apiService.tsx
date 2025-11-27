@@ -1,61 +1,55 @@
 import axios from 'axios';
+// 1. Importar a 'auth' do Firebase
+import { auth } from '../firebaseConfig'; 
 
-// 1. Importar TODOS os tipos de dados de 'index'
 import type { 
   ProdutoAdmin, 
   Fornecedor, 
   Transacao, 
   DashboardStats,
   Category,
-  Order, 
-  OrderStatus 
-} from '../types/index.ts'; // Remova as extensões .ts
+  Order,
+  OrderStatus
+} from '../types/index.ts';
 
-// 2. Importar TODOS os tipos de formulário de 'schemas'
 import type { 
   ProdutoFormData, 
   FornecedorFormData, 
   ConfigFormData, 
-  TransacaoFormData // 3. Importar o TransacaoFormData que faltava
-} from '../types/schemas.ts'; // Remova as extensões .ts
-
+  TransacaoFormData
+} from '../types/schemas.ts';
 
 // ============================================================================
 // Configuração da API
 // ============================================================================
-// A URL da API virá de uma Variável de Ambiente
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// Interface para as Configurações (que inclui os campos do form)
+// --- 2. INTERCEPTOR DE SEGURANÇA (O "Crachá") ---
+apiClient.interceptors.request.use(async (config) => {
+  const user = auth.currentUser;
+  
+  if (user) {
+    // Se o utilizador estiver logado, pega o Token dele
+    const token = await user.getIdToken();
+    // E cola no cabeçalho da requisição
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+// --- FIM DO INTERCEPTOR ---
+
 export interface AppConfig extends ConfigFormData {
   productCounter?: number;
   split?: { net: number, reinvest: number, ops: number };
 }
 
-
-
-/* ADICIONE ESTA INTERFACE E A FUNÇÃO
-export interface NamerResult {
-  descricao: string;
-  nome_sugerido: string;
-}
-
-export const generateNameFromImage = async (
-  imageDataBase64: string, 
-  imageMimeType: string
-): Promise<NamerResult> => {
-  const response = await apiClient.post('/admin/generate-name', {
-    imageDataBase64,
-    imageMimeType
-  });
-  return response.data;
-};
-
-*/
 // ============================================================================
 // Módulo: Dashboard
 // ============================================================================
@@ -121,7 +115,6 @@ export const createTransacao = async (transacao: Omit<Transacao, 'id'>): Promise
   return response.data;
 };
 
-// Função de Update que faltava
 export const updateTransacao = async (id: string, transacao: TransacaoFormData): Promise<Transacao> => {
   const response = await apiClient.put(`/admin/transacoes/${id}`, transacao);
   return response.data;
@@ -161,11 +154,9 @@ export const deleteCategory = async (id: string): Promise<void> => {
   await apiClient.delete(`/admin/categories/${id}`);
 };
 
-
 // ============================================================================
 // Módulo: Pedidos (Orders)
 // ============================================================================
-
 export const getAdminOrders = async (): Promise<Order[]> => {
   const response = await apiClient.get('/admin/orders');
   return response.data;
