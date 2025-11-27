@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// Importamos ícones de User e Phone para os inputs
-import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User } from 'lucide-react';
+// 1. Adicionado 'Search' aos ícones
+import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User, Search } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
 // 1. TIPOS DE DADOS
 // ============================================================================
+
 interface ProdutoCatalogo {
   id: string;
   name: string;
@@ -30,7 +31,6 @@ interface ItemCarrinho {
   quantidade: number;
 }
 
-// Tipos de Pedido
 export type OrderStatus =
   | 'Aguardando Pagamento'
   | 'Em Produção'
@@ -55,12 +55,10 @@ export interface Order {
   total: number;
   observacoes?: string;
   status: OrderStatus;
-  // Campos do Cliente
   clienteNome: string;
   clienteTelefone: string;
 }
 
-// Props dos Componentes
 interface CardProdutoProps {
   produto: ProdutoCatalogo;
   onAdicionar: () => void;
@@ -142,6 +140,9 @@ export default function App() {
 
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
+  
+  // 2. NOVO ESTADO: Termo de Busca
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
@@ -211,9 +212,11 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
+  // --- 3. ATUALIZADO: Lógica de Filtragem, Ordenação e BUSCA ---
   const produtosFiltradosEOrdenados = useMemo(() => {
     let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
+    // Filtro de Categoria
     if (selectedCategory !== "Todos") {
       if (selectedCategory === "Outros") {
          produtosProcessados = produtosProcessados.filter(p => !p.category || p.category === "Sem Categoria");
@@ -222,6 +225,16 @@ export default function App() {
       }
     }
     
+    // NOVO: Filtro de Busca (Nome ou Código)
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      produtosProcessados = produtosProcessados.filter(p => 
+        p.name.toLowerCase().includes(term) || 
+        (p.code && p.code.toLowerCase().includes(term))
+      );
+    }
+
+    // Ordenação
     if (sortOrder === 'priceAsc') {
       produtosProcessados.sort((a, b) => (a.salePrice || 0) - (b.salePrice || 0));
     } else if (sortOrder === 'priceDesc') {
@@ -229,7 +242,7 @@ export default function App() {
     }
 
     return produtosProcessados;
-  }, [produtos, selectedCategory, sortOrder]);
+  }, [produtos, selectedCategory, sortOrder, searchTerm]);
 
 
   if (loading) return (
@@ -248,6 +261,7 @@ export default function App() {
     <div className="min-h-screen bg-off-white text-carvao">
       <Toaster position="top-right" />
 
+      {/* Header Fixo */}
       <header className="bg-carvao shadow-lg sticky top-0 z-40 border-b-4 border-dourado">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
           <h1 className="text-2xl font-bold text-dourado">HivePratas</h1>
@@ -265,14 +279,17 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="bg-white shadow-md sticky top-16 z-30 overflow-x-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-          <div className="flex items-center gap-2 overflow-x-auto">
+      {/* 4. ATUALIZADO: Menu de Categorias, Busca e Ordenação */}
+      <nav className="bg-white shadow-md sticky top-16 z-30 py-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+          
+          {/* Categorias (Esquerda/Topo) */}
+          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 no-scrollbar">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full font-medium text-sm transition-colors whitespace-nowrap
+                className={`px-4 py-1.5 rounded-full font-medium text-sm transition-colors whitespace-nowrap
                   ${selectedCategory === category
                     ? 'bg-carvao text-white'
                     : 'bg-gray-100 text-carvao hover:bg-gray-200'
@@ -283,26 +300,50 @@ export default function App() {
             ))}
           </div>
           
-          <div className="relative ml-4 flex-shrink-0">
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-              className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-2 pl-4 pr-10 text-sm font-medium text-carvao focus:outline-none focus:ring-2 focus:ring-dourado"
-            >
-              <option value="default">Ordenar por</option>
-              <option value="priceAsc">Menor Preço</option>
-              <option value="priceDesc">Maior Preço</option>
-            </select>
-            <ArrowDownUp size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          {/* Busca e Ordenação (Direita/Baixo) */}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {/* Barra de Busca */}
+            <div className="relative flex-grow sm:flex-grow-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                    type="text" 
+                    placeholder="Buscar peça..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full sm:w-48 pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-dourado"
+                />
+            </div>
+
+            {/* Filtro de Ordenação */}
+            <div className="relative flex-shrink-0">
+                <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+                className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-1.5 pl-4 pr-8 text-sm font-medium text-carvao focus:outline-none focus:ring-2 focus:ring-dourado"
+                >
+                <option value="default">Ordenar</option>
+                <option value="priceAsc">Menor Preço</option>
+                <option value="priceDesc">Maior Preço</option>
+                </select>
+                <ArrowDownUp size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
           </div>
         </div>
       </nav>
 
+      {/* Conteúdo Principal (Produtos Filtrados) */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <section>
-          <h2 className="text-3xl font-bold text-carvao border-b-2 border-dourado pb-2 mb-6">
-            {selectedCategory}
-          </h2>
+          <div className="flex justify-between items-end border-b-2 border-dourado pb-2 mb-6">
+             <h2 className="text-3xl font-bold text-carvao">
+               {selectedCategory}
+             </h2>
+             {/* Mostra quantos produtos foram encontrados */}
+             <span className="text-sm text-gray-500 mb-1">
+               {produtosFiltradosEOrdenados.length} {produtosFiltradosEOrdenados.length === 1 ? 'item' : 'itens'}
+             </span>
+          </div>
+
           {produtosFiltradosEOrdenados.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {produtosFiltradosEOrdenados.map(produto => (
@@ -315,11 +356,16 @@ export default function App() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500">Nenhum produto encontrado nesta categoria.</p>
+            <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <Search className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                <p className="text-gray-500 font-medium">Nenhum produto encontrado.</p>
+                <p className="text-sm text-gray-400">Tente buscar por outro termo ou categoria.</p>
+            </div>
           )}
         </section>
       </main>
 
+      {/* Modais */}
       <ModalCarrinho
         isOpen={isCarrinhoAberto}
         onClose={() => setIsCarrinhoAberto(false)}
@@ -467,7 +513,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
       return;
     }
 
-    // Validação dos campos
     if (!clienteNome.trim()) {
       toast.error("Por favor, digite o seu nome.");
       return;
@@ -571,7 +616,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
 
             <div className="flex-grow p-4 space-y-4 overflow-y-auto">
               
-              {/* --- DADOS DO CLIENTE (VISÍVEIS AGORA) --- */}
+              {/* Dados do Cliente */}
               <div className="space-y-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
                 <h4 className="text-sm font-bold text-carvao flex items-center gap-2">
                   <User size={16} className="text-dourado" /> Seus Dados
@@ -669,7 +714,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                 className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait"
               >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin mr-2" /> : <Send size={18} className="mr-2" />}
-                {isSubmitting ? "A registar..." : "Finalizar no WhatsApp"}
+                {isSubmitting ? "A registar..." : "Enviar Pedido via WhatsApp"}
               </button>
             </div>
           </motion.div>
