@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { useForm, type SubmitHandler, watch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-// Adicionámos 'UploadCloud', 'Loader2' e 'ImageIcon'
-import { X, DollarSign, Plus, Link, Box, Wand2, UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
+// Adicionámos 'UploadCloud', 'Loader2' e 'Image'
+import { X, DollarSign, Plus, Link, Box, UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
 
 import { CategoryModal } from './CategoryModal';
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
 import { produtoSchema, type ProdutoFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto } from '../services/apiService';
-// IMPORTAR O SERVIÇO DE UPLOAD
+// Importar o serviço de upload
 import { uploadImageToFirebase } from '../services/storageService';
 
 interface ProdutoFormModalProps {
@@ -75,9 +75,7 @@ export function ProdutoFormModal({
 }: ProdutoFormModalProps) {
 
   const isEditMode = !!produtoParaEditar;
-
-  // Estado para controlar o upload
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // Estado de carregamento da imagem
 
   const {
     register,
@@ -103,11 +101,8 @@ export function ProdutoFormModal({
   });
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const imageUrlObservada = watch('imageUrl'); // Para mostrar o preview
 
-  // Observamos o campo de imagem para mostrar o preview
-  const imageUrlObservada = watch('imageUrl');
-
-  // Preenche o formulário ao abrir
   useEffect(() => {
     if (isOpen) {
       if (isEditMode && produtoParaEditar) {
@@ -137,8 +132,7 @@ export function ProdutoFormModal({
     }
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
-
-  // --- MÓDULO 1: PRECIFICAÇÃO AUTOMÁTICA ---
+  // Precificação Automática
   const custoObservado = watch('costPrice');
   useEffect(() => {
     if (isEditMode) return;
@@ -149,33 +143,10 @@ export function ProdutoFormModal({
       else if (custo > 200) { markup = 0.8; }
       const precoSugerido = (custo * (1 + markup)) - 0.10;
       setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
-    } else if (custo === 0) {
-       setValue('salePrice', undefined);
     }
   }, [custoObservado, setValue, isEditMode]);
 
-
-  // --- MÓDULO 2: SKU AUTOMÁTICO ---
-  const categoriaObservada = watch('category');
-  const fornecedorObservado = watch('supplierId');
-  useEffect(() => {
-    if (isEditMode) return;
-    if (categoriaObservada && fornecedorObservado) {
-      const catInicial = categoriaObservada.charAt(0).toUpperCase();
-      const fornecedor = fornecedores.find(f => f.id === fornecedorObservado);
-      let fornIniciais = 'XX';
-      if (fornecedor) {
-         const nomeLimpo = fornecedor.name.replace(/\s/g, '');
-         fornIniciais = nomeLimpo.substring(0, 2).toUpperCase();
-      }
-      const randomNum = Math.floor(100 + Math.random() * 900);
-      const skuGerado = `${catInicial}${fornIniciais}${randomNum}`;
-      setValue('code', skuGerado);
-    }
-  }, [categoriaObservada, fornecedorObservado, fornecedores, isEditMode, setValue]);
-
-
-  // --- MÓDULO 3: UPLOAD DE IMAGEM (FIREBASE STORAGE) ---
+  // --- FUNÇÃO DE UPLOAD ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -187,18 +158,19 @@ export function ProdutoFormModal({
 
     setIsUploading(true);
     try {
-      // Faz o upload e recebe o URL público
+      // 1. Envia para o Firebase Storage
       const url = await uploadImageToFirebase(file, 'produtos');
+      // 2. Coloca o link recebido no campo do formulário
       setValue('imageUrl', url, { shouldValidate: true });
-      toast.success("Imagem carregada!");
+      toast.success("Imagem carregada com sucesso!");
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao carregar imagem.");
+      toast.error("Erro ao fazer upload. Verifique a sua internet.");
     } finally {
       setIsUploading(false);
     }
   };
-
+  // ------------------------
 
   const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
     let promise;
@@ -251,48 +223,15 @@ export function ProdutoFormModal({
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-              <FormInput
-                label="Nome do Produto"
-                name="name"
-                register={register}
-                error={errors.name?.message}
-                placeholder="Ex: Anel Solitário Prata 925"
-              />
+              <FormInput label="Nome do Produto" name="name" register={register} error={errors.name?.message} placeholder="Ex: Anel Solitário Prata 925" />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormInput
-                  label="Custo (R$)"
-                  name="costPrice"
-                  type="number"
-                  step="0.01"
-                  register={register}
-                  error={errors.costPrice?.message}
-                  placeholder="25.00"
-                  icon={<DollarSign size={16} className="text-gray-400" />}
-                />
-                <FormInput
-                  label="Venda (R$)"
-                  name="salePrice"
-                  type="number"
-                  step="0.01"
-                  register={register}
-                  error={errors.salePrice?.message}
-                  placeholder="Auto"
-                  icon={<DollarSign size={16} className="text-gray-400" />}
-                />
-                <FormInput 
-                  label="Stock (Qtd)" 
-                  name="quantity" 
-                  type="number" 
-                  step="1" 
-                  register={register} 
-                  error={errors.quantity?.message} 
-                  placeholder="0" 
-                  icon={<Box size={16} className="text-gray-400" />} 
-                />
+                <FormInput label="Custo (R$)" name="costPrice" type="number" step="0.01" register={register} error={errors.costPrice?.message} placeholder="25.00" icon={<DollarSign size={16} className="text-gray-400" />} />
+                <FormInput label="Venda (R$)" name="salePrice" type="number" step="0.01" register={register} error={errors.salePrice?.message} placeholder="Auto" icon={<DollarSign size={16} className="text-gray-400" />} />
+                <FormInput label="Stock (Qtd)" name="quantity" type="number" step="1" register={register} error={errors.quantity?.message} placeholder="0" icon={<Box size={16} className="text-gray-400" />} />
               </div>
               <p className="text-xs text-gray-500 -mt-2 ml-1">
-                {isEditMode ? "Ajuste o preço manualmente se necessário." : "Preço e Código gerados automaticamente."}
+                {isEditMode ? "Ajuste o preço manualmente se necessário." : "O preço de venda é calculado automaticamente."}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -318,15 +257,7 @@ export function ProdutoFormModal({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput 
-                  label="Código (SKU)" 
-                  name="code" 
-                  register={register} 
-                  error={errors.code?.message} 
-                  placeholder="Auto (Ex: BMO123)"
-                  icon={<Wand2 size={16} className="text-dourado" />}
-                />
-                
+                <FormInput label="Código (SKU) (Opcional)" name="code" register={register} error={errors.code?.message} placeholder="Ex: ANL-001" />
                 <div>
                   <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
                   <select id="status" {...register("status")} className={`mt-1 block w-full px-3 py-2 border ${errors.status ? "border-red-500" : "border-gray-300"} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}>
@@ -339,54 +270,55 @@ export function ProdutoFormModal({
 
               <FormInput label="Link do Fornecedor (Opcional)" name="supplierProductUrl" type="url" register={register} error={errors.supplierProductUrl?.message} placeholder="https://..." icon={<Link size={16} className="text-gray-400" />} />
               
-              
-              {/* --- ÁREA DE UPLOAD DE IMAGEM (Substitui o Input de Texto) --- */}
+              {/* --- ÁREA DE UPLOAD DE IMAGEM (NOVA) --- */}
               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Imagem do Produto</label>
-                 
-                 <div className="flex items-center gap-4">
-                   {/* Preview */}
-                   <div className="w-20 h-20 bg-gray-100 border border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative">
-                     {imageUrlObservada ? (
-                       <img src={imageUrlObservada} alt="Preview" className="w-full h-full object-cover" />
-                     ) : (
-                       <ImageIcon className="text-gray-400" />
-                     )}
-                     {isUploading && (
-                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                         <Loader2 className="text-white animate-spin" />
-                       </div>
-                     )}
-                   </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Imagem do Produto</label>
+                <div className="flex items-center gap-4">
+                  {/* Preview */}
+                  <div className="w-24 h-24 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative shadow-sm">
+                    {imageUrlObservada ? (
+                      <img src={imageUrlObservada} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="text-gray-300" size={32} />
+                    )}
+                    {isUploading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[1px]">
+                        <Loader2 className="text-white animate-spin" size={24} />
+                      </div>
+                    )}
+                  </div>
 
-                   {/* Botão de Upload */}
-                   <div className="flex-1">
-                     <input
-                       type="file"
-                       id="upload-btn"
-                       accept="image/*"
-                       className="hidden"
-                       onChange={handleImageUpload}
-                       disabled={isUploading}
-                     />
-                     <label 
-                       htmlFor="upload-btn"
-                       className={`flex items-center justify-center gap-2 w-full p-2 border-2 border-dashed rounded-lg cursor-pointer transition-colors
-                         ${isUploading ? 'bg-gray-100 border-gray-300' : 'border-dourado/50 hover:bg-yellow-50 text-dourado'}`}
-                     >
-                       <UploadCloud size={20} />
-                       <span className="text-sm font-medium">
-                         {isUploading ? "A carregar..." : "Carregar Foto"}
-                       </span>
-                     </label>
-                     {/* Campo oculto para manter o hook-form a funcionar */}
-                     <input type="hidden" {...register("imageUrl")} />
-                     {errors.imageUrl && <p className="mt-1 text-xs text-red-600">{errors.imageUrl.message}</p>}
-                   </div>
-                 </div>
-               </div>
-              {/* ------------------------------------------------------------ */}
-
+                  {/* Botão */}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      id="upload-btn"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={isUploading}
+                    />
+                    <label 
+                      htmlFor="upload-btn"
+                      className={`flex flex-col items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer transition-all
+                        ${isUploading 
+                          ? 'bg-gray-50 border-gray-300 cursor-not-allowed opacity-70' 
+                          : 'border-gray-300 hover:border-dourado hover:bg-yellow-50/50 group'}`}
+                    >
+                      <UploadCloud className={`mb-1 ${isUploading ? 'text-gray-400' : 'text-gray-500 group-hover:text-dourado'}`} size={24} />
+                      <span className={`text-sm font-medium ${isUploading ? 'text-gray-500' : 'text-gray-600 group-hover:text-dourado'}`}>
+                        {isUploading ? "A enviar para a nuvem..." : "Clique para carregar imagem"}
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP (Máx. 5MB)</span>
+                    </label>
+                    
+                    {/* Input Oculto para o React Hook Form gerir o valor */}
+                    <input type="hidden" {...register("imageUrl")} />
+                    {errors.imageUrl && <p className="mt-1 text-xs text-red-600">{errors.imageUrl.message}</p>}
+                  </div>
+                </div>
+              </div>
+              {/* ---------------------------------------- */}
 
               <FormInput label="Descrição Curta (Opcional)" name="description" register={register} error={errors.description?.message} placeholder="Ex: Prata 925 com zircônia" />
 
