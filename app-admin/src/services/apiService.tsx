@@ -46,6 +46,9 @@ apiClient.interceptors.request.use(async (config) => {
 // --- FIM DO INTERCEPTOR ---
 
 export interface AppConfig extends ConfigFormData {
+  secondaryColor: string;
+  primaryColor: string;
+  storeName: string;
   productCounter?: number;
   split?: { net: number, reinvest: number, ops: number };
 }

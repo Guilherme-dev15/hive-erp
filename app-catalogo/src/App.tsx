@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// 1. Adicionado 'Search' aos ícones
 import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User, Search } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -22,8 +21,12 @@ interface ProdutoCatalogo {
   quantity?: number;
 }
 
+// ATUALIZADO: Configuração agora tem cores
 interface ConfigPublica {
   whatsappNumber: string | null;
+  storeName: string;
+  primaryColor: string;   // Cor Principal (Destaques)
+  secondaryColor: string; // Cor Secundária (Fundo/Texto Forte)
 }
 
 interface ItemCarrinho {
@@ -31,12 +34,7 @@ interface ItemCarrinho {
   quantidade: number;
 }
 
-export type OrderStatus =
-  | 'Aguardando Pagamento'
-  | 'Em Produção'
-  | 'Em Separação'
-  | 'Enviado'
-  | 'Cancelado';
+export type OrderStatus = 'Aguardando Pagamento' | 'Em Produção' | 'Em Separação' | 'Enviado' | 'Cancelado';
 
 export interface OrderLineItem {
   id: string;
@@ -63,6 +61,7 @@ interface CardProdutoProps {
   produto: ProdutoCatalogo;
   onAdicionar: () => void;
   onImageClick: () => void;
+  config: ConfigPublica; // Passamos a config para o card
 }
 
 interface ModalCarrinhoProps {
@@ -71,6 +70,7 @@ interface ModalCarrinhoProps {
   itens: ItemCarrinho[];
   setCarrinho: React.Dispatch<React.SetStateAction<Record<string, ItemCarrinho>>>;
   whatsappNumber: string | null;
+  config: ConfigPublica; // Passamos a config
 }
 
 interface ImageZoomModalProps {
@@ -128,7 +128,15 @@ const formatCurrency = (value?: number): string => {
 // ============================================================================
 export default function App() {
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
-  const [config, setConfig] = useState<ConfigPublica | null>(null);
+  
+  // Configuração com Fallbacks (Valores Padrão)
+  const [config, setConfig] = useState<ConfigPublica>({
+    whatsappNumber: null,
+    storeName: 'Carregando...',
+    primaryColor: '#D4AF37', // Dourado
+    secondaryColor: '#343434' // Carvão
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,9 +149,7 @@ export default function App() {
   type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('default');
   
-  // 2. NOVO ESTADO: Termo de Busca
   const [searchTerm, setSearchTerm] = useState("");
-
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -158,13 +164,19 @@ export default function App() {
         ]);
 
         setProdutos(produtosData);
-        setConfig(configData);
-        setCategories(["Todos", ...categoriesData]);
+        
+        // Aplica a configuração vinda da API
+        setConfig({
+            whatsappNumber: configData.whatsappNumber,
+            storeName: configData.storeName || 'Loja Virtual',
+            primaryColor: configData.primaryColor || '#D4AF37',
+            secondaryColor: configData.secondaryColor || '#343434'
+        });
+        
+        // Muda o título da aba do navegador
+        document.title = configData.storeName || 'Loja Virtual';
 
-        if (!configData.whatsappNumber) {
-          console.warn("Número de WhatsApp não configurado no ERP Admin.");
-          toast.error("Erro: A loja não está a aceitar pedidos de momento.");
-        }
+        setCategories(["Todos", ...categoriesData]);
 
       } catch (err) {
         console.error(err);
@@ -212,11 +224,9 @@ export default function App() {
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
 
-  // --- 3. ATUALIZADO: Lógica de Filtragem, Ordenação e BUSCA ---
   const produtosFiltradosEOrdenados = useMemo(() => {
     let produtosProcessados = produtos.filter(p => p.status === 'ativo');
     
-    // Filtro de Categoria
     if (selectedCategory !== "Todos") {
       if (selectedCategory === "Outros") {
          produtosProcessados = produtosProcessados.filter(p => !p.category || p.category === "Sem Categoria");
@@ -225,7 +235,6 @@ export default function App() {
       }
     }
     
-    // NOVO: Filtro de Busca (Nome ou Código)
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       produtosProcessados = produtosProcessados.filter(p => 
@@ -234,7 +243,6 @@ export default function App() {
       );
     }
 
-    // Ordenação
     if (sortOrder === 'priceAsc') {
       produtosProcessados.sort((a, b) => (a.salePrice || 0) - (b.salePrice || 0));
     } else if (sortOrder === 'priceDesc') {
@@ -247,7 +255,7 @@ export default function App() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-off-white">
-      <p className="text-xl text-carvao">A carregar catálogo...</p>
+      <Loader2 className="animate-spin" size={48} style={{ color: config.secondaryColor }} />
     </div>
   );
 
@@ -258,16 +266,22 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-off-white text-carvao">
+    <div className="min-h-screen bg-off-white text-gray-800 font-sans">
       <Toaster position="top-right" />
 
-      {/* Header Fixo */}
-      <header className="bg-carvao shadow-lg sticky top-0 z-40 border-b-4 border-dourado">
+      {/* HEADER DINÂMICO */}
+      <header 
+        className="shadow-lg sticky top-0 z-40 border-b-4"
+        style={{ backgroundColor: config.secondaryColor, borderColor: config.primaryColor }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-          <h1 className="text-2xl font-bold text-dourado">HivePratas</h1>
+          <h1 className="text-2xl font-bold" style={{ color: config.primaryColor }}>
+            {config.storeName}
+          </h1>
           <button
             onClick={() => setIsCarrinhoAberto(true)}
-            className="relative p-2 rounded-full text-prata hover:bg-gray-700 transition-colors"
+            className="relative p-2 rounded-full hover:bg-white/10 transition-colors"
+            style={{ color: config.primaryColor }}
           >
             <ShoppingCart size={24} />
             {totalItens > 0 && (
@@ -279,30 +293,27 @@ export default function App() {
         </div>
       </header>
 
-      {/* 4. ATUALIZADO: Menu de Categorias, Busca e Ordenação */}
+      {/* MENU CATEGORIAS */}
       <nav className="bg-white shadow-md sticky top-16 z-30 py-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          
-          {/* Categorias (Esquerda/Topo) */}
           <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 no-scrollbar">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-1.5 rounded-full font-medium text-sm transition-colors whitespace-nowrap
-                  ${selectedCategory === category
-                    ? 'bg-carvao text-white'
-                    : 'bg-gray-100 text-carvao hover:bg-gray-200'
-                  }`}
+                // Estilo Condicional
+                style={selectedCategory === category 
+                   ? { backgroundColor: config.secondaryColor, color: 'white' } 
+                   : { backgroundColor: '#f3f4f6', color: config.secondaryColor }
+                }
+                className="px-4 py-1.5 rounded-full font-medium text-sm transition-colors whitespace-nowrap"
               >
                 {category}
               </button>
             ))}
           </div>
           
-          {/* Busca e Ordenação (Direita/Baixo) */}
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            {/* Barra de Busca */}
             <div className="relative flex-grow sm:flex-grow-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input 
@@ -310,16 +321,16 @@ export default function App() {
                     placeholder="Buscar peça..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-48 pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-dourado"
+                    className="w-full sm:w-48 pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': config.primaryColor } as any} // Hack para Tailwind dynamic ring
                 />
             </div>
-
-            {/* Filtro de Ordenação */}
             <div className="relative flex-shrink-0">
                 <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as SortOrder)}
-                className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-1.5 pl-4 pr-8 text-sm font-medium text-carvao focus:outline-none focus:ring-2 focus:ring-dourado"
+                className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-1.5 pl-4 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                style={{ color: config.secondaryColor, '--tw-ring-color': config.primaryColor } as any}
                 >
                 <option value="default">Ordenar</option>
                 <option value="priceAsc">Menor Preço</option>
@@ -331,14 +342,13 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Conteúdo Principal (Produtos Filtrados) */}
+      {/* CONTEÚDO PRINCIPAL */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <section>
-          <div className="flex justify-between items-end border-b-2 border-dourado pb-2 mb-6">
-             <h2 className="text-3xl font-bold text-carvao">
+          <div className="flex justify-between items-end border-b-2 pb-2 mb-6" style={{ borderColor: config.primaryColor }}>
+             <h2 className="text-3xl font-bold" style={{ color: config.secondaryColor }}>
                {selectedCategory}
              </h2>
-             {/* Mostra quantos produtos foram encontrados */}
              <span className="text-sm text-gray-500 mb-1">
                {produtosFiltradosEOrdenados.length} {produtosFiltradosEOrdenados.length === 1 ? 'item' : 'itens'}
              </span>
@@ -350,6 +360,7 @@ export default function App() {
                 <CardProduto
                   key={produto.id}
                   produto={produto}
+                  config={config} // Passa as cores para o card
                   onAdicionar={() => adicionarAoCarrinho(produto)}
                   onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)}
                 />
@@ -359,19 +370,18 @@ export default function App() {
             <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                 <Search className="mx-auto h-12 w-12 text-gray-300 mb-2" />
                 <p className="text-gray-500 font-medium">Nenhum produto encontrado.</p>
-                <p className="text-sm text-gray-400">Tente buscar por outro termo ou categoria.</p>
             </div>
           )}
         </section>
       </main>
 
-      {/* Modais */}
       <ModalCarrinho
         isOpen={isCarrinhoAberto}
         onClose={() => setIsCarrinhoAberto(false)}
         itens={itensDoCarrinho}
         setCarrinho={setCarrinho}
         whatsappNumber={config?.whatsappNumber || null}
+        config={config} // Passa as cores para o modal
       />
       
       <ImageZoomModal 
@@ -386,7 +396,7 @@ export default function App() {
 // 6. COMPONENTES AUXILIARES
 // ============================================================================
 
-function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
+function CardProduto({ produto, onAdicionar, onImageClick, config }: CardProdutoProps) {
   const stock = produto.quantity !== undefined ? produto.quantity : 0;
   const temStock = stock > 0;
 
@@ -426,7 +436,8 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
 
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
-          <h3 className="font-semibold text-lg text-carvao">{produto.name}</h3>
+          {/* Título com a cor secundária da loja */}
+          <h3 className="font-semibold text-lg" style={{ color: config.secondaryColor }}>{produto.name}</h3>
           <p className="text-sm text-gray-600 mt-1">
             {produto.description || 'Sem descrição'}
           </p>
@@ -435,17 +446,19 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
           )}
         </div>
 
-        <p className="text-2xl font-bold text-carvao mt-2">
+        <p className="text-2xl font-bold mt-2" style={{ color: config.secondaryColor }}>
           {formatCurrency(produto.salePrice)}
         </p>
 
+        {/* Botão com a cor primária da loja */}
         <button
           onClick={onAdicionar}
           disabled={!temStock}
-          className={`w-full mt-4 flex items-center justify-center px-4 py-2 rounded-lg shadow-md transition-colors duration-200 font-semibold
+          style={temStock ? { backgroundColor: config.primaryColor } : {}}
+          className={`w-full mt-4 flex items-center justify-center px-4 py-2 rounded-lg shadow-md transition-colors duration-200 font-semibold text-white
             ${temStock 
-              ? 'bg-dourado text-carvao hover:bg-yellow-500' 
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+              ? 'hover:brightness-110' 
+              : 'bg-gray-300 cursor-not-allowed'}`}
         >
           {temStock ? (
             <> <Plus size={18} className="mr-2" /> Adicionar </>
@@ -458,7 +471,7 @@ function CardProduto({ produto, onAdicionar, onImageClick }: CardProdutoProps) {
   );
 }
 
-function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: ModalCarrinhoProps) {
+function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, config }: ModalCarrinhoProps) {
   const [obs, setObs] = useState('');
   const [clienteNome, setClienteNome] = useState('');
   const [clienteTelefone, setClienteTelefone] = useState('');
@@ -608,7 +621,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-carvao">Meu Pedido</h2>
+              <h2 className="text-2xl font-bold" style={{ color: config.secondaryColor }}>Meu Pedido</h2>
               <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
                 <X size={24} />
               </button>
@@ -618,8 +631,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               
               {/* Dados do Cliente */}
               <div className="space-y-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                <h4 className="text-sm font-bold text-carvao flex items-center gap-2">
-                  <User size={16} className="text-dourado" /> Seus Dados
+                <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: config.secondaryColor }}>
+                  <User size={16} style={{ color: config.primaryColor }} /> Seus Dados
                 </h4>
                 <div>
                   <input
@@ -627,7 +640,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                     value={clienteNome}
                     onChange={(e) => setClienteNome(e.target.value)}
                     placeholder="Seu Nome Completo"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado text-sm outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 text-sm outline-none"
+                    style={{ '--tw-ring-color': config.primaryColor } as any}
                   />
                 </div>
                 <div>
@@ -636,7 +650,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                     value={clienteTelefone}
                     onChange={(e) => setClienteTelefone(e.target.value)}
                     placeholder="Seu WhatsApp (DDD + Número)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado text-sm outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 text-sm outline-none"
+                    style={{ '--tw-ring-color': config.primaryColor } as any}
                   />
                 </div>
               </div>
@@ -660,10 +675,11 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                         <Package size={24} className="text-prata" />
                       )}
                     </div>
+
                     <div className="flex-grow">
-                      <p className="font-semibold text-carvao">{item.produto.name}</p>
+                      <p className="font-semibold" style={{ color: config.secondaryColor }}>{item.produto.name}</p>
                       <p className="text-sm text-gray-500 font-mono">{item.produto.code}</p>
-                      <p className="text-sm text-carvao font-semibold mt-1">
+                      <p className="text-sm font-semibold mt-1" style={{ color: config.secondaryColor }}>
                         {formatCurrency(item.produto.salePrice)}
                       </p>
                     </div>
@@ -687,7 +703,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                 onChange={(e) => setObs(e.target.value)}
                 placeholder="Observações do pedido (opcional)..."
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
+                style={{ '--tw-ring-color': config.primaryColor } as any}
               />
               
               <div className="space-y-1 text-sm">
@@ -703,7 +720,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
                  )}
               </div>
 
-              <div className="flex justify-between items-center text-xl font-bold text-carvao pt-2 border-t">
+              <div className="flex justify-between items-center text-xl font-bold pt-2 border-t" style={{ color: config.secondaryColor }}>
                 <span>Total:</span>
                 <span>{formatCurrency(valorTotalPedido)}</span>
               </div>
@@ -711,7 +728,8 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber }: 
               <button
                 onClick={handleCheckout}
                 disabled={totalItens === 0 || isSubmitting}
-                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-wait"
+                style={{ backgroundColor: config.primaryColor }}
+                className="w-full flex items-center justify-center p-3 text-lg rounded-lg text-white font-semibold transition-colors hover:brightness-110 disabled:bg-gray-400 disabled:cursor-wait"
               >
                 {isSubmitting ? <Loader2 size={18} className="animate-spin mr-2" /> : <Send size={18} className="mr-2" />}
                 {isSubmitting ? "A registar..." : "Enviar Pedido via WhatsApp"}
@@ -744,7 +762,10 @@ function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-xl"
             onClick={(e) => e.stopPropagation()}
           />
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/40 transition-colors">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/40 transition-colors"
+          >
             <X size={24} />
           </button>
         </motion.div>

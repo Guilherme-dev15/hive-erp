@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
-import { Save, Loader2 } from 'lucide-react'; // Ícones
-
-// 1. Não precisamos mais de 'schemas', mas ainda precisamos dos 'services'
- 
-import { getConfig, saveConfig } from '../services/apiService.tsx';
-// 2. Não precisamos de 'zod' nem 'react-hook-form'
-// (Também removemos o 'eslint-disable' pois vamos usar o 'error' no catch)
+import { Save, Loader2, Palette, Store } from 'lucide-react';
+import { getConfig, saveConfig } from '../services/apiService';
 
 // Componente Card
 const Card = ({ children }: { children: React.ReactNode }) => (
@@ -15,200 +10,228 @@ const Card = ({ children }: { children: React.ReactNode }) => (
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay: 0.1 }}
-    className="bg-white shadow-lg rounded-lg p-4 sm:p-6 border border-transparent"
+    className="bg-white shadow-lg rounded-lg p-6 border border-gray-100"
   >
     {children}
   </motion.div>
 );
 
-// --- 3. Componente de Input SIMPLIFICADO ---
-// (Não usa 'register' nem 'error', apenas 'value' e 'onChange')
 interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
-  name: string; // O nome do campo no estado
+  name: string;
   description?: string;
-  error?: string; // Erro de validação manual
 }
 
-const FormInput: React.FC<FormInputProps> = ({ label, name, description, error, ...props }) => (
-  <div>
-    <label htmlFor={name} className="block text-sm font-medium text-gray-700">
-      {label}
-    </label>
+const FormInput = ({ label, description, ...props }: FormInputProps) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <input
-      id={name}
-      name={name} // Importante para o handler
       {...props}
-      className={`mt-1 block w-full px-3 py-2 border ${
-        error ? "border-red-500" : "border-gray-300"
-      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado transition-all"
     />
-    {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     {description && <p className="mt-1 text-xs text-gray-500">{description}</p>}
   </div>
 );
 
-
-// Componente Principal da Página
 export function ConfiguracoesPage() {
-  // 4. Usar useState para o formulário, em vez de useForm
   const [formData, setFormData] = useState({
     whatsappNumber: '',
-    monthlyGoal: '1000', // Inputs de número são strings
+    monthlyGoal: '',
+    // Novos campos com valores padrão (HivePratas)
+    storeName: 'HivePratas',
+    primaryColor: '#D4AF37', // Dourado
+    secondaryColor: '#343434' // Carvão
   });
+  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errors, setErrors] = useState<{ whatsappNumber?: string; monthlyGoal?: string }>({});
 
-  // Carrega os dados existentes
   useEffect(() => {
-    async function carregarConfiguracoes() {
+    async function loadData() {
       try {
-        setIsLoading(true);
         const data = await getConfig();
-        // Atualiza o formulário com os dados da API (convertendo 'number' para 'string')
-        setFormData({
-          whatsappNumber: data.whatsappNumber || '',
-          monthlyGoal: data.monthlyGoal?.toString() || '1000',
-        });
-      } catch (error) { // 5. Corrigido o erro de ESLint (usando o 'error')
-        console.error(error);
+        if (data) {
+          setFormData({
+            whatsappNumber: data.whatsappNumber || '',
+            monthlyGoal: data.monthlyGoal?.toString() || '',
+            storeName: data.storeName || 'HivePratas',
+            primaryColor: data.primaryColor || '#D4AF37',
+            secondaryColor: data.secondaryColor || '#343434'
+          });
+        }
+      } catch (error) {
         toast.error("Erro ao carregar configurações.");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     }
-    carregarConfiguracoes();
-  }, []); // Roda apenas uma vez
+    loadData();
+  }, []);
 
-  // Handler manual para inputs
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Limpa o erro ao digitar
-    if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
-    }
   };
 
-  // 6. Validação manual antes do Submit
-  const validarFormulario = (): boolean => {
-    const novosErros: { whatsappNumber?: string; monthlyGoal?: string } = {};
-    const { whatsappNumber, monthlyGoal } = formData;
-
-    // Valida WhatsApp (se preenchido)
-    if (whatsappNumber && !/^[0-9]+$/.test(whatsappNumber)) {
-      novosErros.whatsappNumber = "Deve conter apenas números (ex: 55119...)";
-    }
-
-    // Valida Meta Mensal
-    const metaNum = parseFloat(monthlyGoal);
-    if (isNaN(metaNum) || metaNum < 0) {
-      novosErros.monthlyGoal = "A meta deve ser um número positivo.";
-    }
-
-    setErrors(novosErros);
-    return Object.keys(novosErros).length === 0;
-  };
-
-  // 7. Função de Submit manual
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validarFormulario()) {
-      toast.error("Corrija os erros no formulário.");
-      return;
-    }
-
     setIsSubmitting(true);
-    
-    const dadosParaSalvar = {
-      whatsappNumber: formData.whatsappNumber,
-      monthlyGoal: parseFloat(formData.monthlyGoal), // Converte de volta para número
-    };
-    
-    const promise = saveConfig(dadosParaSalvar);
-    
-    toast.promise(promise, {
-      loading: "A salvar...",
-      success: (configSalva) => {
-        // Recarrega o formulário com os dados salvos (garantindo a formatação)
-        setFormData({
-           whatsappNumber: configSalva.whatsappNumber || '',
-           monthlyGoal: configSalva.monthlyGoal?.toString() || '1000',
-        });
-        setIsSubmitting(false);
-        return "Configurações salvas com sucesso!";
-      },
-      error: (err) => {
-        setIsSubmitting(false);
-        return err.message || "Erro ao salvar.";
-      },
-    });
+    try {
+      // Salva no Firebase
+      await saveConfig({
+        ...formData,
+        monthlyGoal: Number(formData.monthlyGoal)
+      });
+      toast.success("Configurações salvas com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao salvar.");
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  
-  if (isLoading) return <div>A carregar configurações...</div>;
+
+  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>;
 
   return (
     <>
       <Toaster position="top-right" />
-      <motion.h1 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="text-3xl font-bold text-carvao mb-6"
-      >
-        Configurações
-      </motion.h1>
+      <div className="space-y-6 pb-10">
+        <motion.h1
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-3xl font-bold text-carvao"
+        >
+          Configurações da Loja
+        </motion.h1>
 
-      <Card>
-        {/* 8. Ligar o 'onSubmit' do formulário */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit}>
           
-          <div>
-            <h2 className="text-xl font-semibold text-carvao">Catálogo Público</h2>
-            <p className="text-sm text-gray-600">Definições para o seu catálogo de cliente (`app-catalogo`).</p>
-          </div>
+          {/* 1. Identidade Visual (White-Label) */}
+          <Card>
+            <div className="flex items-center gap-2 mb-6 border-b pb-4">
+              <Palette className="text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Identidade Visual (White-Label)</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormInput
+                label="Nome da Loja"
+                name="storeName"
+                value={formData.storeName}
+                onChange={handleChange}
+                placeholder="Ex: Joias da Ana"
+                description="Este nome aparecerá no topo do catálogo público."
+              />
+              
+              {/* Seletores de Cor */}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cor Principal (Destaques)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      name="primaryColor"
+                      value={formData.primaryColor}
+                      onChange={handleChange}
+                      className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden"
+                    />
+                    <input 
+                      type="text" 
+                      name="primaryColor"
+                      value={formData.primaryColor}
+                      onChange={handleChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Cor de botões e ícones.</p>
+                </div>
 
-          <FormInput
-            label="Nº de WhatsApp para Pedidos"
-            name="whatsappNumber"
-            value={formData.whatsappNumber} // Controlado pelo useState
-            onChange={handleChange} // Controlado pelo useState
-            error={errors.whatsappNumber}
-            placeholder="5511999998888"
-            description="Inclua o código do país (ex: 55 para Brasil) e o DDD. Apenas números."
-          />
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cor Secundária (Fundo/Texto)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      name="secondaryColor"
+                      value={formData.secondaryColor}
+                      onChange={handleChange}
+                      className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden"
+                    />
+                    <input 
+                      type="text" 
+                      name="secondaryColor"
+                      value={formData.secondaryColor}
+                      onChange={handleChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase"
+                    />
+                  </div>
+                   <p className="text-xs text-gray-500 mt-1">Cor do cabeçalho e títulos.</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Preview Visual */}
+            <div className="mt-6 p-4 rounded-lg border border-gray-100 bg-gray-50">
+              <p className="text-xs text-gray-400 mb-2 uppercase font-bold tracking-wider">Pré-visualização</p>
+              <div className="flex items-center gap-4 p-4 rounded-lg border shadow-sm bg-white">
+                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: formData.secondaryColor }}>
+                    Logo
+                 </div>
+                 <div className="flex-1">
+                    <h4 className="font-bold" style={{ color: formData.secondaryColor }}>{formData.storeName || "Nome da Loja"}</h4>
+                    <p className="text-xs text-gray-500">Exemplo de título</p>
+                 </div>
+                 <button
+                    type="button" 
+                    className="px-4 py-2 rounded-lg text-white font-bold shadow-sm text-sm"
+                    style={{ backgroundColor: formData.primaryColor }}
+                  >
+                    Comprar
+                  </button>
+              </div>
+            </div>
+          </Card>
 
-          <hr />
+          <div className="h-6"></div>
 
-          <div>
-            <h2 className="text-xl font-semibold text-carvao">Metas</h2>
-          </div>
+          {/* 2. Configurações de Venda */}
+          <Card>
+            <div className="flex items-center gap-2 mb-6 border-b pb-4">
+              <Store className="text-dourado" />
+              <h2 className="text-xl font-semibold text-gray-800">Configurações de Venda</h2>
+            </div>
 
-          <FormInput
-            label="Meta de Lucro Mensal (R$)"
-            name="monthlyGoal"
-            type="number"
-            step="100"
-            value={formData.monthlyGoal} // Controlado pelo useState
-            onChange={handleChange} // Controlado pelo useState
-            error={errors.monthlyGoal}
-            placeholder="1000"
-          />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormInput
+                label="WhatsApp para Pedidos"
+                name="whatsappNumber"
+                value={formData.whatsappNumber}
+                onChange={handleChange}
+                placeholder="5511999998888"
+                description="Inclua o código do país (ex: 55). Apenas números."
+              />
+              <FormInput
+                label="Meta de Lucro Mensal (R$)"
+                name="monthlyGoal"
+                type="number"
+                value={formData.monthlyGoal}
+                onChange={handleChange}
+                placeholder="1000"
+              />
+            </div>
+          </Card>
 
-          {/* Botão de Salvar */}
-          <div className="pt-4 flex justify-end">
-            <button 
-              type="submit" 
-              disabled={isSubmitting} // Desativa se estiver a salvar
-              className="flex items-center justify-center bg-carvao text-white px-5 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
+          <div className="mt-8 flex justify-end">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center bg-carvao text-white px-8 py-3 rounded-lg shadow-lg hover:bg-gray-800 transition-all disabled:opacity-70 text-lg font-medium"
             >
-              {isSubmitting ? <Loader2 size={20} className="animate-spin mr-2" /> : <Save size={20} className="mr-2" />}
-              {isSubmitting ? "A salvar..." : "Salvar Alterações"}
+              {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+              Salvar Todas as Alterações
             </button>
           </div>
         </form>
-      </Card>
+      </div>
     </>
   );
 }

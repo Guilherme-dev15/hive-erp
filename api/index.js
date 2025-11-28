@@ -589,4 +589,29 @@ app.get('/admin/dashboard-charts', async (req, res) => {
     res.status(500).json({ message: "Erro interno.", error: error.message });
   }
 });
+
+app.get('/config-publica', async (req, res) => {
+  console.log("ROTA: GET /config-publica");
+  try {
+    const doc = await CONFIG_PATH.get();
+    if (!doc.exists) {
+      return res.status(404).json({ message: "Configuração não encontrada." });
+    }
+    const settings = doc.data();
+    
+    // --- ATUALIZADO PARA ENVIAR DADOS VISUAIS ---
+    const configPublica = {
+      whatsappNumber: settings.whatsappNumber || null,
+      storeName: settings.storeName || "HivePratas",
+      primaryColor: settings.primaryColor || "#D4AF37",    // Dourado Default
+      secondaryColor: settings.secondaryColor || "#343434" // Carvão Default
+    };
+    // -------------------------------------------
+    
+    res.status(200).json(configPublica);
+  } catch (error) {
+    console.error("ERRO em /config-publica:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
 module.exports = app;
