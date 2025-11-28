@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import { type Order, type OrderStatus } from '../types';
-import { getAdminOrders, updateAdminOrderStatus } from '../services/apiService';
-import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
-import { Package, Truck, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
+// 1. Importar getConfig e o tipo de Configuração
+import { getAdminOrders, updateAdminOrderStatus, getConfig } from '../services/apiService';
+import { type ConfigFormData } from '../types/schemas';
 
-// Mapeia os status para ícones e cores (o coração do Kanban)
+import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
+// 2. Importar ícone ScrollText e o componente CertificadoImpressao
+import { Package, Truck, XCircle, Clock, Loader2, ScrollText } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
+import { CertificadoImpressao } from '../components/CertificadoImpressao';
+
 const statusConfig: Record<OrderStatus, { icon: React.ReactNode; color: string }> = {
   'Aguardando Pagamento': { icon: <Clock size={16} />, color: 'text-yellow-600' },
   'Em Produção': { icon: <Package size={16} />, color: 'text-blue-600' },
@@ -15,7 +20,6 @@ const statusConfig: Record<OrderStatus, { icon: React.ReactNode; color: string }
   'Cancelado': { icon: <XCircle size={16} />, color: 'text-red-600' }
 };
 
-// Ordem das colunas do Kanban
 const statusOrdem: OrderStatus[] = [
   'Aguardando Pagamento',
   'Em Produção',
@@ -24,53 +28,68 @@ const statusOrdem: OrderStatus[] = [
   'Cancelado'
 ];
 
-// Função Utilitária para formatar Moeda (R$)
 const formatCurrency = (value: number): string => {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 export function PedidosPage() {
   const [pedidos, setPedidos] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const [modalOpen, setModalOpen] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Order | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // Carrega os pedidos
+  // 3. Novos estados para o Certificado
+  const [config, setConfig] = useState<ConfigFormData | null>(null);
+  const [pedidoParaCertificado, setPedidoParaCertificado] = useState<Order | null>(null);
+  const certificadoRef = useRef<HTMLDivElement>(null);
+
+  // 4. Função de Impressão
+  const handlePrintCertificado = useReactToPrint({
+    contentRef: certificadoRef,
+    documentTitle: 'Certificado_Garantia',
+  });
+
+  // 5. Função auxiliar para preparar e imprimir
+  const prepararEImprimirCertificado = (pedido: Order) => {
+    setPedidoParaCertificado(pedido);
+    // Pequeno delay para o React renderizar o componente com os dados certos
+    setTimeout(() => {
+      handlePrintCertificado();
+    }, 100);
+  };
+
   useEffect(() => {
-    async function carregarPedidos() {
+    async function carregarDados() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getAdminOrders();
-        setPedidos(data);
+        // 6. Carrega Pedidos E Configuração
+        const [pedidosData, configData] = await Promise.all([
+           getAdminOrders(),
+           getConfig()
+        ]);
+        setPedidos(pedidosData);
+        setConfig(configData);
       } catch (err) {
-        setError("Falha ao carregar pedidos.");
+        setError("Falha ao carregar dados.");
         console.error(err);
       } finally {
         setLoading(false);
       }
     }
-    carregarPedidos();
+    carregarDados();
   }, []);
 
-  // Agrupa os pedidos por status
   const pedidosAgrupados = useMemo(() => {
     const grupos: Record<string, Order[]> = {};
-    // Inicializa todos os grupos para que a coluna apareça mesmo vazia
-    statusOrdem.forEach(status => {
-      grupos[status] = [];
-    });
-    // Preenche os grupos com os pedidos
+    statusOrdem.forEach(status => { grupos[status] = []; });
     pedidos.forEach(pedido => {
       if (grupos[pedido.status]) {
         grupos[pedido.status].push(pedido);
       } else {
-        // Fallback para pedidos com status desconhecido
         if (!grupos['Cancelado']) grupos['Cancelado'] = [];
         grupos['Cancelado'].push(pedido);
       }
@@ -78,24 +97,17 @@ export function PedidosPage() {
     return grupos;
   }, [pedidos]);
 
-  // Função para ver detalhes
   const handleVerDetalhes = (pedido: Order) => {
     setPedidoSelecionado(pedido);
     setModalOpen(true);
   };
   
-  // Função para mudar o status
   const handleStatusChange = async (pedidoId: string, novoStatus: OrderStatus) => {
     setUpdatingId(pedidoId);
     try {
       const pedidoAtualizado = await updateAdminOrderStatus(pedidoId, novoStatus);
-      // Atualiza a lista local
-      setPedidos(prevPedidos => 
-        prevPedidos.map(p => 
-          p.id === pedidoId ? pedidoAtualizado : p
-        )
-      );
-      toast.success(`Pedido #${pedidoId.substring(0, 5)} atualizado!`);
+      setPedidos(prevPedidos => prevPedidos.map(p => p.id === pedidoId ? pedidoAtualizado : p));
+      toast.success(`Pedido atualizado!`);
     } catch (err) {
       toast.error("Erro ao atualizar status.");
     } finally {
@@ -118,11 +130,9 @@ export function PedidosPage() {
           Gestão de Pedidos (Kanban)
         </motion.h1>
         
-        {/* Board Kanban */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {statusOrdem.map(status => (
-            <div key={status} className="bg-off-white rounded-lg shadow-inner">
-              {/* Cabeçalho da Coluna */}
+            <div key={status} className="bg-off-white rounded-lg shadow-inner h-fit max-h-[calc(100vh-200px)] flex flex-col">
               <div className={`flex items-center gap-2 p-3 border-b-2 ${statusConfig[status].color}`}>
                 {statusConfig[status].icon}
                 <h2 className={`font-semibold uppercase text-sm ${statusConfig[status].color}`}>
@@ -130,8 +140,7 @@ export function PedidosPage() {
                 </h2>
               </div>
               
-              {/* Cartões de Pedido */}
-              <div className="p-3 space-y-3 h-full min-h-[200px]">
+              <div className="p-3 space-y-3 overflow-y-auto">
                 {pedidosAgrupados[status].map(pedido => (
                   <motion.div 
                     key={pedido.id}
@@ -142,12 +151,13 @@ export function PedidosPage() {
                   >
                     <div className="flex justify-between items-center mb-2">
                       <span className="font-bold text-carvao">
-                        Pedido #{pedido.id.substring(0, 5).toUpperCase()}
+                        #{pedido.id.substring(0, 5).toUpperCase()}
                       </span>
-                      <span className="text-sm text-gray-500">
-                        {pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : ''}
+                      <span className="text-xs text-gray-500">
+                        {pedido.clienteNome ? pedido.clienteNome.split(' ')[0] : 'Cliente'}
                       </span>
                     </div>
+                    
                     <p className="text-sm text-gray-600 mb-1">
                       {pedido.items.length} {pedido.items.length > 1 ? 'itens' : 'item'}
                     </p>
@@ -155,24 +165,32 @@ export function PedidosPage() {
                       {formatCurrency(pedido.total)}
                     </p>
                     
-                    {/* Ações */}
                     <div className="space-y-2">
+                      {/* 7. Botão de Certificado (Novo) */}
+                      <button
+                        onClick={() => prepararEImprimirCertificado(pedido)}
+                        className="w-full text-xs text-center font-medium text-emerald-600 hover:text-emerald-800 flex items-center justify-center gap-1 py-1.5 bg-emerald-50 rounded hover:bg-emerald-100 transition-colors border border-emerald-100"
+                        title="Imprimir Garantia"
+                      >
+                        <ScrollText size={14} /> Certificado
+                      </button>
+
                       <button
                         onClick={() => handleVerDetalhes(pedido)}
-                        className="w-full text-sm text-center font-medium text-blue-600 hover:text-blue-800"
+                        className="w-full text-xs text-center font-medium text-blue-600 hover:text-blue-800 border border-blue-100 py-1.5 rounded hover:bg-blue-50 transition-colors"
                       >
                         Ver Detalhes
                       </button>
                       
                       {updatingId === pedido.id ? (
-                        <div className="flex justify-center items-center h-9">
-                          <Loader2 className="animate-spin text-gray-400" />
+                        <div className="flex justify-center items-center h-8">
+                          <Loader2 className="animate-spin text-gray-400" size={16} />
                         </div>
                       ) : (
                         <select
                           value={pedido.status}
                           onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
-                          className="w-full text-sm font-medium border border-gray-300 rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-dourado"
+                          className="w-full text-xs font-medium border border-gray-300 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-dourado bg-gray-50"
                         >
                           {statusOrdem.map(s => (
                             <option key={s} value={s}>{s}</option>
@@ -188,11 +206,17 @@ export function PedidosPage() {
         </div>
       </div>
 
-      {/* Modal de Detalhes */}
       <DetalhePedidoModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         pedido={pedidoSelecionado}
+      />
+
+      {/* 8. Componente Invisível de Impressão */}
+      <CertificadoImpressao 
+        ref={certificadoRef} 
+        pedido={pedidoParaCertificado} 
+        config={config} 
       />
     </>
   );

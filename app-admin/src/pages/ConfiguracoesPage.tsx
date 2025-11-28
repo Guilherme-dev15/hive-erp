@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
-// Adicionamos ícones novos: Palette (Cores), Calculator (Custos), Percent, Package
-import { Save, Loader2, Palette, Store, Calculator, Percent, Package } from 'lucide-react';
+// Adicionamos ícones novos: Palette (Cores), Calculator (Custos), Percent, Package, ScrollText
+import { Save, Loader2, Palette, Store, Calculator, Percent, Package, ScrollText } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 
 // --- COMPONENTES AUXILIARES ---
@@ -53,13 +53,18 @@ export function ConfiguracoesPage() {
     // Vendas
     whatsappNumber: '',
     monthlyGoal: '',
+    
     // White-Label (Visual)
     storeName: 'HivePratas',
     primaryColor: '#D4AF37',
     secondaryColor: '#343434',
+    
     // Custos Operacionais
     cardFee: '0',
-    packagingCost: '0'
+    packagingCost: '0',
+    
+    // Garantia (NOVO)
+    warrantyText: ''
   });
   
   const [loading, setLoading] = useState(true);
@@ -80,7 +85,10 @@ export function ConfiguracoesPage() {
             secondaryColor: data.secondaryColor || '#343434',
             
             cardFee: data.cardFee?.toString() || '0',
-            packagingCost: data.packagingCost?.toString() || '0'
+            packagingCost: data.packagingCost?.toString() || '0',
+            
+            // Carrega o texto da garantia
+            warrantyText: data.warrantyText || 'Garantimos a autenticidade da Prata 925. Garantia de 90 dias para defeitos de fabrico.'
           });
         }
       } catch (error) {
@@ -93,8 +101,8 @@ export function ConfiguracoesPage() {
     loadData();
   }, []);
 
-  // 2. Manipular Mudanças
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 2. Manipular Mudanças (Input)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -110,7 +118,8 @@ export function ConfiguracoesPage() {
         monthlyGoal: Number(formData.monthlyGoal),
         cardFee: Number(formData.cardFee),
         packagingCost: Number(formData.packagingCost),
-        banners: [] // Mantemos vazio por enquanto, ou pode implementar o upload depois
+        banners: [], // Mantemos vazio por enquanto
+        // O warrantyText já está no ...formData
       });
       toast.success("Configurações salvas com sucesso!");
     } catch (error) {
@@ -136,7 +145,7 @@ export function ConfiguracoesPage() {
           animate={{ opacity: 1, y: 0 }}
         >
            <h1 className="text-3xl font-bold text-carvao">Configurações da Loja</h1>
-           <p className="text-gray-500 mt-1">Personalize o visual e as regras do seu negócio.</p>
+           <p className="text-gray-500 mt-1">Personalize o visual, taxas e regras do seu negócio.</p>
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -208,13 +217,13 @@ export function ConfiguracoesPage() {
             </div>
 
             {/* Preview Rápido */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center gap-4">
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row items-center gap-4 justify-center sm:justify-start">
                <span className="text-xs font-bold text-gray-400 uppercase">Preview:</span>
-               <div className="px-4 py-2 rounded text-white text-sm font-bold shadow-sm" style={{ backgroundColor: formData.primaryColor }}>
+               <div className="px-6 py-2 rounded text-white text-sm font-bold shadow-sm" style={{ backgroundColor: formData.primaryColor }}>
                   Botão Principal
                </div>
-               <span className="font-bold text-lg" style={{ color: formData.secondaryColor }}>
-                  Título da Loja
+               <span className="font-bold text-xl" style={{ color: formData.secondaryColor }}>
+                  {formData.storeName || "Título da Loja"}
                </span>
             </div>
           </Card>
@@ -256,7 +265,7 @@ export function ConfiguracoesPage() {
             </div>
           </Card>
 
-          {/* --- 3. CONFIGURAÇÕES DE VENDA --- */}
+          {/* --- 3. CONFIGURAÇÕES DE VENDA E GARANTIA --- */}
           <Card borderColor="border-dourado">
             <div className="flex items-center gap-2 mb-6 border-b pb-4">
               <Store className="text-dourado" size={24} />
@@ -285,6 +294,24 @@ export function ConfiguracoesPage() {
                 description="O seu objetivo para visualizar no Dashboard."
               />
             </div>
+
+            {/* CAMPO DE GARANTIA ADICIONADO */}
+            <div className="mt-6 pt-6 border-t border-gray-100">
+               <div className="flex items-center gap-2 mb-2">
+                 <ScrollText size={18} className="text-gray-400" />
+                 <label className="block text-sm font-medium text-gray-700">Termos de Garantia (Para Certificado)</label>
+               </div>
+               <textarea
+                 name="warrantyText"
+                 value={formData.warrantyText}
+                 onChange={handleChange}
+                 rows={3}
+                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm transition-all"
+                 placeholder="Ex: Garantia vitalícia na prata. 90 dias para defeitos de fabrico..."
+               />
+               <p className="text-xs text-gray-500 mt-1">Este texto aparecerá automaticamente no PDF do "Certificado de Garantia".</p>
+            </div>
+
           </Card>
 
           {/* Botão de Salvar Flutuante ou Fixo */}
