@@ -166,3 +166,17 @@ export const updateAdminOrderStatus = async (id: string, status: OrderStatus): P
   const response = await apiClient.put(`/admin/orders/${id}`, { status });
   return response.data;
 };
+
+
+// ============================================================================
+// Módulo: Gráficos do Dashboard
+// ============================================================================
+export interface ChartData {
+  salesByDay: { name: string; vendas: number }[];
+  incomeVsExpense: { name: string; value: number }[];
+}
+
+export const getDashboardCharts = async (): Promise<ChartData> => {
+  const response = await apiClient.get('/admin/dashboard-charts');
+  return response.data;
+};

@@ -82,7 +82,7 @@ const ORDERS_COLLECTION = 'orders';
 // --- 1. MIDDLEWARE DE SEGURANÇA (O GUARDA-COSTAS) ---
 const authenticateUser = async (req, res, next) => {
   const header = req.headers.authorization;
-  
+
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Não autorizado. Token em falta.' });
   }
@@ -470,27 +470,27 @@ app.put('/admin/orders/:id', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const docRef = db.collection(ORDERS_COLLECTION).doc(id);
-    
+
     const pedidoDoc = await docRef.get();
     if (!pedidoDoc.exists) {
       return res.status(404).json({ message: "Pedido não encontrado." });
     }
     const pedidoData = pedidoDoc.data();
-    
+
     const updateData = { status: status };
 
     if (status === 'Enviado' && !pedidoData.financeiroRegistrado) {
       console.log(`Sincronia Financeira: Registrando venda para o pedido #${id}`);
-      
+
       const novaTransacao = {
         type: 'venda',
         amount: pedidoData.total,
         description: `Venda do Pedido #${id.substring(0, 5).toUpperCase()}`,
         date: admin.firestore.Timestamp.now()
       };
-      
+
       await db.collection(TRANSACTIONS_COLLECTION).add(novaTransacao);
-      
+
       // Baixa de Stock
       if (pedidoData.items && Array.isArray(pedidoData.items)) {
         const batch = db.batch();
@@ -504,7 +504,7 @@ app.put('/admin/orders/:id', async (req, res) => {
         }
         await batch.commit();
       }
-      
+
       updateData.financeiroRegistrado = true;
     }
 
@@ -524,5 +524,69 @@ if (process.env.VERCEL_ENV !== 'production') {
     console.log(`[API] Backend rodando em http://localhost:${PORT}`);
   });
 }
+// --- ROTA DE DADOS PARA GRÁFICOS (NOVA) ---
+app.get('/admin/dashboard-charts', async (req, res) => {
+  console.log("ROTA: GET /admin/dashboard-charts");
+  try {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
 
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
+
+    if (snapshot.empty) {
+      return res.status(200).json({ salesByDay: [], incomeVsExpense: [] });
+    }
+
+    // 1. Preparar estrutura para os últimos 7 dias
+    const last7Days = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dayStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      last7Days[dayStr] = 0;
+    }
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const date = data.date.toDate(); // Converte Timestamp do Firestore para Date JS
+      const amount = parseFloat(data.amount);
+
+      // Lógica para Gráfico de Pizza (Total)
+      if (data.type === 'venda' || data.type === 'capital') {
+        totalIncome += amount;
+      } else if (data.type === 'despesa') {
+        totalExpense += Math.abs(amount);
+      }
+
+      // Lógica para Gráfico de Barras (Últimos 7 dias - Apenas Vendas)
+      if (data.type === 'venda' && date >= sevenDaysAgo) {
+        const dayStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        if (last7Days[dayStr] !== undefined) {
+          last7Days[dayStr] += amount;
+        }
+      }
+    });
+
+    // Formatar para o Recharts
+    const salesByDay = Object.keys(last7Days).map(key => ({
+      name: key,
+      vendas: last7Days[key]
+    }));
+
+    const incomeVsExpense = [
+      { name: 'Receitas', value: totalIncome },
+      { name: 'Despesas', value: totalExpense }
+    ];
+
+    res.status(200).json({ salesByDay, incomeVsExpense });
+
+  } catch (error) {
+    console.error("ERRO em /admin/dashboard-charts:", error.message);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
 module.exports = app;
