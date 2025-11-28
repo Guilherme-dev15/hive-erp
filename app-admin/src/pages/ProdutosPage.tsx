@@ -1,341 +1,495 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
-import type { ProdutoAdmin, Fornecedor, Category } from '../types';
-import { getAdminProdutos, deleteAdminProduto, getFornecedores, getCategories } from '../services/apiService';
-import { Trash2, Edit, Package, ExternalLink, Box, Search, Printer, CheckSquare, Square } from 'lucide-react';
-import { toast, Toaster } from 'react-hot-toast';
-import { ProdutoFormModal } from '../components/ProdutoFormModal';
-import { useReactToPrint } from 'react-to-print';
-// Importar o novo componente de etiquetas
-import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
+import React, { useEffect, useState } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+// Adicionado 'Calculator' para o ícone do Raio-X
+import { X, DollarSign, Plus, Link, Box, Calculator } from 'lucide-react';
+
+import { CategoryModal } from '../components/CategoryModal';
+import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
+// Importar 'ConfigFormData' para tipar a configuração
+import { produtoSchema, type ProdutoFormData, type ConfigFormData } from '../types/schemas';
+import { createAdminProduto, updateAdminProduto } from '../services/apiService';
 
 // ============================================================================
-// Componente Card de Produto (Atualizado com Checkbox)
+// Tipagem das Props (ATUALIZADA)
 // ============================================================================
-interface ProdutoAdminCardProps {
-  produto: ProdutoAdmin;
-  fornecedorNome: string;
-  onEditar: () => void;
-  onApagar: () => void;
-  isSelected: boolean;
-  onToggleSelect: () => void;
+interface ProdutoFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  fornecedores: Fornecedor[];
+  categories: Category[];
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+  produtoParaEditar?: ProdutoAdmin | null;
+  onProdutoSalvo: (produto: ProdutoAdmin) => void;
+  
+  // --- NOVA PROP OBRIGATÓRIA PARA O CÁLCULO ---
+  configGlobal?: ConfigFormData | null;
 }
 
-const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ 
-  produto, fornecedorNome, onEditar, onApagar, isSelected, onToggleSelect 
-}) => {
-  const custo = produto.costPrice || 0;
-  const venda = produto.salePrice || 0;
-  const lucro = venda > 0 ? venda - custo : 0;
-  const quantity = produto.quantity || 0;
-  const statusCor = produto.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-
-  return (
-    <motion.div
-      className={`bg-white shadow-lg rounded-xl border flex flex-col h-full overflow-hidden transition-all duration-200 hover:shadow-xl relative
-        ${isSelected ? 'border-dourado ring-2 ring-dourado ring-opacity-50' : 'border-gray-200'}
-      `}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      layout
-    >
-      {/* Área de Seleção (Checkbox Gigante Invisível) */}
-      <div 
-        onClick={onToggleSelect}
-        className="absolute top-2 left-2 z-20 cursor-pointer bg-white/90 rounded-full p-1 hover:bg-white transition-colors"
-      >
-        {isSelected 
-          ? <CheckSquare className="text-dourado" size={24} /> 
-          : <Square className="text-gray-400 hover:text-gray-600" size={24} />
-        }
-      </div>
-
-      <div className="relative w-full h-48 overflow-hidden bg-gray-100">
-        <div className="w-full h-full flex items-center justify-center">
-          {produto.imageUrl ? (
-            <img src={produto.imageUrl} alt={produto.name} className="w-full h-full object-cover" loading="lazy" />
-          ) : (
-            <Package size={48} className="text-prata opacity-50" />
-          )}
-        </div>
-        
-        <span className={`absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shadow-sm ${statusCor}`}>
-          {produto.status}
-        </span>
-
-        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded shadow-sm text-[10px] font-bold ${
-          quantity > 0 ? 'bg-white text-carvao' : 'bg-red-600 text-white'
-        }`}>
-          <Box size={12} />
-          <span>{quantity} un.</span>
-        </div>
-      </div>
-
-      {/* Corpo do Cartão */}
-      <div className="p-4 flex-grow flex flex-col justify-between">
-        <div>
-          <div className="flex justify-between items-start">
-             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">
-               {produto.category || 'Sem Categoria'}
-             </p>
-             {produto.supplierProductUrl && (
-               <a href={produto.supplierProductUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Link Fornecedor">
-                 <ExternalLink size={14} />
-               </a>
-             )}
-          </div>
-          <h3 className="font-bold text-gray-900 leading-tight mb-1 line-clamp-2">{produto.name}</h3>
-          <p className="text-xs text-gray-400 font-mono mb-3">SKU: {produto.code || 'N/A'}</p>
-          
-          <div className="flex items-center gap-1 mb-3">
-            <span className="text-xs text-gray-500">Forn:</span>
-            <span className="text-xs font-semibold text-carvao truncate max-w-[150px]">{fornecedorNome}</span>
-          </div>
-        </div>
-
-        <div className="mt-2 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase">Custo</p>
-            <p className="text-sm font-semibold text-red-600">R$ {custo.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase">Venda</p>
-            <p className="text-sm font-bold text-green-600">R$ {venda.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase">Lucro</p>
-            <p className="text-sm font-bold text-carvao">R$ {lucro.toFixed(0)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex border-t border-gray-100 bg-gray-50">
-        <button onClick={onEditar} className="flex-1 py-3 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1">
-          <Edit size={14} /> Editar
-        </button>
-        <div className="w-px bg-gray-200"></div>
-        <button onClick={onApagar} className="flex-1 py-3 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center justify-center gap-1">
-          <Trash2 size={14} /> Apagar
-        </button>
-      </div>
-    </motion.div>
-  );
+// ============================================================================
+// Input Reutilizável
+// ============================================================================
+type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
+  label?: string;
+  name: keyof ProdutoFormData;
+  register: ReturnType<typeof useForm<ProdutoFormData>>["register"];
+  error?: string;
+  icon?: React.ReactNode;
 };
 
-// ============================================================================
-// Página Principal
-// ============================================================================
-export function ProdutosPage() {
-  const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
-  const [searchTerm, setSearchTerm] = useState("");
+const FormInput: React.FC<FormInputProps> = ({
+  label,
+  name,
+  register,
+  error,
+  icon,
+  ...props
+}) => (
+  <div>
+    {label && (
+      <label
+        htmlFor={String(name)}
+        className="block text-sm font-medium text-gray-700"
+      >
+        {label}
+      </label>
+    )}
+    <div className={`relative ${label ? 'mt-1' : ''}`}>
+      {icon && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+          {icon}
+        </div>
+      )}
+      <input
+        id={String(name)}
+        {...props}
+        {...register(name)}
+        className={`block w-full px-3 py-2 border ${error ? "border-red-500" : "border-gray-300"
+          } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado
+           ${icon ? 'pl-10' : ''}`}
+      />
+    </div>
+    {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+  </div>
+);
 
-  // --- ESTADO DE SELEÇÃO PARA IMPRESSÃO ---
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const printRef = useRef<HTMLDivElement>(null);
+// ============================================================================
+// Componente Principal do Modal
+// ============================================================================
+export function ProdutoFormModal({
+  isOpen,
+  onClose,
+  fornecedores,
+  categories,
+  setCategories,
+  produtoParaEditar,
+  onProdutoSalvo,
+  configGlobal, // <-- Recebendo a configuração
+}: ProdutoFormModalProps) {
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: 'Etiquetas_HivePratas',
+  const isEditMode = !!produtoParaEditar;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ProdutoFormData>({
+    resolver: zodResolver(produtoSchema),
+    defaultValues: {
+      name: '',
+      costPrice: undefined,
+      salePrice: undefined,
+      quantity: 0,
+      supplierId: '',
+      supplierProductUrl: '',
+      category: '',
+      code: '',
+      imageUrl: '',
+      status: 'ativo',
+    }
   });
 
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  // Preenche o formulário ao abrir
   useEffect(() => {
-    async function carregarDadosPagina() {
-      try {
-        setLoading(true);
-        setError(null);
-        const [produtosData, fornecedoresData, categoriesData] = await Promise.all([
-          getAdminProdutos(),
-          getFornecedores(),
-          getCategories()
-        ]);
-        setProdutos(produtosData);
-        setFornecedores(fornecedoresData);
-        setCategories(categoriesData);
-      } catch (err) {
-        setError("Falha ao carregar dados.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    carregarDadosPagina();
-  }, []);
-
-  const produtosFiltrados = useMemo(() => {
-    let lista = produtos;
-    if (categoryFilter !== "Todos") {
-      if (categoryFilter === "Sem Categoria") {
-        lista = lista.filter(p => !p.category);
+    if (isOpen) {
+      if (isEditMode && produtoParaEditar) {
+        reset({
+          ...produtoParaEditar,
+          quantity: produtoParaEditar.quantity ?? 0,
+          code: produtoParaEditar.code || '',
+          category: produtoParaEditar.category || '',
+          supplierProductUrl: produtoParaEditar.supplierProductUrl || '',
+          imageUrl: produtoParaEditar.imageUrl || '',
+          description: produtoParaEditar.description || ''
+        });
       } else {
-        lista = lista.filter(p => p.category === categoryFilter);
+        reset({
+          name: '',
+          costPrice: undefined,
+          salePrice: undefined,
+          quantity: 0,
+          supplierId: '',
+          supplierProductUrl: '',
+          category: '',
+          code: '',
+          imageUrl: '',
+          status: 'ativo',
+        });
       }
     }
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      lista = lista.filter(p => p.name.toLowerCase().includes(term) || (p.code && p.code.toLowerCase().includes(term)));
+  }, [isOpen, isEditMode, produtoParaEditar, reset]);
+
+  // --- 1. MÓDULO DE PRECIFICAÇÃO AUTOMÁTICA (MARKUP) ---
+  const custoObservado = watch('costPrice');
+  const vendaObservada = watch('salePrice'); // Observamos também a venda para o Raio-X
+
+  useEffect(() => {
+    // Apenas sugere preço se NÃO estivermos em modo de edição
+    if (isEditMode) return;
+
+    const custo = Number(custoObservado);
+    
+    if (!isNaN(custo) && custo > 0) {
+      let markup = 1.7; // 170% (Padrão)
+      if (custo <= 25) { markup = 2.0; } // Nível 1
+      else if (custo > 200) { markup = 0.8; } // Nível 3
+
+      const precoSugerido = (custo * (1 + markup)) - 0.10;
+      setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
+    } else if (custo === 0) {
+       setValue('salePrice', undefined);
     }
-    return lista;
-  }, [produtos, categoryFilter, searchTerm]);
+  }, [custoObservado, setValue, isEditMode]);
 
-  const getFornecedorNome = (id: string) => fornecedores.find(f => f.id === id)?.name || 'N/A';
 
-  // Lógica de Seleção
-  const toggleSelection = (id: string) => {
-    const newSelection = new Set(selectedIds);
-    if (newSelection.has(id)) newSelection.delete(id);
-    else newSelection.add(id);
-    setSelectedIds(newSelection);
-  };
+  // --- 2. MÓDULO DE RAIO-X DO LUCRO REAL (NOVO) ---
+  const [raioX, setRaioX] = useState<{
+    taxaCartao: number;
+    custoEmbalagem: number;
+    lucroLiquido: number;
+    margemLiquida: number;
+  } | null>(null);
 
-  const selectAllFiltered = () => {
-    if (selectedIds.size === produtosFiltrados.length) {
-      setSelectedIds(new Set()); // Desmarcar tudo
+  useEffect(() => {
+    const custo = Number(custoObservado) || 0;
+    const venda = Number(vendaObservada) || 0;
+
+    if (venda > 0) {
+      const taxaPercentual = configGlobal?.cardFee || 0;
+      const custoEmbalagem = configGlobal?.packagingCost || 0;
+
+      const valorTaxa = venda * (taxaPercentual / 100);
+      const lucro = venda - custo - valorTaxa - custoEmbalagem;
+      const margem = (lucro / venda) * 100;
+
+      setRaioX({
+        taxaCartao: valorTaxa,
+        custoEmbalagem: custoEmbalagem,
+        lucroLiquido: lucro,
+        margemLiquida: margem
+      });
     } else {
-      const allIds = new Set(produtosFiltrados.map(p => p.id));
-      setSelectedIds(allIds); // Marcar tudo o que está visível
+      setRaioX(null);
     }
-  };
+  }, [custoObservado, vendaObservada, configGlobal]);
 
-  const getSelectedProducts = () => {
-    return produtos.filter(p => selectedIds.has(p.id));
-  };
 
-  // CRUD
-  const handleApagarProduto = (id: string, nome: string) => {
-    toast((t) => (
-      <div className="flex flex-col p-2">
-        <p className="font-semibold text-carvao">Confirmar exclusão?</p>
-        <p className="text-sm text-gray-600 mb-3">Produto: "{nome}"</p>
-        <div className="flex justify-end gap-2">
-          <button className="px-3 py-1 text-sm bg-gray-200 rounded" onClick={() => toast.dismiss(t.id)}>Cancelar</button>
-          <button className="px-3 py-1 text-sm bg-red-600 text-white rounded" onClick={() => { toast.dismiss(t.id); executarApagar(id); }}>Apagar</button>
-        </div>
-      </div>
-    ));
-  };
-  
-  const executarApagar = async (id: string) => {
-    const promise = deleteAdminProduto(id);
+  // --- 3. MÓDULO DE SKU AUTOMÁTICO ---
+  const categoriaObservada = watch('category');
+  const fornecedorObservado = watch('supplierId');
+
+  useEffect(() => {
+    if (isEditMode) return;
+
+    if (categoriaObservada && fornecedorObservado) {
+      const catInicial = categoriaObservada.charAt(0).toUpperCase();
+      const fornecedor = fornecedores.find(f => f.id === fornecedorObservado);
+      let fornIniciais = 'XX';
+      
+      if (fornecedor) {
+         const nomeLimpo = fornecedor.name.replace(/\s/g, '');
+         fornIniciais = nomeLimpo.substring(0, 2).toUpperCase();
+      }
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      const skuGerado = `${catInicial}${fornIniciais}${randomNum}`;
+      setValue('code', skuGerado);
+    }
+  }, [categoriaObservada, fornecedorObservado, fornecedores, isEditMode, setValue]);
+
+
+  const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
+    let promise;
+    if (isEditMode && produtoParaEditar) {
+      promise = updateAdminProduto(produtoParaEditar.id, data);
+    } else {
+      promise = createAdminProduto(data);
+    }
+
     toast.promise(promise, {
-      loading: 'A apagar...',
-      success: () => {
-        setProdutos(prev => prev.filter(p => p.id !== id));
-        return 'Apagado com sucesso!';
+      loading: isEditMode ? "A atualizar..." : "A salvar...",
+      success: (produtoSalvo) => {
+        onProdutoSalvo(produtoSalvo);
+        onClose();
+        return `Produto ${isEditMode ? 'atualizado' : 'salvo'}!`;
       },
-      error: 'Erro ao apagar.',
+      error: (err) => err.message || "Erro ao salvar.",
     });
   };
-  
-  const handleAdicionar = () => { setProdutoSelecionado(null); setIsModalOpen(true); };
-  const handleEditar = (produto: ProdutoAdmin) => { setProdutoSelecionado(produto); setIsModalOpen(true); };
-  const handleProdutoSalvo = (produtoSalvo: ProdutoAdmin) => {
-    const produtoExiste = produtos.find(p => p.id === produtoSalvo.id);
-    if (produtoExiste) {
-      setProdutos(prev => prev.map(p => (p.id === produtoSalvo.id ? produtoSalvo : p)));
-    } else {
-      setProdutos(prev => [produtoSalvo, ...prev]);
-    }
+
+  const handleCategoryCreated = (newCategory: Category) => {
+    setValue('category', newCategory.name, { shouldValidate: true });
+    setIsCategoryModalOpen(false);
   };
 
-  if (loading) return <div>A carregar...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
-
   return (
-    <>
-      <Toaster position="top-right" />
-      <div className="space-y-6">
-        
-        {/* BARRA DE FERRAMENTAS */}
-        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-carvao hidden sm:block">Produtos</h1>
-            
-            {/* Botão de Selecionar Todos */}
-            <button onClick={selectAllFiltered} className="text-sm font-medium text-gray-600 flex items-center gap-2 hover:text-carvao">
-               {selectedIds.size > 0 && selectedIds.size === produtosFiltrados.length 
-                 ? <CheckSquare size={20} className="text-dourado" /> 
-                 : <Square size={20} />
-               }
-               {selectedIds.size > 0 ? `${selectedIds.size} selecionados` : 'Selecionar Todos'}
-            </button>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 flex-grow lg:flex-grow-0">
-             
-             {/* BOTÃO DE IMPRIMIR (Só aparece se houver seleção) */}
-             {selectedIds.size > 0 && (
-               <button 
-                 onClick={() => handlePrint()} 
-                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 transition-all font-medium flex items-center justify-center gap-2 animate-in fade-in"
-               >
-                 <Printer size={18} />
-                 Imprimir Etiquetas ({selectedIds.size})
-               </button>
-             )}
-
-            {/* Busca */}
-            <div className="relative flex-grow sm:w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input 
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
-              />
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-semibold text-carvao">
+                {isEditMode ? "Editar Produto" : "Adicionar Novo Produto"}
+              </h2>
+              <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                <X size={20} />
+              </button>
             </div>
 
-            {/* Filtro */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado bg-white"
-            >
-              <option value="Todos">Todas as Categorias</option>
-              {categories.map(c => (<option key={c.id} value={c.name}>{c.name}</option>))}
-              <option value="Sem Categoria">Sem Categoria</option>
-            </select>
-
-            {/* Novo Produto */}
-            <button onClick={handleAdicionar} className="bg-carvao text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-800 transition-all font-medium flex items-center justify-center gap-2 whitespace-nowrap">
-              + Novo
-            </button>
-          </div>
-        </div>
-
-        {/* GRID DE PRODUTOS */}
-        {produtosFiltrados.length === 0 ? (
-          <div className="text-center text-gray-500 py-20">Nenhum produto encontrado.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {produtosFiltrados.map(produto => (
-              <ProdutoAdminCard
-                key={produto.id}
-                produto={produto}
-                fornecedorNome={getFornecedorNome(produto.supplierId)}
-                onEditar={() => handleEditar(produto)}
-                onApagar={() => handleApagarProduto(produto.id, produto.name)}
-                isSelected={selectedIds.has(produto.id)}
-                onToggleSelect={() => toggleSelection(produto.id)}
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+              <FormInput
+                label="Nome do Produto"
+                name="name"
+                register={register}
+                error={errors.name?.message}
+                placeholder="Ex: Anel Solitário Prata 925"
               />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Modais */}
-      <ProdutoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} fornecedores={fornecedores} categories={categories} setCategories={setCategories} produtoParaEditar={produtoSelecionado} onProdutoSalvo={handleProdutoSalvo} />
-      
-      {/* COMPONENTE INVISÍVEL PARA IMPRESSÃO */}
-      <EtiquetaImpressao ref={printRef} produtos={getSelectedProducts()} />
-    </>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormInput
+                  label="Custo (R$)"
+                  name="costPrice"
+                  type="number"
+                  step="0.01"
+                  register={register}
+                  error={errors.costPrice?.message}
+                  placeholder="25.00"
+                  icon={<DollarSign size={16} className="text-gray-400" />}
+                />
+                <FormInput
+                  label="Venda (R$)"
+                  name="salePrice"
+                  type="number"
+                  step="0.01"
+                  register={register}
+                  error={errors.salePrice?.message}
+                  placeholder="Auto"
+                  icon={<DollarSign size={16} className="text-gray-400" />}
+                />
+                <FormInput 
+                  label="Stock (Qtd)" 
+                  name="quantity" 
+                  type="number" 
+                  step="1" 
+                  register={register} 
+                  error={errors.quantity?.message} 
+                  placeholder="0" 
+                  icon={<Box size={16} className="text-gray-400" />} 
+                />
+              </div>
+
+              {/* --- VISUALIZAÇÃO DO RAIO-X DO LUCRO --- */}
+              {raioX && (
+                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm animate-in fade-in slide-in-from-top-2">
+                  <h4 className="font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                    <Calculator className="w-4 h-4" /> Raio-X do Lucro Real
+                  </h4>
+                  
+                  <div className="grid grid-cols-2 gap-y-1 text-gray-600">
+                    <span>Venda Bruta:</span>
+                    <span className="text-right font-medium text-gray-900">R$ {Number(vendaObservada).toFixed(2)}</span>
+                    
+                    <span>(-) Custo Peça:</span>
+                    <span className="text-right text-red-500">- R$ {Number(custoObservado).toFixed(2)}</span>
+                    
+                    <span>(-) Taxa Cartão ({configGlobal?.cardFee || 0}%):</span>
+                    <span className="text-right text-red-500">- R$ {raioX.taxaCartao.toFixed(2)}</span>
+                    
+                    <span>(-) Embalagem:</span>
+                    <span className="text-right text-red-500">- R$ {raioX.custoEmbalagem.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="mt-3 pt-2 border-t border-emerald-200 flex justify-between items-center">
+                    <span className="font-bold text-emerald-900">Lucro Líquido (Bolso):</span>
+                    <div className="text-right">
+                      <span className={`block text-lg font-bold ${raioX.lucroLiquido > 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                        R$ {raioX.lucroLiquido.toFixed(2)}
+                      </span>
+                      <span className="text-xs text-emerald-600 font-medium">Margem Real: {raioX.margemLiquida.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* --------------------------------------- */}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="supplierId" className="block text-sm font-medium text-gray-700">
+                    Fornecedor
+                  </label>
+                  <select
+                    id="supplierId"
+                    {...register("supplierId")}
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.supplierId ? "border-red-500" : "border-gray-300"
+                      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                  >
+                    <option value="">Selecione um fornecedor</option>
+                    {fornecedores.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.supplierId && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.supplierId.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                      Categoria (Opcional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="p-1 rounded-full text-dourado hover:bg-gray-100"
+                      title="Gerir categorias"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                  <select
+                    id="category"
+                    {...register("category")}
+                    className={`block w-full px-3 py-2 border ${errors.category ? "border-red-500" : "border-gray-300"
+                      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categories
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                  {errors.category && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.category.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormInput
+                  label="Código (SKU)"
+                  name="code"
+                  register={register}
+                  error={errors.code?.message}
+                  placeholder="Auto (Ex: BMO123)"
+                  icon={<Box size={16} className="text-dourado" />} // Ícone alterado para Box (mais neutro)
+                />
+
+                <div>
+                  <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                    Status
+                  </label>
+                  <select
+                    id="status"
+                    {...register("status")}
+                    className={`mt-1 block w-full px-3 py-2 border ${errors.status ? "border-red-500" : "border-gray-300"
+                      } rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                  >
+                    <option value="ativo">Ativo (Visível)</option>
+                    <option value="inativo">Inativo (Oculto)</option>
+                  </select>
+                  {errors.status && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.status.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <FormInput
+                label="Link do Produto no Fornecedor (Opcional)"
+                name="supplierProductUrl"
+                type="url"
+                register={register}
+                error={errors.supplierProductUrl?.message}
+                placeholder="https://fornecedor.com/produto/123"
+                icon={<Link size={16} className="text-gray-400" />}
+              />
+
+              <FormInput
+                label="URL da Imagem (Opcional)"
+                name="imageUrl"
+                type="url"
+                register={register}
+                error={errors.imageUrl?.message}
+                placeholder="https://..."
+              />
+
+              <FormInput
+                label="Descrição Curta (Opcional)"
+                name="description"
+                register={register}
+                error={errors.description?.message}
+                placeholder="Ex: Prata 925 com zircônia"
+              />
+
+              <div className="pt-4 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-carvao text-white px-5 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
+                >
+                  {isSubmitting ? (isEditMode ? "Atualizando..." : "Salvando...") : (isEditMode ? "Atualizar Produto" : "Salvar Produto")}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        setCategories={setCategories}
+        onCategoryCreated={handleCategoryCreated}
+      />
+    </AnimatePresence>
   );
 }

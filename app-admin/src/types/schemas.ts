@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 // ============================================================================
-// HELPERS (Utilitários para evitar repetição)
+// HELPERS (Utilitários para validação)
 // ============================================================================
 
-// Aceita string vazia ou undefined (útil para campos opcionais de formulário)
+// Converte string vazia para undefined (para campos opcionais funcionarem bem com o formulário)
 const emptyToUndefined = z.literal('').transform(() => undefined);
 
 // Valida URL mas aceita vazio
@@ -12,6 +12,12 @@ const optionalUrl = z.string().url("Insira uma URL válida (ex: https://...)").o
 
 // String opcional que remove espaços em branco extras
 const optionalString = z.string().trim().optional().or(emptyToUndefined);
+
+// Validação de Cor Hexadecimal (ex: #FFFFFF)
+const hexColorSchema = (defaultColor: string) => 
+  z.string()
+   .regex(/^#([0-9a-fA-F]{3}){1,2}$/, "Cor inválida (use Hex, ex: #D4AF37)")
+   .default(defaultColor);
 
 // ============================================================================
 // 1. Schema de Produto
@@ -33,7 +39,7 @@ export const produtoSchema = z.object({
   imageUrl: optionalUrl,
   supplierProductUrl: optionalUrl,
 
-  // Stock
+  // Stock (Módulo de Controlo de Stock)
   quantity: z.coerce
     .number()
     .int("A quantidade deve ser um número inteiro.")
@@ -63,12 +69,13 @@ export type FornecedorFormData = z.infer<typeof fornecedorSchema>;
 
 
 // ============================================================================
-// 3. Schema de Configurações (White-Label)
+// 3. Schema de Configurações (White-Label & Custos)
 // ============================================================================
 export const configSchema = z.object({
+  // Comunicação e Metas
   whatsappNumber: z.string()
     .regex(/^[0-9]+$/, "Apenas números (incluindo código país e DDD)")
-    .min(10, "Número curto demais (mínimo 10 dígitos)")
+    .min(10, "Número curto demais")
     .optional()
     .or(emptyToUndefined),
     
@@ -77,17 +84,25 @@ export const configSchema = z.object({
     .min(0, "A meta deve ser positiva")
     .optional(),
 
-  // --- CAMPOS WHITE-LABEL ---
+  // --- WHITE-LABEL (Identidade Visual) ---
   storeName: z.string().min(2, "Nome da loja é obrigatório").trim().default("Minha Loja"),
+  primaryColor: hexColorSchema("#D4AF37"), 
+  secondaryColor: hexColorSchema("#343434"),
   
-  // Validação de Cor Hexadecimal
-  primaryColor: z.string()
-    .regex(/^#([0-9a-fA-F]{3}){1,2}$/, "Cor inválida (ex: #D4AF37)")
-    .default("#D4AF37"), 
+  // Banners (Vitrine Viva)
+  banners: z.array(z.string()).optional().default([]),
+
+  // --- CUSTOS OPERACIONAIS (Calculadora de Lucro) ---
+  cardFee: z.coerce
+    .number()
+    .min(0, "A taxa não pode ser negativa")
+    .max(100, "A taxa não pode ser maior que 100%")
+    .default(0), // Ex: 4.99 (%)
     
-  secondaryColor: z.string()
-    .regex(/^#([0-9a-fA-F]{3}){1,2}$/, "Cor inválida (ex: #343434)")
-    .default("#343434"),
+  packagingCost: z.coerce
+    .number()
+    .min(0, "O custo não pode ser negativo")
+    .default(0), // Ex: 1.50 (R$)
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

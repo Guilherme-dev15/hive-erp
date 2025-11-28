@@ -46,6 +46,9 @@ apiClient.interceptors.request.use(async (config) => {
 // --- FIM DO INTERCEPTOR ---
 
 export interface AppConfig extends ConfigFormData {
+  banners: never[];
+  cardFee: any;
+  packagingCost: any;
   secondaryColor: string;
   primaryColor: string;
   storeName: string;
