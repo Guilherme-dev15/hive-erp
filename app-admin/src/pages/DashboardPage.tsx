@@ -5,20 +5,37 @@ import { getDashboardStats, getDashboardCharts, type ChartData } from '../servic
 import { TrendingUp, ArrowDownCircle, DollarSign, Activity } from 'lucide-react';
 // Importar componentes do Recharts
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell 
 } from 'recharts';
 
-// Cores da Marca
+// Cores da Marca (Modernizadas)
 const COLORS = {
-  primary: '#D4AF37', // Dourado
-  secondary: '#343434', // Carvão
+  gold: '#D4AF37',     // Principal
+  charcoal: '#343434', // Texto Forte
+  gray: '#9CA3AF',     // Texto Suave
+  grid: '#F3F4F6',     // Linhas muito subtis
   success: '#10B981',
   danger: '#EF4444',
-  grid: '#e5e7eb'
+  bgTooltip: '#FFFFFF'
 };
 
-// Componente Card de Estatística (Mantido igual)
+// --- Componente: Tooltip Personalizado (O Segredo do Visual Moderno) ---
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-xl text-sm">
+        <p className="font-bold text-gray-700 mb-1">{label}</p>
+        <p className="text-dourado font-semibold">
+          {payload[0].value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Componente Card de Estatística
 interface StatCardProps {
   titulo: string;
   valor: number;
@@ -32,14 +49,18 @@ const StatCard = ({ titulo, valor, icone, corIcone, delay }: StatCardProps) => (
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay }}
-    className="bg-white shadow-lg rounded-xl p-5 border-l-4 flex items-center justify-between hover:shadow-xl transition-shadow"
-    style={{ borderLeftColor: corIcone }}
+    className="bg-white shadow-sm hover:shadow-md rounded-2xl p-6 border border-gray-100 flex items-center justify-between transition-all"
   >
     <div>
-      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{titulo}</p>
-      <p className="text-2xl font-bold text-carvao">R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{titulo}</p>
+      <p className="text-2xl font-bold text-gray-800">
+        {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+      </p>
     </div>
-    <div className={`p-3 rounded-full bg-opacity-10`} style={{ backgroundColor: `${corIcone}20`, color: corIcone }}>
+    <div 
+      className="p-3 rounded-xl"
+      style={{ backgroundColor: `${corIcone}15`, color: corIcone }} // 15 é transparência (15%)
+    >
       {icone}
     </div>
   </motion.div>
@@ -73,91 +94,139 @@ export function DashboardPage() {
     carregarDados();
   }, []);
 
-  if (loading) return <div className="flex justify-center p-10"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-dourado"></div></div>;
+  if (loading) return (
+    <div className="flex justify-center items-center h-96">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-dourado"></div>
+    </div>
+  );
 
   return (
-    <div className="space-y-8">
-      <motion.h1 
+    <div className="space-y-8 pb-10">
+      <motion.div 
         initial={{ opacity: 0, x: -20 }} 
         animate={{ opacity: 1, x: 0 }} 
-        className="text-3xl font-bold text-carvao"
+        className="flex items-center justify-between"
       >
-        Visão Geral
-      </motion.h1>
+        <h1 className="text-3xl font-bold text-carvao">Visão Geral</h1>
+        <p className="text-sm text-gray-400 bg-white px-3 py-1 rounded-full border border-gray-100 shadow-sm">
+          Última atualização: Hoje
+        </p>
+      </motion.div>
 
-      {/* 1. Cartões de KPI (Mantidos e melhorados) */}
+      {/* 1. Cartões de KPI (Minimalistas) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard titulo="Saldo Total" valor={stats.saldoTotal} icone={<DollarSign size={24} />} corIcone={COLORS.primary} delay={0.1} />
+        <StatCard titulo="Saldo Total" valor={stats.saldoTotal} icone={<DollarSign size={24} />} corIcone={COLORS.gold} delay={0.1} />
         <StatCard titulo="Vendas" valor={stats.totalVendas} icone={<TrendingUp size={24} />} corIcone={COLORS.success} delay={0.2} />
         <StatCard titulo="Despesas" valor={stats.totalDespesas} icone={<ArrowDownCircle size={24} />} corIcone={COLORS.danger} delay={0.3} />
         <StatCard titulo="Lucro Líquido" valor={stats.lucroLiquido} icone={<Activity size={24} />} corIcone={stats.lucroLiquido >= 0 ? COLORS.success : COLORS.danger} delay={0.4} />
       </div>
 
       {/* 2. Área de Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Gráfico de Barras: Vendas 7 Dias */}
+        {/* GRÁFICO DE BARRAS (VENDAS 7 DIAS) */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 lg:col-span-2"
+          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2"
         >
-          <h3 className="text-lg font-bold text-carvao mb-6">Vendas dos Últimos 7 Dias</h3>
+          <div className="flex justify-between items-center mb-8">
+             <h3 className="text-lg font-bold text-gray-800">Vendas da Semana</h3>
+          </div>
+          
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartsData.salesByDay}>
+              <BarChart data={chartsData.salesByDay} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                {/* Grade Minimalista (pontilhada e suave) */}
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} vertical={false} />
-                <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `R$${value}`} />
-                <RechartsTooltip 
-                  cursor={{ fill: '#f3f4f6' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                
+                {/* Eixo X (Dias) */}
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: COLORS.gray, fontSize: 12 }} 
+                  dy={10}
                 />
-                <Bar dataKey="vendas" name="Vendas" fill={COLORS.primary} radius={[4, 4, 0, 0]} barSize={40} />
+                
+                {/* Eixo Y (Valores) */}
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: COLORS.gray, fontSize: 12 }} 
+                  tickFormatter={(value) => `R$${value >= 1000 ? `${(value/1000).toFixed(1)}k` : value}`} 
+                />
+                
+                {/* Tooltip Customizado */}
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+                
+                {/* Barras Arredondadas */}
+                <Bar 
+                  dataKey="vendas" 
+                  name="Vendas" 
+                  fill={COLORS.gold} 
+                  radius={[6, 6, 0, 0]} // Arredonda apenas o topo
+                  barSize={32}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Gráfico de Pizza: Receita vs Despesa */}
+        {/* GRÁFICO DE PIZZA (BALANÇO) */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="bg-white p-6 rounded-xl shadow-lg border border-gray-100"
+          className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col"
         >
-          <h3 className="text-lg font-bold text-carvao mb-6">Balanço Financeiro</h3>
-          <div className="h-[300px] w-full relative">
-             {/* Total no Centro */}
-             <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                <span className="text-xs text-gray-400 uppercase">Saldo</span>
-                <span className={`text-xl font-bold ${stats.saldoTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {stats.saldoTotal >= 0 ? '+' : ''}{stats.saldoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          <h3 className="text-lg font-bold text-gray-800 mb-4 text-center lg:text-left">Balanço</h3>
+          
+          <div className="flex-grow relative flex items-center justify-center">
+             {/* Texto Centralizado (Absoluto + Flex) */}
+             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Saldo</span>
+                <span className={`text-2xl font-bold ${stats.saldoTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {stats.saldoTotal >= 0 ? '+' : ''}{stats.saldoTotal.toLocaleString('pt-BR', { notation: 'compact', style: 'currency', currency: 'BRL' })}
                 </span>
              </div>
 
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartsData.incomeVsExpense}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  <Cell key="cell-0" fill={COLORS.success} /> {/* Receitas */}
-                  <Cell key="cell-1" fill={COLORS.danger} />  {/* Despesas */}
-                </Pie>
-                <RechartsTooltip />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="w-full h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartsData.incomeVsExpense}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70} // Donut mais fino
+                    outerRadius={90}
+                    paddingAngle={5} // Espaço entre fatias
+                    dataKey="value"
+                    stroke="none" // Remove borda branca
+                  >
+                    <Cell key="cell-receita" fill={COLORS.success} />
+                    <Cell key="cell-despesa" fill={COLORS.danger} />
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </motion.div>
 
+          {/* Legenda Personalizada em Baixo */}
+          <div className="mt-4 flex justify-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <span className="text-sm text-gray-600">Receitas</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-sm text-gray-600">Despesas</span>
+            </div>
+          </div>
+
+        </motion.div>
       </div>
     </div>
   );
