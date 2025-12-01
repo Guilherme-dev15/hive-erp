@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, Search, ZoomIn } from 'lucide-react';
+import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User, Search, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
@@ -22,13 +22,12 @@ interface ProdutoCatalogo {
   quantity?: number;
 }
 
-// ATUALIZADO: Adicionado campo 'banners'
 interface ConfigPublica {
   whatsappNumber: string | null;
   storeName: string;
   primaryColor: string;
   secondaryColor: string;
-  banners?: string[]; 
+  banners?: string[];
 }
 
 interface ItemCarrinho {
@@ -89,56 +88,43 @@ const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// ============================================================================
-// 3. SERVIÇOS DE API
-// ============================================================================
-const getProdutosCatalogo = async (): Promise<ProdutoCatalogo[]> => {
-  const response = await apiClient.get('/produtos-catalogo');
+// Funções auxiliares
+const saveOrder = async (payload: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> => {
+  const response = await apiClient.post('/orders', payload);
   return response.data;
 };
 
-const getConfigPublica = async (): Promise<ConfigPublica> => {
-  const response = await apiClient.get('/config-publica');
-  return response.data;
-};
-
-const getPublicCategories = async (): Promise<string[]> => {
-  const response = await apiClient.get('/categories-public');
-  return response.data;
-};
-
-
-// ============================================================================
-// 4. UTILITÁRIOS
-// ============================================================================
 const formatCurrency = (value?: number): string => {
   if (value === undefined || value === null) return 'R$ 0,00';
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 // ============================================================================
-// 5. COMPONENTE CARROSSEL (NOVO)
+// 3. COMPONENTES AUXILIARES (Carrossel)
 // ============================================================================
 function BannerCarousel({ banners }: { banners: string[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (!banners || banners.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length);
-    }, 5000); // Troca a cada 5 segundos
+    }, 5000);
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [banners]);
 
   if (!banners || banners.length === 0) return null;
 
+  const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % banners.length);
+  const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+
   return (
-    <div className="relative w-full h-48 md:h-96 bg-gray-200 overflow-hidden shadow-md">
+    <div className="relative w-full h-48 md:h-96 bg-gray-200 overflow-hidden shadow-md group">
        <AnimatePresence mode='wait'>
          <motion.img
             key={currentIndex}
             src={banners[currentIndex]}
-            alt={`Banner ${currentIndex + 1}`}
+            alt={`Banner ${currentIndex}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -147,35 +133,38 @@ function BannerCarousel({ banners }: { banners: string[] }) {
          />
        </AnimatePresence>
        
-       {/* Indicadores (Bolinhas) */}
        {banners.length > 1 && (
-         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-            {banners.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`w-2 h-2 rounded-full transition-all ${idx === currentIndex ? 'bg-white w-4' : 'bg-white/50'}`}
-              />
-            ))}
-         </div>
+         <>
+           <button onClick={prevSlide} className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50">
+             <ChevronLeft size={24} />
+           </button>
+           <button onClick={nextSlide} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50">
+             <ChevronRight size={24} />
+           </button>
+           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {banners.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`h-2 rounded-full transition-all shadow-sm ${idx === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-2'}`}
+                />
+              ))}
+           </div>
+         </>
        )}
-       
-       {/* Overlay gradiente subtil para melhorar leitura do header se for transparente (opcional) */}
-       <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-transparent pointer-events-none"></div>
     </div>
   );
 }
 
 // ============================================================================
-// 6. COMPONENTE PRINCIPAL (APP)
+// 4. COMPONENTE PRINCIPAL (APP)
 // ============================================================================
 export default function App() {
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
-  
   const [config, setConfig] = useState<ConfigPublica>({
     whatsappNumber: null,
     storeName: 'Carregando...',
-    primaryColor: '#D4AF37',
+    primaryColor: '#D4AF37', 
     secondaryColor: '#343434',
     banners: []
   });
@@ -187,223 +176,163 @@ export default function App() {
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
-
-  type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
-  const [sortOrder, setSortOrder] = useState<SortOrder>('default');
-  
+  const [sortOrder, setSortOrder] = useState<'default' | 'priceAsc' | 'priceDesc'>('default');
   const [searchTerm, setSearchTerm] = useState("");
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    async function carregarCatalogo() {
+    async function carregarLoja() {
       try {
         setLoading(true);
-        setError(null);
-
+        // Chamada direta ao API Client (Removemos as funções duplicadas)
         const [prodRes, confRes, catRes] = await Promise.all([
-          getProdutosCatalogo(),
-          getConfigPublica(),
-          getPublicCategories()
+          apiClient.get('/produtos-catalogo').catch(() => ({ data: [] })),
+          apiClient.get('/config-publica').catch(() => ({ data: null })),
+          apiClient.get('/categories-public').catch(() => ({ data: [] }))
         ]);
 
-        setProdutos(prodRes);
-        setCategories(["Todos", ...catRes]);
-        
-        if (confRes) {
-            setConfig({
-                whatsappNumber: confRes.whatsappNumber,
-                storeName: confRes.storeName || 'Minha Loja',
-                primaryColor: confRes.primaryColor || '#D4AF37',
-                secondaryColor: confRes.secondaryColor || '#343434',
-                banners: confRes.banners || [] // Carrega os banners
-            });
-            document.title = confRes.storeName || 'Loja Virtual';
-        }
+        setProdutos(prodRes.data || []);
+        setCategories(["Todos", ...(catRes.data || [])]);
 
+        if (confRes.data) {
+          setConfig({
+            whatsappNumber: confRes.data.whatsappNumber,
+            storeName: confRes.data.storeName || 'Minha Loja',
+            primaryColor: confRes.data.primaryColor || '#D4AF37',
+            secondaryColor: confRes.data.secondaryColor || '#343434',
+            banners: confRes.data.banners || []
+          });
+          document.title = confRes.data.storeName || 'Loja Virtual';
+        }
       } catch (err) {
-        console.error(err);
-        setError("Não foi possível carregar a loja.");
+        console.error("Erro fatal no carregamento:", err);
+        setError("Não foi possível conectar à loja.");
       } finally {
         setLoading(false);
       }
     }
-    carregarCatalogo();
+    carregarLoja();
   }, []);
 
-  // Carrinho
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
-    const stockDisponivel = produto.quantity || 0;
-    if (stockDisponivel <= 0) { toast.error("Produto esgotado!"); return; }
+    const stock = produto.quantity !== undefined ? produto.quantity : 0;
+    if (stock <= 0) return toast.error("Produto esgotado!");
 
     setCarrinho(prev => {
-      const itemExistente = prev[produto.id];
-      const qtdAtual = itemExistente ? itemExistente.quantidade : 0;
-
-      if (qtdAtual + 1 > stockDisponivel) {
-        toast.error(`Apenas ${stockDisponivel} unidades disponíveis.`);
+      const qtdAtual = prev[produto.id]?.quantidade || 0;
+      if (qtdAtual + 1 > stock) {
+        toast.error(`Apenas ${stock} unidades disponíveis.`);
         return prev;
       }
-
-      toast.success(`${produto.name} adicionado!`);
+      toast.success("Adicionado!");
       setIsCarrinhoAberto(true);
-
-      if (itemExistente) {
-        return { ...prev, [produto.id]: { ...itemExistente, quantidade: itemExistente.quantidade + 1 } };
-      }
-      return { ...prev, [produto.id]: { produto, quantidade: 1 } };
+      return { ...prev, [produto.id]: { produto, quantidade: qtdAtual + 1 } };
     });
   };
 
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
-  const totalItens = itensDoCarrinho.reduce((total, item) => total + item.quantidade, 0);
+  const totalItens = itensDoCarrinho.reduce((acc, item) => acc + item.quantidade, 0);
 
-  // Filtros
-  const produtosFiltradosEOrdenados = useMemo(() => {
+  const produtosFiltrados = useMemo(() => {
     let lista = produtos.filter(p => p.status === 'ativo');
-    
     if (selectedCategory !== "Todos") {
-      if (selectedCategory === "Outros") {
-         lista = lista.filter(p => !p.category || p.category === "Sem Categoria");
-      } else {
-         lista = lista.filter(p => p.category === selectedCategory);
-      }
+      lista = lista.filter(p => selectedCategory === "Outros" ? !p.category : p.category === selectedCategory);
     }
-    
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      lista = lista.filter(p => 
-        p.name.toLowerCase().includes(term) || 
-        (p.code && p.code.toLowerCase().includes(term))
-      );
+    if (searchTerm.trim()) {
+      const t = searchTerm.toLowerCase();
+      lista = lista.filter(p => p.name.toLowerCase().includes(t) || p.code?.toLowerCase().includes(t));
     }
-
     if (sortOrder === 'priceAsc') lista.sort((a, b) => (a.salePrice || 0) - (b.salePrice || 0));
-    else if (sortOrder === 'priceDesc') lista.sort((a, b) => (b.salePrice || 0) - (a.salePrice || 0));
-
+    if (sortOrder === 'priceDesc') lista.sort((a, b) => (b.salePrice || 0) - (a.salePrice || 0));
     return lista;
-  }, [produtos, selectedCategory, sortOrder, searchTerm]);
+  }, [produtos, selectedCategory, searchTerm, sortOrder]);
 
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-gray-800" size={48} /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" size={40} /></div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
   return (
-    <div className="min-h-screen bg-off-white text-gray-800 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
       <Toaster position="top-right" />
 
-      {/* HEADER */}
-      <header 
-        className="shadow-lg sticky top-0 z-40 border-b-4 transition-colors duration-300"
-        style={{ backgroundColor: config.secondaryColor, borderColor: config.primaryColor }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-          <h1 className="text-2xl font-bold transition-colors duration-300" style={{ color: config.primaryColor }}>
-            {config.storeName}
-          </h1>
-          <button
-            onClick={() => setIsCarrinhoAberto(true)}
-            className="relative p-2 rounded-full hover:bg-white/10 transition-colors"
-            style={{ color: config.primaryColor }}
-          >
-            <ShoppingCart size={24} />
-            {totalItens > 0 && (
-              <span className="absolute top-0 right-0 w-5 h-5 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
-                {totalItens}
-              </span>
-            )}
+      <header className="shadow-md sticky top-0 z-40 border-b-4 transition-colors" style={{ backgroundColor: config.secondaryColor, borderColor: config.primaryColor }}>
+        <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
+          <h1 className="text-2xl font-bold transition-colors" style={{ color: config.primaryColor }}>{config.storeName}</h1>
+          <button onClick={() => setIsCarrinhoAberto(true)} className="relative p-2 rounded-full hover:bg-white/10 transition-colors" style={{ color: config.primaryColor }}>
+            <ShoppingCart />
+            {totalItens > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold">{totalItens}</span>}
           </button>
         </div>
       </header>
 
-      {/* --- BANNERS (CARROSEL) --- */}
-      {/* Agora está fora do container principal para ocupar a largura total se quiser, ou mantemos container */}
-      {config.banners && config.banners.length > 0 && (
-         <BannerCarousel banners={config.banners} />
-      )}
+      <BannerCarousel banners={config.banners || []} />
 
-      {/* MENU, BUSCA E ORDENAÇÃO */}
       <nav className="bg-white shadow-sm sticky top-16 z-30 py-3 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          
-          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 no-scrollbar">
-            {categories.map((category) => (
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 no-scrollbar">
+            {categories.map(cat => (
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className="px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all"
                 style={{
-                    backgroundColor: selectedCategory === category ? config.secondaryColor : '#f3f4f6',
-                    color: selectedCategory === category ? '#ffffff' : config.secondaryColor
+                  backgroundColor: selectedCategory === cat ? config.secondaryColor : '#f3f4f6',
+                  color: selectedCategory === cat ? '#ffffff' : config.secondaryColor
                 }}
-                className="px-4 py-1.5 rounded-full font-medium text-sm transition-colors whitespace-nowrap"
               >
-                {category}
+                {cat}
               </button>
             ))}
           </div>
-          
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative flex-grow sm:flex-grow-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input 
-                    type="text" 
-                    placeholder="Buscar peça..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-48 pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': config.primaryColor } as any}
-                />
+          <div className="flex gap-2 w-full md:w-auto">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input 
+                type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-1.5 rounded-full border border-gray-300 text-sm focus:outline-none focus:ring-2"
+                style={{ '--tw-ring-color': config.primaryColor } as any}
+              />
             </div>
-            <div className="relative flex-shrink-0">
-                <select
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value as any)}
-                    className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-1.5 pl-4 pr-8 text-sm font-medium focus:outline-none focus:ring-2"
-                    style={{ color: config.secondaryColor, '--tw-ring-color': config.primaryColor } as any}
-                >
-                    <option value="default">Ordenar</option>
-                    <option value="priceAsc">Menor Preço</option>
-                    <option value="priceDesc">Maior Preço</option>
-                </select>
-                <ArrowDownUp size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="relative">
+               <select 
+                 value={sortOrder} onChange={e => setSortOrder(e.target.value as any)}
+                 className="appearance-none bg-gray-100 border border-gray-200 rounded-full py-1.5 pl-4 pr-8 text-sm font-medium focus:outline-none focus:ring-2"
+                 style={{ color: config.secondaryColor, '--tw-ring-color': config.primaryColor } as any}
+               >
+                 <option value="default">Ordenar</option>
+                 <option value="priceAsc">Menor Preço</option>
+                 <option value="priceDesc">Maior Preço</option>
+               </select>
+               <ArrowDownUp size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
           </div>
         </div>
       </nav>
 
-      {/* CONTEÚDO */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <section>
-          <div className="flex justify-between items-end border-b-2 pb-2 mb-6" style={{ borderColor: config.primaryColor }}>
-             <h2 className="text-3xl font-bold" style={{ color: config.secondaryColor }}>
-               {selectedCategory}
-             </h2>
-             <span className="text-sm text-gray-500 mb-1">
-               {produtosFiltradosEOrdenados.length} {produtosFiltradosEOrdenados.length === 1 ? 'item' : 'itens'}
-             </span>
-          </div>
+        <div className="flex justify-between items-end border-b-2 pb-2 mb-6" style={{ borderColor: config.primaryColor }}>
+           <h2 className="text-2xl font-bold" style={{ color: config.secondaryColor }}>{selectedCategory}</h2>
+           <span className="text-sm text-gray-500">{produtosFiltrados.length} itens</span>
+        </div>
 
-          {produtosFiltradosEOrdenados.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {produtosFiltradosEOrdenados.map(produto => (
-                <CardProduto
-                  key={produto.id}
-                  produto={produto}
-                  config={config}
-                  onAdicionar={() => adicionarAoCarrinho(produto)}
-                  onImageClick={() => setZoomedImageUrl(produto.imageUrl || null)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200">
-                <Search className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-                <p className="text-gray-500 font-medium">Nenhum produto encontrado.</p>
-            </div>
-          )}
-        </section>
+        {produtosFiltrados.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {produtosFiltrados.map(prod => (
+              <CardProduto 
+                key={prod.id} produto={prod} config={config} 
+                onAdicionar={() => adicionarAoCarrinho(prod)} 
+                onImageClick={() => setZoomedImageUrl(prod.imageUrl || null)} 
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200">
+             <Search className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+             <p className="text-gray-500 font-medium">Nenhum produto encontrado.</p>
+          </div>
+        )}
       </main>
 
-      <ModalCarrinho isOpen={isCarrinhoAberto} onClose={() => setIsCarrinhoAberto(false)} itens={itensDoCarrinho} setCarrinho={setCarrinho} whatsappNumber={config.whatsappNumber} config={config} />
+      <ModalCarrinho isOpen={isCarrinhoAberto} onClose={() => setIsCarrinhoAberto(false)} itens={Object.values(carrinho)} setCarrinho={setCarrinho} whatsappNumber={config.whatsappNumber} config={config} />
       <ImageZoomModal imageUrl={zoomedImageUrl} onClose={() => setZoomedImageUrl(null)} />
     </div>
   );
@@ -416,26 +345,25 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: CardProduto
   const temStock = stock > 0;
 
   return (
-    <motion.div 
-      className="bg-white shadow-md rounded-xl overflow-hidden hover:shadow-xl transition-all border border-gray-100 flex flex-col"
-      whileHover={{ y: -5 }}
-    >
+    <motion.div className="bg-white shadow-md rounded-xl overflow-hidden hover:shadow-xl transition-all border border-gray-100 flex flex-col" whileHover={{ y: -5 }}>
       <div className="relative aspect-square bg-gray-100 cursor-pointer group" onClick={onImageClick}>
         {produto.imageUrl ? (
           <img src={produto.imageUrl} alt={produto.name} className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${!temStock && 'grayscale opacity-50'}`} />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-300"><Package size={48} /></div>
         )}
-        {/* Overlay Zoom */}
-        {temStock && <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"><ZoomIn className="text-white drop-shadow-md" /></div>}
-        {!temStock && <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow">ESGOTADO</span>}
-        {temStock && <span className="absolute top-3 left-3 bg-black/60 text-white text-xs font-mono px-2 py-1 rounded">{produto.code || 'N/A'}</span>}
+        {!temStock ? (
+           <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow">ESGOTADO</span>
+        ) : (
+           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <ZoomIn className="text-white drop-shadow-md" />
+           </div>
+        )}
       </div>
-
-      <div className="p-4 flex-col flex-grow flex justify-between">
+      <div className="p-4 flex flex-col flex-grow justify-between">
         <div>
-          <h3 className="font-semibold text-lg line-clamp-1" style={{ color: config.secondaryColor }}>{produto.name}</h3>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{produto.description || 'Sem descrição'}</p>
+          <h3 className="font-semibold text-gray-800 line-clamp-1" style={{ color: config.secondaryColor }}>{produto.name}</h3>
+          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{produto.description}</p>
           {temStock && stock < 3 && <p className="text-xs text-orange-600 font-bold mt-1">Restam apenas {stock}!</p>}
         </div>
         <div>
@@ -455,9 +383,9 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: CardProduto
 }
 
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, config }: ModalCarrinhoProps) {
-  const [obs] = useState('');
   const [nome, setNome] = useState('');
   const [tel, setTel] = useState('');
+  const [obs, setObs] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { subtotal, desconto, total } = useMemo(() => {
@@ -466,43 +394,34 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     return { subtotal: sub, desconto: desc, total: sub - desc };
   }, [itens]);
 
-  const enviarPedido = async () => {
+  const finalizar = async () => {
     if (!whatsappNumber) return toast.error("Loja sem WhatsApp configurado.");
     if (!nome || !tel) return toast.error("Preencha seus dados.");
-    
     setLoading(true);
-    const apiClient = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001' });
-    
     try {
-      const itemsPayload = itens.map(i => ({ 
-         id: i.produto.id, name: i.produto.name, code: i.produto.code, salePrice: i.produto.salePrice || 0, quantidade: i.quantidade 
-      }));
+      const itemsPayload = itens.map(i => ({ id: i.produto.id, name: i.produto.name, code: i.produto.code, salePrice: i.produto.salePrice, quantidade: i.quantidade }));
+      const res = await saveOrder({ items: itemsPayload, subtotal, desconto, total, observacoes: obs, clienteNome: nome, clienteTelefone: tel, status: 'Aguardando Pagamento' } as any);
       
-      const res = await apiClient.post('/orders', {
-        items: itemsPayload, subtotal, desconto, total, observacoes: obs,
-        clienteNome: nome, clienteTelefone: tel
-      });
-      
-      const orderId = res.data.id.substring(0, 5).toUpperCase();
-      let msg = `🧾 *Pedido #${orderId}*\n👤 ${nome}\n\n`;
-      itens.forEach(i => msg += `${i.quantidade}x ${i.produto.name}\n`);
-      msg += `\nTotal: ${formatCurrency(total)}`;
+      const orderId = res.id.substring(0, 5).toUpperCase();
+      let msg = `🧾 *Pedido #${orderId}*\n👤 ${nome}\n\n` + itens.map(i => `${i.quantidade}x ${i.produto.name}`).join('\n') + `\n\nTotal: ${formatCurrency(total)}`;
       if (obs) msg += `\nObs: ${obs}`;
       
       window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
       setCarrinho({}); onClose(); setNome(''); setTel('');
-
-    } catch (e) { toast.error("Erro ao processar pedido."); } finally { setLoading(false); }
+    } catch (e) { toast.error("Erro ao enviar"); } finally { setLoading(false); }
   };
+
+  // Correção: setObs ligado ao onChange
+  const handleObsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => setObs(e.target.value);
 
   const updateQtd = (id: string, delta: number) => {
     setCarrinho(prev => {
       const item = prev[id];
       if (!item) return prev;
-      const novoQtd = item.quantidade + delta;
-      if (novoQtd > (item.produto.quantity || 0)) { toast.error("Stock máximo."); return prev; }
-      if (novoQtd <= 0) { const copy = {...prev}; delete copy[id]; return copy; }
-      return { ...prev, [id]: { ...item, quantidade: novoQtd } };
+      const nova = item.quantidade + delta;
+      if (nova > (item.produto.quantity || 0)) { toast.error("Stock máximo"); return prev; }
+      if (nova <= 0) { const c = {...prev}; delete c[id]; return c; }
+      return { ...prev, [id]: { ...item, quantidade: nova } };
     });
   };
 
@@ -511,37 +430,38 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
       {isOpen && (
         <motion.div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <motion.div className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl" onClick={e => e.stopPropagation()} initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}>
-            <div className="p-4 border-b flex justify-between items-center" style={{ backgroundColor: config.secondaryColor }}>
-              <h2 className="text-xl font-bold text-white">Carrinho</h2>
-              <button onClick={onClose} className="text-white"><X /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-               <div className="bg-gray-50 p-3 rounded border">
-                  <div className="text-xs font-bold uppercase text-gray-500 mb-2">Seus Dados</div>
-                  <input placeholder="Nome Completo" className="w-full mb-2 p-2 border rounded text-sm" value={nome} onChange={e => setNome(e.target.value)} />
-                  <input placeholder="WhatsApp (com DDD)" className="w-full p-2 border rounded text-sm" value={tel} onChange={e => setTel(e.target.value)} />
-               </div>
-               {itens.map(item => (
-                 <div key={item.produto.id} className="flex justify-between items-center border-b pb-2">
-                    <div><p className="font-bold text-sm">{item.produto.name}</p><p className="text-xs text-gray-500">{formatCurrency(item.produto.salePrice)}</p></div>
-                    <div className="flex items-center border rounded bg-white">
-                      <button onClick={() => updateQtd(item.produto.id, -1)} className="p-1 hover:bg-gray-100"><Minus size={14}/></button>
-                      <span className="px-2 text-sm font-bold">{item.quantidade}</span>
-                      <button onClick={() => updateQtd(item.produto.id, 1)} className="p-1 hover:bg-gray-100"><Plus size={14}/></button>
-                    </div>
-                 </div>
-               ))}
-            </div>
-            <div className="p-4 bg-gray-50 border-t">
-               <div className="space-y-1 text-sm mb-4">
-                 <div className="flex justify-between"><span>Subtotal:</span><span>{formatCurrency(subtotal)}</span></div>
-                 {desconto > 0 && <div className="flex justify-between text-green-600 font-bold"><span>Desconto:</span><span>-{formatCurrency(desconto)}</span></div>}
-                 <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>Total:</span><span>{formatCurrency(total)}</span></div>
-               </div>
-               <button onClick={enviarPedido} disabled={itens.length === 0 || loading} className="w-full py-3 text-white font-bold rounded shadow flex justify-center gap-2" style={{ backgroundColor: config.primaryColor }}>
-                  {loading ? <Loader2 className="animate-spin"/> : <Send size={18}/>} Finalizar
-               </button>
-            </div>
+             <div className="p-4 border-b flex justify-between items-center" style={{ backgroundColor: config.secondaryColor }}>
+                <h2 className="text-xl font-bold text-white">Carrinho</h2>
+                <button onClick={onClose} className="text-white"><X /></button>
+             </div>
+             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="bg-gray-50 p-3 rounded border">
+                   <div className="text-xs font-bold uppercase text-gray-500 mb-2 flex gap-2"><User size={14}/> Seus Dados</div>
+                   <input placeholder="Nome Completo" className="w-full mb-2 p-2 border rounded text-sm" value={nome} onChange={e => setNome(e.target.value)} />
+                   <input placeholder="WhatsApp (com DDD)" className="w-full p-2 border rounded text-sm" value={tel} onChange={e => setTel(e.target.value)} />
+                </div>
+                {itens.map(item => (
+                  <div key={item.produto.id} className="flex justify-between items-center border-b pb-2">
+                     <div><p className="font-bold text-sm">{item.produto.name}</p><p className="text-xs text-gray-500">{formatCurrency(item.produto.salePrice)}</p></div>
+                     <div className="flex items-center border rounded bg-white">
+                        <button onClick={() => updateQtd(item.produto.id, -1)} className="p-1 px-2 hover:bg-gray-100"><Minus size={14}/></button>
+                        <span className="px-2 text-sm font-bold">{item.quantidade}</span>
+                        <button onClick={() => updateQtd(item.produto.id, 1)} className="p-1 px-2 hover:bg-gray-100"><Plus size={14}/></button>
+                     </div>
+                  </div>
+                ))}
+             </div>
+             <div className="p-4 bg-gray-50 border-t">
+                {/* Correção do setObs aqui */}
+                <textarea className="w-full p-2 text-sm border rounded mb-2 outline-none focus:ring-1" placeholder="Obs..." value={obs} onChange={handleObsChange} style={{'--tw-ring-color': config.primaryColor} as any} />
+                
+                <div className="flex justify-between text-sm mb-1"><span>Subtotal:</span><span>{formatCurrency(subtotal)}</span></div>
+                {desconto > 0 && <div className="flex justify-between text-sm text-green-600 font-bold"><span>Desconto:</span><span>-{formatCurrency(desconto)}</span></div>}
+                <div className="flex justify-between text-lg font-bold text-gray-900 border-t pt-2 mt-2"><span>Total:</span><span>{formatCurrency(total)}</span></div>
+                <button onClick={finalizar} disabled={itens.length === 0 || loading} className="w-full py-3 text-white font-bold rounded shadow flex justify-center gap-2" style={{ backgroundColor: config.primaryColor }}>
+                   {loading ? <Loader2 className="animate-spin"/> : <Send size={18}/>} Finalizar
+                </button>
+             </div>
           </motion.div>
         </motion.div>
       )}
@@ -554,7 +474,7 @@ function ImageZoomModal({ imageUrl, onClose }: ImageZoomModalProps) {
     <AnimatePresence>
       {imageUrl && (
         <motion.div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <img src={imageUrl} className="max-w-full max-h-full rounded shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+          <img src={imageUrl} className="max-w-full max-h-full rounded shadow-2xl" onClick={e => e.stopPropagation()} />
           <button onClick={onClose} className="absolute top-5 right-5 text-white bg-white/20 p-2 rounded-full"><X /></button>
         </motion.div>
       )}
