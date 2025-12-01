@@ -38,20 +38,20 @@ export function CuponsPage() {
       setCoupons([created, ...coupons]);
       setNewCode('');
       setNewPercent('');
-      toast.success("Cupão criado!");
+      toast.success("Cupom criado!");
     } catch (error) {
-      toast.error("Erro ao criar cupão. Verifique se já existe.");
+      toast.error("Erro ao criar Cupom. Verifique se já existe.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem a certeza que quer apagar este cupão?")) return;
+    if (!confirm("Tem a certeza que quer apagar este Cupom?")) return;
     try {
       await deleteCoupon(id);
       setCoupons(coupons.filter(c => c.id !== id));
-      toast.success("Cupão apagado.");
+      toast.success("Cupom apagado.");
     } catch (error) {
       toast.error("Erro ao apagar.");
     }
@@ -75,7 +75,7 @@ export function CuponsPage() {
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Criar Nova Campanha</h2>
         <form onSubmit={handleCreate} className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Código do Cupão</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Código do Cupom</label>
             <div className="relative">
                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                <input 
@@ -126,7 +126,7 @@ export function CuponsPage() {
             <button 
               onClick={() => handleDelete(coupon.id)} 
               className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-colors"
-              title="Apagar Cupão"
+              title="Apagar Cupom"
             >
               <Trash2 size={20} />
             </button>
@@ -136,7 +136,7 @@ export function CuponsPage() {
         {coupons.length === 0 && (
           <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
              <Ticket className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-             <p className="text-gray-500">Nenhum cupão ativo. Crie o primeiro acima!</p>
+             <p className="text-gray-500">Nenhum Cupom ativo. Crie o primeiro acima!</p>
           </div>
         )}
       </div>
