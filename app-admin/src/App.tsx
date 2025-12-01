@@ -1,30 +1,30 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, Loader2 } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 
-// 1. Novos Imports de Autenticação
+// Imports de Autenticação
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/LoginPage';
-// --- CORREÇÃO AQUI: Adicionado 'Loader2' ---
-import { LogOut, Loader2 } from 'lucide-react'; // Ícones
 
 // Importa as páginas
-import { ProdutosPage } from './pages/ProdutosPage.tsx';
-import { FornecedoresPage } from './pages/FornecedoresPage.tsx';
-import { FinanceiroPage } from './pages/FinanceiroPage.tsx';
-import { DashboardPage } from './pages/DashboardPage.tsx';
-import { PrecificacaoPage } from './pages/PrecificacaoPage.tsx';
-import { ConfiguracoesPage } from './pages/ConfiguracoesPage.tsx';
-import { PedidosPage } from './pages/PedidosPage.tsx'; // Página de Pedidos
+import { ProdutosPage } from './pages/ProdutosPage';
+import { FornecedoresPage } from './pages/FornecedoresPage';
+import { FinanceiroPage } from './pages/FinanceiroPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { PrecificacaoPage } from './pages/PrecificacaoPage';
+import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
+import { PedidosPage } from './pages/PedidosPage';
+// --- CORREÇÃO: Importar 'CuponsPage' corretamente ---
+import { CuponsPage } from './pages/CuponsPage'; 
 
-// 2. Adicionado 'pedidos' ao tipo de página
-type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'precificacao' | 'configuracoes';
+type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'configuracoes';
 
-// --- NAVBAR (Atualizada com botão de Logout) ---
+// --- NAVBAR ---
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
-  const { logout, user } = useAuth(); // Hook de autenticação
+  const { user, logout } = useAuth();
   
-  // 3. Adicionado 'pedidos' ao array de páginas
-  const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'precificacao', 'configuracoes'];
+  const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'campanhas', 'precificacao', 'configuracoes'];
 
   return (
     <nav className="bg-carvao shadow-lg mb-8">
@@ -52,15 +52,14 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
             </div>
           </div>
           
-          {/* Área do Utilizador */}
           <div className="flex items-center ml-4">
             <div className="flex items-center gap-3">
-              <span className="text-sm text-prata hidden md:block">
+              <span className="text-xs text-prata hidden md:block opacity-70">
                 {user?.email}
               </span>
               <button 
                 onClick={logout}
-                className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-red-900/30 transition-colors"
                 title="Sair"
               >
                 <LogOut size={20} />
@@ -69,7 +68,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
           </div>
         </div>
         
-        {/* Menu Mobile (simplificado para tablets/mobile) */}
+        {/* Menu Mobile */}
         <div className="lg:hidden flex overflow-x-auto pb-2 space-x-4 no-scrollbar">
            {paginas.map((p) => (
               <button
@@ -87,27 +86,23 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
   );
 }
 
-// --- COMPONENTE DE CONTEÚDO PROTEGIDO ---
-function ProtectedContent() {
-  const { user, loading } = useAuth(); // Usamos 'loading'
+// --- CONTEÚDO PROTEGIDO ---
+function ProtectedLayout() {
+  const { user, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
 
-  // 4. Se estiver a carregar, mostra um ecrã de loading
   if (loading) {
     return (
       <div className="min-h-screen bg-off-white flex items-center justify-center">
-        {/* Agora o 'Loader2' é encontrado */}
         <Loader2 className="animate-spin text-carvao" size={48} />
       </div>
     );
   }
 
-  // 5. Se não houver utilizador, mostra o Login
   if (!user) {
     return <LoginPage />;
   }
 
-  // 6. Se houver utilizador, mostra o Painel
   const renderizarPagina = () => {
     switch (pagina) {
       case 'dashboard': return <DashboardPage />;
@@ -115,6 +110,10 @@ function ProtectedContent() {
       case 'produtos': return <ProdutosPage />;
       case 'fornecedores': return <FornecedoresPage />;
       case 'financeiro': return <FinanceiroPage />;
+      
+      // --- CORREÇÃO: Usar o componente correto ---
+      case 'campanhas': return <CuponsPage />;
+      
       case 'precificacao': return <PrecificacaoPage />;
       case 'configuracoes': return <ConfiguracoesPage />;
       default: return <div>Página não encontrada</div>;
@@ -141,12 +140,11 @@ function ProtectedContent() {
   );
 }
 
-// --- APP PRINCIPAL ---
-// 7. Envolve a aplicação com o AuthProvider
 export default function App() {
   return (
     <AuthProvider>
-      <ProtectedContent />
+      <Toaster position="top-right" />
+      <ProtectedLayout />
     </AuthProvider>
   );
 }
