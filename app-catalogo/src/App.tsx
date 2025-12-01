@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// Adicionado 'TicketPercent' para o ícone do cupão
+// Adicionado 'TicketPercent' para o ícone do Cupons
 import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User, Search, ZoomIn, ChevronLeft, ChevronRight, TicketPercent } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -113,7 +113,7 @@ const saveOrder = async (payload: Omit<Order, 'id' | 'createdAt' | 'status'>): P
   return response.data;
 };
 
-// --- NOVA FUNÇÃO: VALIDAR CUPÃO ---
+// --- NOVA FUNÇÃO: VALIDAR Cupons ---
 const checkCoupon = async (code: string) => {
   const response = await apiClient.post('/validate-coupon', { code });
   return response.data; // Retorna { code, discountPercent }
@@ -407,14 +407,14 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: CardProduto
   );
 }
 
-// --- MODAL CARRINHO COM CUPÃO ---
+// --- MODAL CARRINHO COM Cupons ---
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, config }: ModalCarrinhoProps) {
   const [nome, setNome] = useState('');
   const [tel, setTel] = useState('');
   const [obs, setObs] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Estados do Cupão
+  // Estados do Cupons
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, percent: number } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -423,7 +423,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     const sub = itens.reduce((acc: number, i: any) => acc + (i.produto.salePrice || 0) * i.quantidade, 0);
     
     let desc = 0;
-    // Prioridade: Cupão. Se não, regra automática.
+    // Prioridade: Cupons. Se não, regra automática.
     if (appliedCoupon) {
       desc = sub * (appliedCoupon.percent / 100);
     } else if (sub >= 300) {
@@ -439,10 +439,10 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     try {
       const res = await checkCoupon(couponCode);
       setAppliedCoupon({ code: res.code, percent: res.discountPercent });
-      toast.success(`Cupão ${res.code} aplicado!`);
+      toast.success(`Cupons ${res.code} aplicado!`);
     } catch (e) {
       setAppliedCoupon(null);
-      toast.error("Cupão inválido.");
+      toast.error("Cupons inválido.");
     } finally {
       setValidatingCoupon(false);
     }
@@ -472,7 +472,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
       let msg = `🧾 *Pedido #${orderId}*\n👤 ${nome}\n\n` +
                   itens.map(i => `${i.quantidade}x ${i.produto.name}`).join('\n') +
                   `\n\nSubtotal: ${formatCurrency(subtotal)}` +
-                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupão' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
+                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupons' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
                   `\n*Total: ${formatCurrency(total)}*` + 
                   (obs ? `\nObs: ${obs}` : '');
                   
@@ -511,12 +511,12 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
              </div>
 
              <div className="p-4 bg-gray-50 border-t">
-                {/* INPUT DE CUPÃO */}
+                {/* INPUT DE Cupons */}
                 <div className="flex gap-2 mb-3">
                    <div className="relative flex-1">
                      <TicketPercent size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"/>
                      <input 
-                        placeholder="Cupão" 
+                        placeholder="Cupons" 
                         className="w-full pl-8 p-2 border rounded text-sm uppercase font-bold" 
                         value={couponCode} 
                         onChange={e => setCouponCode(e.target.value.toUpperCase())} 
