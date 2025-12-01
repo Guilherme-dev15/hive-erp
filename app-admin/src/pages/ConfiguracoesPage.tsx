@@ -37,9 +37,8 @@ const FormInput = ({ label, description, icon, ...props }: FormInputProps) => (
       )}
       <input
         {...props}
-        className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado transition-all ${
-          icon ? 'pl-10 pr-3' : 'px-3'
-        }`}
+        className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado transition-all ${icon ? 'pl-10 pr-3' : 'px-3'
+          }`}
       />
     </div>
     {description && <p className="mt-1 text-xs text-gray-500">{description}</p>}
@@ -53,20 +52,20 @@ export function ConfiguracoesPage() {
     // Vendas
     whatsappNumber: '',
     monthlyGoal: '',
-    
+
     // White-Label (Visual)
     storeName: 'HivePratas',
     primaryColor: '#D4AF37',
     secondaryColor: '#343434',
-    
+
     // Custos Operacionais
     cardFee: '0',
     packagingCost: '0',
-    
+
     // Garantia (NOVO)
     warrantyText: ''
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,14 +78,14 @@ export function ConfiguracoesPage() {
           setFormData({
             whatsappNumber: data.whatsappNumber || '',
             monthlyGoal: data.monthlyGoal?.toString() || '',
-            
+
             storeName: data.storeName || 'HivePratas',
             primaryColor: data.primaryColor || '#D4AF37',
             secondaryColor: data.secondaryColor || '#343434',
-            
+
             cardFee: data.cardFee?.toString() || '0',
             packagingCost: data.packagingCost?.toString() || '0',
-            
+
             // Carrega o texto da garantia
             warrantyText: data.warrantyText || 'Garantimos a autenticidade da Prata 925. Garantia de 90 dias para defeitos de fabrico.'
           });
@@ -144,12 +143,12 @@ export function ConfiguracoesPage() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-           <h1 className="text-3xl font-bold text-carvao">Configurações da Loja</h1>
-           <p className="text-gray-500 mt-1">Personalize o visual, taxas e regras do seu negócio.</p>
+          <h1 className="text-3xl font-bold text-carvao">Configurações da Loja</h1>
+          <p className="text-gray-500 mt-1">Personalize o visual, taxas e regras do seu negócio.</p>
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          
+
           {/* --- 1. IDENTIDADE VISUAL (WHITE-LABEL) --- */}
           <Card borderColor="border-blue-500">
             <div className="flex items-center gap-2 mb-6 border-b pb-4">
@@ -159,7 +158,7 @@ export function ConfiguracoesPage() {
                 <p className="text-xs text-gray-500">Como a sua loja aparece para o cliente.</p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormInput
                 label="Nome da Loja"
@@ -169,7 +168,7 @@ export function ConfiguracoesPage() {
                 placeholder="Ex: Joias da Ana"
                 description="Aparece no topo do catálogo e na aba do navegador."
               />
-              
+
               {/* Seletores de Cor */}
               <div className="flex gap-4">
                 <div className="flex-1">
@@ -182,8 +181,8 @@ export function ConfiguracoesPage() {
                       onChange={handleChange}
                       className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
                     />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="primaryColor"
                       value={formData.primaryColor}
                       onChange={handleChange}
@@ -203,28 +202,28 @@ export function ConfiguracoesPage() {
                       onChange={handleChange}
                       className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
                     />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="secondaryColor"
                       value={formData.secondaryColor}
                       onChange={handleChange}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono"
                     />
                   </div>
-                   <p className="text-xs text-gray-500 mt-1">Fundo do cabeçalho e textos.</p>
+                  <p className="text-xs text-gray-500 mt-1">Fundo do cabeçalho e textos.</p>
                 </div>
               </div>
             </div>
 
             {/* Preview Rápido */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row items-center gap-4 justify-center sm:justify-start">
-               <span className="text-xs font-bold text-gray-400 uppercase">Preview:</span>
-               <div className="px-6 py-2 rounded text-white text-sm font-bold shadow-sm" style={{ backgroundColor: formData.primaryColor }}>
-                  Botão Principal
-               </div>
-               <span className="font-bold text-xl" style={{ color: formData.secondaryColor }}>
-                  {formData.storeName || "Título da Loja"}
-               </span>
+              <span className="text-xs font-bold text-gray-400 uppercase">Preview:</span>
+              <div className="px-6 py-2 rounded text-white text-sm font-bold shadow-sm" style={{ backgroundColor: formData.primaryColor }}>
+                Botão Principal
+              </div>
+              <span className="font-bold text-xl" style={{ color: formData.secondaryColor }}>
+                {formData.storeName || "Título da Loja"}
+              </span>
             </div>
           </Card>
 
@@ -237,7 +236,7 @@ export function ConfiguracoesPage() {
                 <p className="text-xs text-gray-500">Usado para calcular o lucro líquido no cadastro de produtos.</p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormInput
                 label="Taxa de Cartão / Gateway (%)"
@@ -296,20 +295,24 @@ export function ConfiguracoesPage() {
             </div>
 
             {/* CAMPO DE GARANTIA ADICIONADO */}
-            <div className="mt-6 pt-6 border-t border-gray-100">
-               <div className="flex items-center gap-2 mb-2">
-                 <ScrollText size={18} className="text-gray-400" />
-                 <label className="block text-sm font-medium text-gray-700">Termos de Garantia (Para Certificado)</label>
-               </div>
-               <textarea
-                 name="warrantyText"
-                 value={formData.warrantyText}
-                 onChange={handleChange}
-                 rows={3}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm transition-all"
-                 placeholder="Ex: Garantia vitalícia na prata. 90 dias para defeitos de fabrico..."
-               />
-               <p className="text-xs text-gray-500 mt-1">Este texto aparecerá automaticamente no PDF do "Certificado de Garantia".</p>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <ScrollText size={18} className="text-gray-400" /> {/* Importe ScrollText de lucide-react */}
+                <label className="block text-sm font-medium text-gray-700">
+                  Texto do Certificado de Garantia
+                </label>
+              </div>
+              <textarea
+                name="warrantyText"
+                value={formData.warrantyText || ''} // Certifique-se de adicionar warrantyText ao state inicial!
+                onChange={(e) => setFormData(prev => ({ ...prev, warrantyText: e.target.value }))}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
+                placeholder="Ex: Garantia vitalícia na prata. 90 dias para defeitos de fabrico..."
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Este texto aparecerá automaticamente no PDF impresso.
+              </p>
             </div>
 
           </Card>
