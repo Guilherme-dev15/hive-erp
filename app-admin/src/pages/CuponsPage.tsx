@@ -22,7 +22,7 @@ export function CuponsPage() {
       const data = await getCoupons();
       setCoupons(data);
     } catch (error) {
-      toast.error("Erro ao carregar cupões.");
+      toast.error("Erro ao carregar Cupons.");
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,7 @@ export function CuponsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="text-3xl font-bold text-carvao flex items-center gap-2"
       >
-        <Ticket className="text-dourado" /> Campanhas e Cupões
+        <Ticket className="text-dourado" /> Campanhas e Cupons
       </motion.h1>
 
       {/* Cartão de Criação */}
@@ -105,7 +105,7 @@ export function CuponsPage() {
         </form>
       </div>
 
-      {/* Lista de Cupões */}
+      {/* Lista de Cupons */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {coupons.map((coupon, index) => (
           <motion.div 
