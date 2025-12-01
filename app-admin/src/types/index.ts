@@ -80,3 +80,10 @@ export interface Order {
   clienteNome?: string;
   clienteTelefone?: string;
 }
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discountPercent: number;
+  status: 'ativo' | 'inativo';
+}

@@ -78,6 +78,7 @@ const SUPPLIERS_COLLECTION = 'suppliers';
 const TRANSACTIONS_COLLECTION = 'transactions';
 const CATEGORIES_COLLECTION = 'categories';
 const ORDERS_COLLECTION = 'orders';
+const COUPONS_COLLECTION = 'coupons';
 
 // --- 1. MIDDLEWARE DE SEGURANÇA (O GUARDA-COSTAS) ---
 const authenticateUser = async (req, res, next) => {
@@ -598,7 +599,7 @@ app.get('/config-publica', async (req, res) => {
       return res.status(404).json({ message: "Configuração não encontrada." });
     }
     const settings = doc.data();
-    
+
     // --- ATUALIZADO PARA ENVIAR DADOS VISUAIS ---
     const configPublica = {
       whatsappNumber: settings.whatsappNumber || null,
@@ -607,11 +608,80 @@ app.get('/config-publica', async (req, res) => {
       secondaryColor: settings.secondaryColor || "#343434" // Carvão Default
     };
     // -------------------------------------------
-    
+
     res.status(200).json(configPublica);
   } catch (error) {
     console.error("ERRO em /config-publica:", error.message);
     res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
+});
+
+// --- ROTA PÚBLICA: VALIDAR Cupons ---
+app.post('/validate-coupon', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ message: "Código obrigatório." });
+
+    const snapshot = await db.collection(COUPONS_COLLECTION)
+      .where('code', '==', code.toUpperCase()) // Case insensitive
+      .where('status', '==', 'ativo')
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ message: "Cupão inválido ou expirado." });
+    }
+
+    const coupon = snapshot.docs[0].data();
+    res.status(200).json({
+      code: coupon.code,
+      discountPercent: coupon.discountPercent
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao validar cupão." });
+  }
+});
+
+// --- ROTAS DE CUPÕES (ADMIN) ---
+app.get('/admin/coupons', async (req, res) => {
+  try {
+    const snapshot = await db.collection(COUPONS_COLLECTION).get();
+    const coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json(coupons);
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao buscar cupões." });
+  }
+});
+
+app.post('/admin/coupons', async (req, res) => {
+  try {
+    const { code, discountPercent } = req.body;
+    if (!code || !discountPercent) return res.status(400).json({ message: "Dados incompletos." });
+
+    // Verifica duplicados
+    const existing = await db.collection(COUPONS_COLLECTION).where('code', '==', code.toUpperCase()).get();
+    if (!existing.empty) return res.status(400).json({ message: "Código já existe." });
+
+    const newCoupon = {
+      code: code.toUpperCase(),
+      discountPercent: parseFloat(discountPercent),
+      status: 'ativo',
+      createdAt: admin.firestore.Timestamp.now()
+    };
+
+    const docRef = await db.collection(COUPONS_COLLECTION).add(newCoupon);
+    res.status(201).json({ id: docRef.id, ...newCoupon });
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao criar cupão." });
+  }
+});
+
+app.delete('/admin/coupons/:id', async (req, res) => {
+  try {
+    await db.collection(COUPONS_COLLECTION).doc(req.params.id).delete();
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao apagar." });
   }
 });
 module.exports = app;

@@ -9,7 +9,8 @@ import type {
   DashboardStats,
   Category,
   Order,
-  OrderStatus
+  OrderStatus,
+  Coupon
 } from '../types/index.ts';
 
 import type { 
@@ -185,4 +186,18 @@ export interface ChartData {
 export const getDashboardCharts = async (): Promise<ChartData> => {
   const response = await apiClient.get('/admin/dashboard-charts');
   return response.data;
+};
+
+export const getCoupons = async (): Promise<Coupon[]> => {
+  const response = await apiClient.get('/admin/coupons');
+  return response.data;
+};
+
+export const createCoupon = async (data: { code: string; discountPercent: number }): Promise<Coupon> => {
+  const response = await apiClient.post('/admin/coupons', data);
+  return response.data;
+};
+
+export const deleteCoupon = async (id: string): Promise<void> => {
+  await apiClient.delete(`/admin/coupons/${id}`);
 };
