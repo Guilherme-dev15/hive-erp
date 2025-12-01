@@ -5,7 +5,7 @@ import { Ticket, Trash2, Plus, Loader2 } from 'lucide-react';
 import { getCoupons, createCoupon, deleteCoupon } from '../services/apiService';
 import { type Coupon } from '../types';
 
-export function CuponsPage() {
+export function cupomsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [newCode, setNewCode] = useState('');
@@ -37,9 +37,9 @@ export function CuponsPage() {
       setCoupons([created, ...coupons]);
       setNewCode('');
       setNewPercent('');
-      toast.success("Cupão criado!");
+      toast.success("cupom criado!");
     } catch (error) {
-      toast.error("Erro ao criar cupão.");
+      toast.error("Erro ao criar cupom.");
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +111,7 @@ export function CuponsPage() {
             </button>
           </motion.div>
         ))}
-        {coupons.length === 0 && <p className="text-gray-500 col-span-full text-center py-8">Nenhum cupão ativo.</p>}
+        {coupons.length === 0 && <p className="text-gray-500 col-span-full text-center py-8">Nenhum cupom ativo.</p>}
       </div>
     </div>
   );

@@ -395,7 +395,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
   const [obs, setObs] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // --- CUPÕES ---
+  // --- CUPOM ---
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, percent: number } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -404,7 +404,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     const sub = itens.reduce((acc, i) => acc + (i.produto.salePrice || 0) * i.quantidade, 0);
     
     let desc = 0;
-    // Prioridade: Cupão > Automático
+    // Prioridade: cupom > Automático
     if (appliedCoupon) {
       desc = sub * (appliedCoupon.percent / 100);
     } else if (sub >= 300) {
@@ -420,10 +420,10 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     try {
       const res = await checkCoupon(couponCode);
       setAppliedCoupon({ code: res.code, percent: res.discountPercent });
-      toast.success(`Cupão ${res.code} aplicado!`);
+      toast.success(`cupom ${res.code} aplicado!`);
     } catch (e) {
       setAppliedCoupon(null);
-      toast.error("Cupão inválido.");
+      toast.error("cupom inválido.");
     } finally {
       setValidatingCoupon(false);
     }
@@ -455,7 +455,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
       let msg = `🧾 *Pedido #${orderId}*\n👤 ${nome}\n\n` +
                   itens.map(i => `${i.quantidade}x ${i.produto.name}`).join('\n') +
                   `\n\nSubtotal: ${formatCurrency(subtotal)}` +
-                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupão' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
+                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'cupom' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
                   `\n*Total: ${formatCurrency(total)}*` + 
                   (obs ? `\nObs: ${obs}` : '');
                   
@@ -491,10 +491,10 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                 ))}
              </div>
              <div className="p-4 bg-gray-50 border-t">
-                {/* INPUT DE CUPÃO */}
+                {/* INPUT DE cupom */}
                 <div className="flex gap-2 mb-3">
                    <input 
-                      placeholder="Código do Cupão" 
+                      placeholder="Código do cupom" 
                       className="flex-1 p-2 border rounded text-sm uppercase font-bold" 
                       value={couponCode} 
                       onChange={e => setCouponCode(e.target.value.toUpperCase())} 
