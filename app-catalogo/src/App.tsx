@@ -4,7 +4,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// Adicionado 'TicketPercent' para o ícone do Cupons
 import { ShoppingCart, Package, X, Plus, Minus, Send, ArrowDownUp, Loader2, User, Search, ZoomIn, ChevronLeft, ChevronRight, TicketPercent } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -113,10 +112,9 @@ const saveOrder = async (payload: Omit<Order, 'id' | 'createdAt' | 'status'>): P
   return response.data;
 };
 
-// --- NOVA FUNÇÃO: VALIDAR Cupons ---
 const checkCoupon = async (code: string) => {
   const response = await apiClient.post('/validate-coupon', { code });
-  return response.data; // Retorna { code, discountPercent }
+  return response.data; 
 };
 
 // ============================================================================
@@ -347,7 +345,7 @@ export default function App() {
               <CardProduto 
                 key={prod.id} produto={prod} config={config} 
                 onAdicionar={() => adicionarAoCarrinho(prod)} 
-                onImageClick={() => setZoomedImageUrl(prod.imageUrl || null)}
+                onImageClick={() => setZoomedImageUrl(prod.imageUrl || null)} 
               />
             ))}
           </div>
@@ -407,14 +405,14 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: CardProduto
   );
 }
 
-// --- MODAL CARRINHO COM Cupons ---
+// --- MODAL CARRINHO ---
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, config }: ModalCarrinhoProps) {
   const [nome, setNome] = useState('');
   const [tel, setTel] = useState('');
   const [obs, setObs] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Estados do Cupons
+  // --- CUPÕES ---
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, percent: number } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -423,12 +421,13 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     const sub = itens.reduce((acc: number, i: any) => acc + (i.produto.salePrice || 0) * i.quantidade, 0);
     
     let desc = 0;
-    // Prioridade: Cupons. Se não, regra automática.
+    
+    // --- CORREÇÃO: APENAS CUPÃO ---
+    // Removemos a regra "else if (sub >= 300)"
     if (appliedCoupon) {
       desc = sub * (appliedCoupon.percent / 100);
-    } else if (sub >= 300) {
-      desc = sub * 0.10;
     }
+    // -----------------------------
     
     return { subtotal: sub, desconto: desc, total: sub - desc };
   }, [itens, appliedCoupon]);
@@ -439,10 +438,10 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     try {
       const res = await checkCoupon(couponCode);
       setAppliedCoupon({ code: res.code, percent: res.discountPercent });
-      toast.success(`Cupons ${res.code} aplicado!`);
+      toast.success(`Cupão ${res.code} aplicado!`);
     } catch (e) {
       setAppliedCoupon(null);
-      toast.error("Cupons inválido.");
+      toast.error("Cupão inválido.");
     } finally {
       setValidatingCoupon(false);
     }
@@ -472,7 +471,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
       let msg = `🧾 *Pedido #${orderId}*\n👤 ${nome}\n\n` +
                   itens.map(i => `${i.quantidade}x ${i.produto.name}`).join('\n') +
                   `\n\nSubtotal: ${formatCurrency(subtotal)}` +
-                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupons' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
+                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupão' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
                   `\n*Total: ${formatCurrency(total)}*` + 
                   (obs ? `\nObs: ${obs}` : '');
                   
@@ -491,14 +490,12 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                 <button onClick={onClose} className="text-white"><X /></button>
              </div>
              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* CRM */}
                 <div className="bg-gray-50 p-3 rounded border">
                    <div className="text-xs font-bold uppercase text-gray-500 mb-2 flex gap-2"><User size={14}/> Seus Dados</div>
                    <input placeholder="Nome Completo" className="w-full mb-2 p-2 border rounded text-sm" value={nome} onChange={e => setNome(e.target.value)} />
                    <input placeholder="WhatsApp (com DDD)" className="w-full p-2 border rounded text-sm" value={tel} onChange={e => setTel(e.target.value)} />
                 </div>
-                
-                {itens.map((item: any) => (
+                {itens.map(item => (
                   <div key={item.produto.id} className="flex justify-between items-center border-b pb-2">
                      <div><p className="font-bold text-sm">{item.produto.name}</p><p className="text-xs text-gray-500">{formatCurrency(item.produto.salePrice)}</p></div>
                      <div className="flex items-center border rounded bg-white">
@@ -509,14 +506,13 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                   </div>
                 ))}
              </div>
-
              <div className="p-4 bg-gray-50 border-t">
-                {/* INPUT DE Cupons */}
+                {/* INPUT DE CUPÃO */}
                 <div className="flex gap-2 mb-3">
                    <div className="relative flex-1">
                      <TicketPercent size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"/>
                      <input 
-                        placeholder="Cupons" 
+                        placeholder="Código do Cupão" 
                         className="w-full pl-8 p-2 border rounded text-sm uppercase font-bold" 
                         value={couponCode} 
                         onChange={e => setCouponCode(e.target.value.toUpperCase())} 
@@ -543,7 +539,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                    <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>Total:</span><span>{formatCurrency(total)}</span></div>
                 </div>
                 <button onClick={finalizar} disabled={itens.length === 0 || loading} className="w-full py-3 text-white font-bold rounded shadow flex justify-center gap-2" style={{ backgroundColor: config.primaryColor }}>
-                   {loading ? <Loader2 className="animate-spin"/> : <Send size={18}/>} Finalizar
+                   {loading ? <Loader2 className="animate-spin"/> : <Send size={18}/>} Finalizar no WhatsApp
                 </button>
              </div>
           </motion.div>
