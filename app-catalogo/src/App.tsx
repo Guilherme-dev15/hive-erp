@@ -405,32 +405,29 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: CardProduto
   );
 }
 
-// --- MODAL CARRINHO ---
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, config }: ModalCarrinhoProps) {
   const [nome, setNome] = useState('');
   const [tel, setTel] = useState('');
   const [obs, setObs] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // --- CUPÕES ---
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, percent: number } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
+  // --- CORREÇÃO AQUI: Desconto apenas se houver Cupão ---
   const { subtotal, desconto, total } = useMemo(() => {
     const sub = itens.reduce((acc: number, i: any) => acc + (i.produto.salePrice || 0) * i.quantidade, 0);
     
     let desc = 0;
-    
-    // --- CORREÇÃO: APENAS CUPÃO ---
-    // Removemos a regra "else if (sub >= 300)"
     if (appliedCoupon) {
       desc = sub * (appliedCoupon.percent / 100);
     }
-    // -----------------------------
+    // Remover o 'else if (sub >= 300)'
     
     return { subtotal: sub, desconto: desc, total: sub - desc };
   }, [itens, appliedCoupon]);
+  // -------------------------------------------------------
 
   const handleAplicarCupom = async () => {
     if (!couponCode) return;
@@ -507,7 +504,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                 ))}
              </div>
              <div className="p-4 bg-gray-50 border-t">
-                {/* INPUT DE CUPÃO */}
                 <div className="flex gap-2 mb-3">
                    <div className="relative flex-1">
                      <TicketPercent size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"/>
