@@ -684,4 +684,67 @@ app.delete('/admin/coupons/:id', async (req, res) => {
     res.status(500).json({ message: "Erro ao apagar." });
   }
 });
+
+
+// --- ROTA DE RELATÓRIOS (CURVA ABC) ---
+app.get('/admin/reports/abc', async (req, res) => {
+  console.log("ROTA: GET /admin/reports/abc");
+  try {
+    // 1. Buscar todos os produtos ativos
+    const productsSnapshot = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
+    const productMap = {};
+
+    productsSnapshot.forEach(doc => {
+      const data = doc.data();
+      productMap[doc.id] = {
+        id: doc.id,
+        name: data.name,
+        imageUrl: data.imageUrl,
+        stock: data.quantity || 0,
+        revenue: 0,
+        unitsSold: 0
+      };
+    });
+
+    // 2. Buscar todos os pedidos (exceto cancelados)
+    const ordersSnapshot = await db.collection(ORDERS_COLLECTION).where('status', '!=', 'Cancelado').get();
+
+    // 3. Somar as vendas
+    ordersSnapshot.forEach(doc => {
+      const order = doc.data();
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          if (productMap[item.id]) {
+            productMap[item.id].revenue += (item.salePrice * item.quantidade);
+            productMap[item.id].unitsSold += item.quantidade;
+          }
+        });
+      }
+    });
+
+    // 4. Transformar em array e ordenar por Receita (do maior para o menor)
+    let report = Object.values(productMap).sort((a, b) => b.revenue - a.revenue);
+
+    // 5. Classificar A, B, C (Regra 20/30/50)
+    const totalProducts = report.length;
+    report = report.map((p, index) => {
+      const percentile = (index + 1) / totalProducts;
+      let classification = 'C';
+      if (percentile <= 0.2) classification = 'A'; // Top 20%
+      else if (percentile <= 0.5) classification = 'B'; // Próximos 30%
+
+      // Se não vendeu nada, é automaticamente C
+      if (p.revenue === 0) classification = 'C';
+
+      return { ...p, classification };
+    });
+
+    res.status(200).json(report);
+
+  } catch (error) {
+    console.error("ERRO no Relatório ABC:", error.message);
+    res.status(500).json({ message: "Erro ao gerar relatório." });
+  }
+});
+
 module.exports = app;

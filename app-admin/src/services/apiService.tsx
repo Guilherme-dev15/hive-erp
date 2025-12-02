@@ -10,7 +10,8 @@ import type {
   Category,
   Order,
   OrderStatus,
-  Coupon
+  Coupon,
+  ABCProduct
 } from '../types/index.ts';
 
 import type { 
@@ -200,4 +201,9 @@ export const createCoupon = async (data: { code: string; discountPercent: number
 
 export const deleteCoupon = async (id: string): Promise<void> => {
   await apiClient.delete(`/admin/coupons/${id}`);
+};
+
+export const getABCReport = async (): Promise<ABCProduct[]> => {
+  const response = await apiClient.get('/admin/reports/abc');
+  return response.data;
 };

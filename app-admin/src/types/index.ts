@@ -87,3 +87,13 @@ export interface Coupon {
   discountPercent: number;
   status: 'ativo' | 'inativo';
 }
+
+export interface ABCProduct {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  stock: number;
+  revenue: number;
+  unitsSold: number;
+  classification: 'A' | 'B' | 'C';
+}

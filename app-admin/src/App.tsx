@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Loader2 } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react'; 
 import { Toaster } from 'react-hot-toast';
 
 // Imports de Autenticação
@@ -15,16 +15,18 @@ import { DashboardPage } from './pages/DashboardPage';
 import { PrecificacaoPage } from './pages/PrecificacaoPage';
 import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
 import { PedidosPage } from './pages/PedidosPage';
-// --- CORREÇÃO: Importar 'CuponsPage' corretamente ---
-import { CuponsPage } from './pages/CuponsPage'; 
+import { RelatoriosPage } from './pages/RelatoriosPage'; // Se já tiver criado
+import { CuponsPage } from './pages/CuponsPage';
 
-type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'configuracoes';
+// Tipos de Páginas
+type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'relatorios' | 'configuracoes';
 
 // --- NAVBAR ---
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
   const { user, logout } = useAuth();
   
-  const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'campanhas', 'precificacao', 'configuracoes'];
+  // Lista de menus na ordem desejada
+  const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'campanhas', 'relatorios', 'precificacao', 'configuracoes'];
 
   return (
     <nav className="bg-carvao shadow-lg mb-8">
@@ -69,13 +71,13 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
         </div>
         
         {/* Menu Mobile */}
-        <div className="lg:hidden flex overflow-x-auto pb-2 space-x-4 no-scrollbar">
+        <div className="lg:hidden flex overflow-x-auto pb-2 space-x-4 no-scrollbar px-4">
            {paginas.map((p) => (
               <button
                 key={p}
                 onClick={() => onNavigate(p)}
-                className={`text-sm font-medium capitalize whitespace-nowrap px-2 py-1 rounded-md
-                  ${paginaAtual === p ? 'bg-gray-700 text-dourado' : 'text-gray-400'}`}
+                className={`text-sm font-medium capitalize whitespace-nowrap px-3 py-1 rounded-md transition-colors
+                  ${paginaAtual === p ? 'bg-gray-700 text-dourado' : 'text-gray-400 bg-gray-800/50'}`}
               >
                 {p}
               </button>
@@ -110,13 +112,11 @@ function ProtectedLayout() {
       case 'produtos': return <ProdutosPage />;
       case 'fornecedores': return <FornecedoresPage />;
       case 'financeiro': return <FinanceiroPage />;
-      
-      // --- CORREÇÃO: Usar o componente correto ---
       case 'campanhas': return <CuponsPage />;
-      
+      case 'relatorios': return <RelatoriosPage />; // Se não criou, remova ou comente
       case 'precificacao': return <PrecificacaoPage />;
       case 'configuracoes': return <ConfiguracoesPage />;
-      default: return <div>Página não encontrada</div>;
+      default: return <div className="text-center py-20 text-gray-500">Página não encontrada</div>;
     }
   };
 
