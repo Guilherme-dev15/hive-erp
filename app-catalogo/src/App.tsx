@@ -415,7 +415,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, percent: number } | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
-  // --- CORREÇÃO AQUI: Desconto apenas se houver Cupão ---
+  // --- CORREÇÃO AQUI: Desconto apenas se houver Cupom ---
   const { subtotal, desconto, total } = useMemo(() => {
     const sub = itens.reduce((acc: number, i: any) => acc + (i.produto.salePrice || 0) * i.quantidade, 0);
     
@@ -435,10 +435,10 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
     try {
       const res = await checkCoupon(couponCode);
       setAppliedCoupon({ code: res.code, percent: res.discountPercent });
-      toast.success(`Cupão ${res.code} aplicado!`);
+      toast.success(`Cupom ${res.code} aplicado!`);
     } catch (e) {
       setAppliedCoupon(null);
-      toast.error("Cupão inválido.");
+      toast.error("Cupom inválido.");
     } finally {
       setValidatingCoupon(false);
     }
@@ -468,7 +468,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
       let msg = `🧾 *Pedido #${orderId}*\n👤 ${nome}\n\n` +
                   itens.map(i => `${i.quantidade}x ${i.produto.name}`).join('\n') +
                   `\n\nSubtotal: ${formatCurrency(subtotal)}` +
-                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupão' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
+                  (desconto > 0 ? `\nDesconto (${appliedCoupon ? 'Cupom' : 'Auto'}): -${formatCurrency(desconto)}` : '') +
                   `\n*Total: ${formatCurrency(total)}*` + 
                   (obs ? `\nObs: ${obs}` : '');
                   
@@ -508,7 +508,7 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                    <div className="relative flex-1">
                      <TicketPercent size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"/>
                      <input 
-                        placeholder="Código do Cupão" 
+                        placeholder="Código do Cupom" 
                         className="w-full pl-8 p-2 border rounded text-sm uppercase font-bold" 
                         value={couponCode} 
                         onChange={e => setCouponCode(e.target.value.toUpperCase())} 
