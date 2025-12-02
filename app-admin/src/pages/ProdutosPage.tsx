@@ -9,15 +9,16 @@ import {
   getCategories,
   getConfig 
 } from '../services/apiService';
-import { Trash2, Edit, Package, ExternalLink, Box, Search, Printer, CheckSquare, Square } from 'lucide-react';
+import { Trash2, Edit, Package, ExternalLink, Box, Search, Printer, CheckSquare, Square, FileText } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 import { useReactToPrint } from 'react-to-print';
 import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
+// 1. Importar o novo componente
+import { CatalogoImpressao } from '../components/CatalogoImpressao';
 
-// ============================================================================
-// Componente Card de Produto
-// ============================================================================
+// ... (Componente ProdutoAdminCard não muda, mantenha o código anterior dele aqui) ...
+// Para poupar espaço, vou omitir o código do Card que já está perfeito.
 interface ProdutoAdminCardProps {
   produto: ProdutoAdmin;
   fornecedorNome: string;
@@ -127,13 +128,13 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
 };
 
 // ============================================================================
-// Página Principal (COM O EXPORT CORRETO)
+// Página Principal
 // ============================================================================
-export function ProdutosPage() { // <--- O ERRO ESTAVA PROVAVELMENTE AQUI (Falta de 'export')
+export function ProdutosPage() {
   const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [, setConfig] = useState<ConfigFormData | null>(null);
+  const [config, setConfig] = useState<ConfigFormData | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
@@ -144,11 +145,21 @@ export function ProdutosPage() { // <--- O ERRO ESTAVA PROVAVELMENTE AQUI (Falta
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const printRef = useRef<HTMLDivElement>(null);
+  
+  // --- REFERÊNCIAS PARA IMPRESSÃO ---
+  const etiquetaRef = useRef<HTMLDivElement>(null);
+  const catalogoRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: 'Etiquetas_HivePratas',
+  // Impressão de Etiquetas
+  const handlePrintEtiquetas = useReactToPrint({
+    contentRef: etiquetaRef,
+    documentTitle: 'Etiquetas_Stock',
+  });
+
+  // 2. Impressão de Catálogo PDF
+  const handlePrintCatalogo = useReactToPrint({
+    contentRef: catalogoRef,
+    documentTitle: 'Catalogo_Produtos',
   });
 
   useEffect(() => {
@@ -184,7 +195,7 @@ export function ProdutosPage() { // <--- O ERRO ESTAVA PROVAVELMENTE AQUI (Falta
         lista = lista.filter(p => p.category === categoryFilter);
       }
     }
-    if (searchTerm.trim() !== "") {
+    if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       lista = lista.filter(p => p.name.toLowerCase().includes(term) || (p.code && p.code.toLowerCase().includes(term)));
     }
@@ -257,7 +268,6 @@ export function ProdutosPage() { // <--- O ERRO ESTAVA PROVAVELMENTE AQUI (Falta
       <Toaster position="top-right" />
       <div className="space-y-6">
         
-        {/* BARRA DE FERRAMENTAS */}
         <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-30">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-carvao hidden sm:block">Produtos</h1>
@@ -273,14 +283,27 @@ export function ProdutosPage() { // <--- O ERRO ESTAVA PROVAVELMENTE AQUI (Falta
           
           <div className="flex flex-col sm:flex-row gap-3 flex-grow lg:flex-grow-0">
              
+             {/* BARRA DE AÇÕES EM MASSA */}
              {selectedIds.size > 0 && (
-               <button 
-                 onClick={() => handlePrint()} 
-                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 transition-all font-medium flex items-center justify-center gap-2 animate-in fade-in"
-               >
-                 <Printer size={18} />
-                 Imprimir Etiquetas ({selectedIds.size})
-               </button>
+               <div className="flex gap-2 animate-in fade-in slide-in-from-left-4">
+                 {/* Botão Etiquetas */}
+                 <button 
+                   onClick={() => handlePrintEtiquetas()} 
+                   className="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 transition-all font-medium flex items-center justify-center gap-2 text-sm"
+                 >
+                   <Printer size={16} />
+                   Etiquetas
+                 </button>
+                 
+                 {/* 3. Botão Catálogo PDF */}
+                 <button 
+                   onClick={() => handlePrintCatalogo()} 
+                   className="bg-carvao text-dourado px-4 py-2 rounded-lg shadow-md hover:bg-gray-800 transition-all font-medium flex items-center justify-center gap-2 text-sm"
+                 >
+                   <FileText size={16} />
+                   Catálogo PDF
+                 </button>
+               </div>
              )}
 
             <div className="relative flex-grow sm:w-48">
@@ -338,9 +361,12 @@ export function ProdutosPage() { // <--- O ERRO ESTAVA PROVAVELMENTE AQUI (Falta
         setCategories={setCategories} 
         produtoParaEditar={produtoSelecionado} 
         onProdutoSalvo={handleProdutoSalvo} 
+        configGlobal={config} 
       />
       
-      <EtiquetaImpressao ref={printRef} produtos={getSelectedProducts()} />
+      {/* Componentes de Impressão */}
+      <EtiquetaImpressao ref={etiquetaRef} produtos={getSelectedProducts()} />
+      <CatalogoImpressao ref={catalogoRef} produtos={getSelectedProducts()} config={config} />
     </>
   );
 }
