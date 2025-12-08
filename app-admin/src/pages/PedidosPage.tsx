@@ -8,7 +8,8 @@ import { type ConfigFormData } from '../types/schemas';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
 import { 
   Package, Truck, XCircle, Clock, Loader2, ScrollText, 
-  Search, Calendar, LayoutGrid, List as ListIcon} from 'lucide-react';
+  Search, Calendar, LayoutGrid, List as ListIcon 
+} from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { CertificadoImpressao } from '../components/CertificadoImpressao';
 
@@ -30,10 +31,12 @@ const statusOrdem: OrderStatus[] = [
 ];
 
 // --- CORREÇÃO DO ERRO AQUI ---
-// Blindamos a função para aceitar undefined ou null sem quebrar
+// A função agora aceita 'undefined' ou 'null' e não quebra.
 const formatCurrency = (value: number | undefined | null): string => {
-  if (value === undefined || value === null) return 'R$ 0,00';
-  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  if (value === undefined || value === null || isNaN(value)) {
+    return 'R$ 0,00';
+  }
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -79,6 +82,7 @@ export function PedidosPage() {
            getConfig()
         ]);
         // Ordenar pedidos por data (mais recente primeiro)
+        // Proteção extra: verifica se createdAt existe
         const sortedPedidos = pedidosData.sort((a: any, b: any) => {
             const dateA = a.createdAt?.seconds || 0;
             const dateB = b.createdAt?.seconds || 0;
@@ -101,10 +105,14 @@ export function PedidosPage() {
     return pedidos.filter(pedido => {
       // 1. Filtro de Texto (ID, Nome, Telefone)
       const termo = searchTerm.toLowerCase();
+      const id = pedido.id ? pedido.id.toLowerCase() : ''; // Proteção contra ID nulo
+      const nome = pedido.clienteNome ? pedido.clienteNome.toLowerCase() : '';
+      const tel = pedido.clienteTelefone || '';
+
       const matchText = 
-        pedido.id.toLowerCase().includes(termo) ||
-        (pedido.clienteNome && pedido.clienteNome.toLowerCase().includes(termo)) ||
-        (pedido.clienteTelefone && pedido.clienteTelefone.includes(termo));
+        id.includes(termo) ||
+        nome.includes(termo) ||
+        tel.includes(termo);
 
       if (!matchText) return false;
 
@@ -126,8 +134,9 @@ export function PedidosPage() {
     const grupos: Record<string, Order[]> = {};
     statusOrdem.forEach(status => { grupos[status] = []; });
     pedidosFiltrados.forEach(pedido => {
-      if (grupos[pedido.status]) {
-        grupos[pedido.status].push(pedido);
+      const statusSeguro = pedido.status || 'Aguardando Pagamento'; // Fallback se status for nulo
+      if (grupos[statusSeguro]) {
+        grupos[statusSeguro].push(pedido);
       } else {
         if (!grupos['Cancelado']) grupos['Cancelado'] = [];
         grupos['Cancelado'].push(pedido);
@@ -280,7 +289,7 @@ export function PedidosPage() {
                             <div className="flex justify-center"><Loader2 className="animate-spin text-gray-400" size={14}/></div>
                          ) : (
                             <select
-                              value={pedido.status}
+                              value={pedido.status || 'Aguardando Pagamento'}
                               onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
                               className="w-full text-[10px] font-medium border-none bg-transparent text-gray-500 focus:ring-0 cursor-pointer text-center hover:text-carvao"
                             >
@@ -320,16 +329,16 @@ export function PedidosPage() {
                         {pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{pedido.clienteNome}</p>
-                        <p className="text-xs text-gray-400">{pedido.clienteTelefone}</p>
+                        <p className="font-medium text-gray-900">{pedido.clienteNome || 'S/ Nome'}</p>
+                        <p className="text-xs text-gray-400">{pedido.clienteTelefone || '-'}</p>
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500">{pedido.items.length}</td>
+                      <td className="px-4 py-3 text-center text-gray-500">{pedido.items ? pedido.items.length : 0}</td>
                       <td className="px-4 py-3 text-right font-bold text-dourado">{formatCurrency(pedido.total)}</td>
                       <td className="px-4 py-3 text-center">
                         <select
-                          value={pedido.status}
+                          value={pedido.status || 'Aguardando Pagamento'}
                           onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
-                          className={`text-xs font-bold px-2 py-1 rounded-full border-none cursor-pointer focus:ring-0 ${statusConfig[pedido.status].bg} ${statusConfig[pedido.status].color}`}
+                          className={`text-xs font-bold px-2 py-1 rounded-full border-none cursor-pointer focus:ring-0 ${statusConfig[pedido.status || 'Aguardando Pagamento'].bg} ${statusConfig[pedido.status || 'Aguardando Pagamento'].color}`}
                         >
                           {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
