@@ -29,8 +29,11 @@ const statusOrdem: OrderStatus[] = [
   'Cancelado'
 ];
 
-const formatCurrency = (value: number): string => {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+// --- CORREÇÃO DO ERRO AQUI ---
+// Blindamos a função para aceitar undefined ou null sem quebrar
+const formatCurrency = (value: number | undefined | null): string => {
+  if (value === undefined || value === null) return 'R$ 0,00';
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -93,7 +96,7 @@ export function PedidosPage() {
     carregarDados();
   }, []);
 
-  // --- LÓGICA DE FILTRAGEM (O Cérebro da Busca) ---
+  // --- LÓGICA DE FILTRAGEM ---
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(pedido => {
       // 1. Filtro de Texto (ID, Nome, Telefone)
