@@ -2,22 +2,23 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import { type Order, type OrderStatus } from '../types';
-// 1. Importar getConfig e o tipo de Configuração
 import { getAdminOrders, updateAdminOrderStatus, getConfig } from '../services/apiService';
 import { type ConfigFormData } from '../types/schemas';
 
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
-// 2. Importar ícone ScrollText e o componente CertificadoImpressao
-import { Package, Truck, XCircle, Clock, Loader2, ScrollText } from 'lucide-react';
+import { 
+  Package, Truck, XCircle, Clock, Loader2, ScrollText, 
+  Search, Calendar, LayoutGrid, List as ListIcon} from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { CertificadoImpressao } from '../components/CertificadoImpressao';
 
-const statusConfig: Record<OrderStatus, { icon: React.ReactNode; color: string }> = {
-  'Aguardando Pagamento': { icon: <Clock size={16} />, color: 'text-yellow-600' },
-  'Em Produção': { icon: <Package size={16} />, color: 'text-blue-600' },
-  'Em Separação': { icon: <Package size={16} />, color: 'text-purple-600' },
-  'Enviado': { icon: <Truck size={16} />, color: 'text-green-600' },
-  'Cancelado': { icon: <XCircle size={16} />, color: 'text-red-600' }
+// --- CONFIGURAÇÃO VISUAL ---
+const statusConfig: Record<OrderStatus, { icon: React.ReactNode; color: string; bg: string }> = {
+  'Aguardando Pagamento': { icon: <Clock size={16} />, color: 'text-yellow-700', bg: 'bg-yellow-50' },
+  'Em Produção': { icon: <Package size={16} />, color: 'text-blue-700', bg: 'bg-blue-50' },
+  'Em Separação': { icon: <Package size={16} />, color: 'text-purple-700', bg: 'bg-purple-50' },
+  'Enviado': { icon: <Truck size={16} />, color: 'text-green-700', bg: 'bg-green-50' },
+  'Cancelado': { icon: <XCircle size={16} />, color: 'text-red-700', bg: 'bg-red-50' }
 };
 
 const statusOrdem: OrderStatus[] = [
@@ -32,30 +33,34 @@ const formatCurrency = (value: number): string => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
+// --- COMPONENTE PRINCIPAL ---
 export function PedidosPage() {
   const [pedidos, setPedidos] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Estados de Controle e UI
   const [modalOpen, setModalOpen] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Order | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  
+  // Filtros e Visualização
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [dateFilter, setDateFilter] = useState<'all' | '7days' | '30days'>('all');
 
-  // 3. Novos estados para o Certificado
+  // Impressão
   const [config, setConfig] = useState<ConfigFormData | null>(null);
   const [pedidoParaCertificado, setPedidoParaCertificado] = useState<Order | null>(null);
   const certificadoRef = useRef<HTMLDivElement>(null);
 
-  // 4. Função de Impressão
   const handlePrintCertificado = useReactToPrint({
     contentRef: certificadoRef,
     documentTitle: 'Certificado_Garantia',
   });
 
-  // 5. Função auxiliar para preparar e imprimir
   const prepararEImprimirCertificado = (pedido: Order) => {
     setPedidoParaCertificado(pedido);
-    // Pequeno delay para o React renderizar o componente com os dados certos
     setTimeout(() => {
       handlePrintCertificado();
     }, 100);
@@ -66,12 +71,17 @@ export function PedidosPage() {
       try {
         setLoading(true);
         setError(null);
-        // 6. Carrega Pedidos E Configuração
         const [pedidosData, configData] = await Promise.all([
            getAdminOrders(),
            getConfig()
         ]);
-        setPedidos(pedidosData);
+        // Ordenar pedidos por data (mais recente primeiro)
+        const sortedPedidos = pedidosData.sort((a: any, b: any) => {
+            const dateA = a.createdAt?.seconds || 0;
+            const dateB = b.createdAt?.seconds || 0;
+            return dateB - dateA;
+        });
+        setPedidos(sortedPedidos);
         setConfig(configData);
       } catch (err) {
         setError("Falha ao carregar dados.");
@@ -83,10 +93,36 @@ export function PedidosPage() {
     carregarDados();
   }, []);
 
+  // --- LÓGICA DE FILTRAGEM (O Cérebro da Busca) ---
+  const pedidosFiltrados = useMemo(() => {
+    return pedidos.filter(pedido => {
+      // 1. Filtro de Texto (ID, Nome, Telefone)
+      const termo = searchTerm.toLowerCase();
+      const matchText = 
+        pedido.id.toLowerCase().includes(termo) ||
+        (pedido.clienteNome && pedido.clienteNome.toLowerCase().includes(termo)) ||
+        (pedido.clienteTelefone && pedido.clienteTelefone.includes(termo));
+
+      if (!matchText) return false;
+
+      // 2. Filtro de Data
+      if (dateFilter !== 'all') {
+        const dataPedido = pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000) : new Date();
+        const diasAtras = (new Date().getTime() - dataPedido.getTime()) / (1000 * 3600 * 24);
+        
+        if (dateFilter === '7days' && diasAtras > 7) return false;
+        if (dateFilter === '30days' && diasAtras > 30) return false;
+      }
+
+      return true;
+    });
+  }, [pedidos, searchTerm, dateFilter]);
+
+  // Agrupamento para Kanban
   const pedidosAgrupados = useMemo(() => {
     const grupos: Record<string, Order[]> = {};
     statusOrdem.forEach(status => { grupos[status] = []; });
-    pedidos.forEach(pedido => {
+    pedidosFiltrados.forEach(pedido => {
       if (grupos[pedido.status]) {
         grupos[pedido.status].push(pedido);
       } else {
@@ -95,7 +131,7 @@ export function PedidosPage() {
       }
     });
     return grupos;
-  }, [pedidos]);
+  }, [pedidosFiltrados]);
 
   const handleVerDetalhes = (pedido: Order) => {
     setPedidoSelecionado(pedido);
@@ -106,7 +142,7 @@ export function PedidosPage() {
     setUpdatingId(pedidoId);
     try {
       const pedidoAtualizado = await updateAdminOrderStatus(pedidoId, novoStatus);
-      setPedidos(prevPedidos => prevPedidos.map(p => p.id === pedidoId ? pedidoAtualizado : p));
+      setPedidos(prev => prev.map(p => p.id === pedidoId ? pedidoAtualizado : p));
       toast.success(`Pedido atualizado!`);
     } catch (err) {
       toast.error("Erro ao atualizar status.");
@@ -115,95 +151,207 @@ export function PedidosPage() {
     }
   };
 
-  if (loading) return <div>A carregar pedidos...</div>;
+  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-dourado" /></div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <>
       <Toaster position="top-right" />
-      <div className="space-y-6">
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-3xl font-bold text-carvao"
-        >
-          Gestão de Pedidos (Kanban)
-        </motion.h1>
+      <div className="space-y-6 pb-10">
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {statusOrdem.map(status => (
-            <div key={status} className="bg-off-white rounded-lg shadow-inner h-fit max-h-[calc(100vh-200px)] flex flex-col">
-              <div className={`flex items-center gap-2 p-3 border-b-2 ${statusConfig[status].color}`}>
-                {statusConfig[status].icon}
-                <h2 className={`font-semibold uppercase text-sm ${statusConfig[status].color}`}>
-                  {status} ({pedidosAgrupados[status].length})
-                </h2>
-              </div>
-              
-              <div className="p-3 space-y-3 overflow-y-auto">
-                {pedidosAgrupados[status].map(pedido => (
-                  <motion.div 
-                    key={pedido.id}
-                    layout
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white p-3 rounded-lg shadow border border-gray-200"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-bold text-carvao">
-                        #{pedido.id.substring(0, 5).toUpperCase()}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {pedido.clienteNome ? pedido.clienteNome.split(' ')[0] : 'Cliente'}
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mb-1">
-                      {pedido.items.length} {pedido.items.length > 1 ? 'itens' : 'item'}
-                    </p>
-                    <p className="text-lg font-bold text-dourado mb-3">
-                      {formatCurrency(pedido.total)}
-                    </p>
-                    
-                    <div className="space-y-2">
-                      {/* 7. Botão de Certificado (Novo) */}
-                      <button
-                        onClick={() => prepararEImprimirCertificado(pedido)}
-                        className="w-full text-xs text-center font-medium text-emerald-600 hover:text-emerald-800 flex items-center justify-center gap-1 py-1.5 bg-emerald-50 rounded hover:bg-emerald-100 transition-colors border border-emerald-100"
-                        title="Imprimir Garantia"
-                      >
-                        <ScrollText size={14} /> Certificado
-                      </button>
+        {/* --- BARRA DE CONTROLE (Topo) --- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div>
+            <h1 className="text-2xl font-bold text-carvao">Gestão de Pedidos</h1>
+            <p className="text-xs text-gray-500">{pedidosFiltrados.length} pedidos encontrados</p>
+          </div>
 
-                      <button
-                        onClick={() => handleVerDetalhes(pedido)}
-                        className="w-full text-xs text-center font-medium text-blue-600 hover:text-blue-800 border border-blue-100 py-1.5 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        Ver Detalhes
-                      </button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            {/* Barra de Pesquisa */}
+            <div className="relative flex-grow sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                type="text"
+                placeholder="Buscar ID, Nome ou Tel..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
+              />
+            </div>
+
+            {/* Filtro de Data */}
+            <div className="relative">
+               <select 
+                 value={dateFilter}
+                 onChange={(e) => setDateFilter(e.target.value as any)}
+                 className="appearance-none w-full sm:w-auto pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm bg-white cursor-pointer"
+               >
+                 <option value="all">Todo o Período</option>
+                 <option value="7days">Últimos 7 dias</option>
+                 <option value="30days">Últimos 30 dias</option>
+               </select>
+               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            </div>
+
+            {/* Alternar Visualização */}
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button 
+                onClick={() => setViewMode('kanban')}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Visualização Kanban"
+              >
+                <LayoutGrid size={18} />
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Visualização em Lista"
+              >
+                <ListIcon size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* --- MODO KANBAN --- */}
+        {viewMode === 'kanban' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 overflow-x-auto pb-4">
+            {statusOrdem.map(status => (
+              <div key={status} className="bg-off-white rounded-lg shadow-inner h-fit max-h-[calc(100vh-220px)] flex flex-col min-w-[250px]">
+                <div className={`flex items-center gap-2 p-3 border-b-2 ${statusConfig[status].color} ${statusConfig[status].bg} rounded-t-lg sticky top-0 z-10`}>
+                  {statusConfig[status].icon}
+                  <h2 className={`font-bold uppercase text-xs ${statusConfig[status].color}`}>
+                    {status} ({pedidosAgrupados[status].length})
+                  </h2>
+                </div>
+                
+                <div className="p-2 space-y-2 overflow-y-auto custom-scrollbar">
+                  {pedidosAgrupados[status].map(pedido => (
+                    <motion.div 
+                      key={pedido.id}
+                      layout
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-bold text-carvao text-sm">
+                          #{pedido.id.substring(0, 5).toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : ''}
+                        </span>
+                      </div>
                       
-                      {updatingId === pedido.id ? (
-                        <div className="flex justify-center items-center h-8">
-                          <Loader2 className="animate-spin text-gray-400" size={16} />
-                        </div>
-                      ) : (
+                      <div className="text-xs text-gray-600 mb-2 truncate">
+                        {pedido.clienteNome || 'Cliente s/ nome'}
+                      </div>
+
+                      <div className="flex justify-between items-end mb-3">
+                        <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
+                          {pedido.items.length} itens
+                        </span>
+                        <span className="font-bold text-dourado text-sm">
+                          {formatCurrency(pedido.total)}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => prepararEImprimirCertificado(pedido)}
+                          className="flex items-center justify-center gap-1 py-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 rounded hover:bg-emerald-100 border border-emerald-200"
+                        >
+                          <ScrollText size={12} /> Certificado
+                        </button>
+
+                        <button
+                          onClick={() => handleVerDetalhes(pedido)}
+                          className="py-1 text-[10px] font-bold text-blue-700 bg-blue-50 rounded hover:bg-blue-100 border border-blue-200 text-center"
+                        >
+                          Ver +
+                        </button>
+                      </div>
+                      
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                         {updatingId === pedido.id ? (
+                            <div className="flex justify-center"><Loader2 className="animate-spin text-gray-400" size={14}/></div>
+                         ) : (
+                            <select
+                              value={pedido.status}
+                              onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
+                              className="w-full text-[10px] font-medium border-none bg-transparent text-gray-500 focus:ring-0 cursor-pointer text-center hover:text-carvao"
+                            >
+                              {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                         )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* --- MODO LISTA (TABELA) --- */}
+        {viewMode === 'list' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3">ID</th>
+                    <th className="px-4 py-3">Data</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3 text-center">Itens</th>
+                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pedidosFiltrados.map(pedido => (
+                    <tr key={pedido.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-700">#{pedido.id.substring(0, 5).toUpperCase()}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{pedido.clienteNome}</p>
+                        <p className="text-xs text-gray-400">{pedido.clienteTelefone}</p>
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-500">{pedido.items.length}</td>
+                      <td className="px-4 py-3 text-right font-bold text-dourado">{formatCurrency(pedido.total)}</td>
+                      <td className="px-4 py-3 text-center">
                         <select
                           value={pedido.status}
                           onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
-                          className="w-full text-xs font-medium border border-gray-300 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-dourado bg-gray-50"
+                          className={`text-xs font-bold px-2 py-1 rounded-full border-none cursor-pointer focus:ring-0 ${statusConfig[pedido.status].bg} ${statusConfig[pedido.status].color}`}
                         >
-                          {statusOrdem.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
+                          {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                      </td>
+                      <td className="px-4 py-3 flex justify-center gap-2">
+                        <button onClick={() => prepararEImprimirCertificado(pedido)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded" title="Certificado">
+                          <ScrollText size={16} />
+                        </button>
+                        <button onClick={() => handleVerDetalhes(pedido)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Ver Detalhes">
+                          <Search size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {pedidosFiltrados.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-gray-400">Nenhum pedido encontrado com estes filtros.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
       </div>
 
       <DetalhePedidoModal
@@ -212,7 +360,6 @@ export function PedidosPage() {
         pedido={pedidoSelecionado}
       />
 
-      {/* 8. Componente Invisível de Impressão */}
       <CertificadoImpressao 
         ref={certificadoRef} 
         pedido={pedidoParaCertificado} 
