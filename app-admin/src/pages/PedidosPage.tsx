@@ -31,8 +31,9 @@ const statusOrdem: OrderStatus[] = [
 ];
 
 // --- CORREÇÃO DO ERRO AQUI ---
-// A função agora aceita 'undefined' ou 'null' e não quebra.
+// Esta função protege o sistema contra o erro que você mandou
 const formatCurrency = (value: number | undefined | null): string => {
+  // Se o valor for undefined, null ou não for número, retorna R$ 0,00 e NÃO quebra
   if (value === undefined || value === null || isNaN(value)) {
     return 'R$ 0,00';
   }
