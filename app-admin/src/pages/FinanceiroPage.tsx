@@ -4,24 +4,47 @@ import { toast, Toaster } from 'react-hot-toast';
 import { Trash2, Edit, Loader2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Tipos e Serviços
-import { Transacao } from '../types'; // Removido .ts (não necessário no import)
+import { Transacao } from '../types';
 import { getTransacoes, createTransacao, deleteTransacao } from '../services/apiService';
 
 // Componentes
 import { TransacaoEditModal } from '../components/TransacaoEditModal';
 
 // --- FUNÇÕES UTILITÁRIAS BLINDADAS (Anti-Erro) ---
+
 const formatMoney = (value: number | undefined | null) => {
   if (value === undefined || value === null || isNaN(Number(value))) return 'R$ 0,00';
   return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
+// --- CORREÇÃO AQUI: Função de Data Universal ---
 const formatDate = (date: any) => {
   if (!date) return '-';
-  // Se for Timestamp do Firestore
-  if (date.seconds) return new Date(date.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-  // Se for string ou Date normal
-  return new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+  try {
+    // Caso 1: Timestamp do Firestore (objeto com .seconds)
+    if (date.seconds) {
+      return new Date(date.seconds * 1000).toLocaleDateString('pt-BR');
+    }
+
+    // Caso 2: String "YYYY-MM-DD" (vinda do input)
+    if (typeof date === 'string') {
+      // Adicionamos T12:00:00 para evitar problemas de fuso horário (ex: mostrar dia anterior)
+      if (date.includes('-') && !date.includes('T')) {
+         return new Date(date + 'T12:00:00').toLocaleDateString('pt-BR');
+      }
+      return new Date(date).toLocaleDateString('pt-BR');
+    }
+
+    // Caso 3: Objeto Date nativo do JS
+    if (date instanceof Date) {
+      return date.toLocaleDateString('pt-BR');
+    }
+
+    return '-';
+  } catch (error) {
+    return '-';
+  }
 };
 
 // --- COMPONENTE CARD ---
@@ -54,22 +77,22 @@ function FormularioNovaTransacao({ onTransacaoCriada }: { onTransacaoCriada: (no
     setLoading(true);
     const amountNumber = parseFloat(amount);
     
-    // Regra de Negócio: Venda é positivo, Despesa é negativo
     const finalAmount = type === 'despesa' ? -Math.abs(amountNumber) : Math.abs(amountNumber);
 
-    const novaTransacao: any = { // 'any' temporário para compatibilidade de criação
+    const novaTransacao: any = { 
       type,
       amount: finalAmount,
       description,
-      date, 
+      date, // Envia como string YYYY-MM-DD
     };
 
     try {
       const transacaoSalva = await createTransacao(novaTransacao);
       toast.success(`${type === 'venda' ? 'Receita' : 'Despesa'} registrada!`);
-      onTransacaoCriada(transacaoSalva); 
       
-      // Limpar formulário
+      // Atualiza a lista imediatamente com a string de data correta
+      onTransacaoCriada({ ...transacaoSalva, date: date } as any); 
+      
       setDescription('');
       setAmount('');
     } catch (error) {
@@ -86,7 +109,6 @@ function FormularioNovaTransacao({ onTransacaoCriada }: { onTransacaoCriada: (no
         <DollarSign className="text-dourado" size={20} /> Novo Lançamento
       </h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Toggle Tipo */}
         <div className="flex bg-gray-100 p-1 rounded-lg">
           <button
             type="button"
@@ -152,7 +174,6 @@ export function FinanceiroPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Estados do Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [transacaoSelecionada, setTransacaoSelecionada] = useState<Transacao | null>(null);
 
@@ -239,7 +260,6 @@ export function FinanceiroPage() {
                 {formatMoney(saldoTotal)}
               </p>
             </div>
-            {/* Efeito decorativo */}
             <div className="absolute -right-6 -bottom-6 text-white opacity-5">
               <DollarSign size={120} />
             </div>
@@ -276,6 +296,7 @@ export function FinanceiroPage() {
                       </div>
                       <div>
                         <p className="font-bold text-gray-800 text-sm">{t.description || 'Sem descrição'}</p>
+                        {/* USO DA DATA BLINDADA */}
                         <p className="text-xs text-gray-400 font-mono">{formatDate(t.date)}</p>
                       </div>
                     </div>
