@@ -1,25 +1,42 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Transacao } from '../types/index.ts';
-import { getTransacoes, createTransacao, deleteTransacao } from '../services/apiService.tsx';
-import { toast, Toaster } from 'react-hot-toast'; 
-import { Trash2, Edit } from 'lucide-react'; // 1. Importar o ícone de Editar
-// 2. Importar o novo Modal de Edição
-import { TransacaoEditModal } from '../components/TransacaoEditModal.tsx'; 
+import { toast, Toaster } from 'react-hot-toast';
+import { Trash2, Edit, Loader2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 
-// Componente Card
+// Tipos e Serviços
+import { Transacao } from '../types'; // Removido .ts (não necessário no import)
+import { getTransacoes, createTransacao, deleteTransacao } from '../services/apiService';
+
+// Componentes
+import { TransacaoEditModal } from '../components/TransacaoEditModal';
+
+// --- FUNÇÕES UTILITÁRIAS BLINDADAS (Anti-Erro) ---
+const formatMoney = (value: number | undefined | null) => {
+  if (value === undefined || value === null || isNaN(Number(value))) return 'R$ 0,00';
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+const formatDate = (date: any) => {
+  if (!date) return '-';
+  // Se for Timestamp do Firestore
+  if (date.seconds) return new Date(date.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  // Se for string ou Date normal
+  return new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+};
+
+// --- COMPONENTE CARD ---
 const Card = ({ children, delay = 0, className = "" }: { children: React.ReactNode, delay?: number, className?: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3, delay }}
-    className={`bg-white shadow-lg rounded-lg p-4 sm:p-6 border border-transparent ${className}`}
+    className={`bg-white shadow-lg rounded-xl p-6 border border-gray-100 ${className}`}
   >
     {children}
   </motion.div>
 );
 
-// Componente FormularioNovaTransacao (O formulário de CRIAR)
+// --- FORMULÁRIO DE NOVA TRANSAÇÃO ---
 function FormularioNovaTransacao({ onTransacaoCriada }: { onTransacaoCriada: (novaTransacao: Transacao) => void }) {
   const [type, setType] = useState<'venda' | 'despesa'>('despesa');
   const [description, setDescription] = useState('');
@@ -30,66 +47,72 @@ function FormularioNovaTransacao({ onTransacaoCriada }: { onTransacaoCriada: (no
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description || !amount || !date) {
-      toast.error("Por favor, preencha todos os campos.");
+      toast.error("Preencha todos os campos.");
       return;
     }
 
     setLoading(true);
     const amountNumber = parseFloat(amount);
     
-    const novaTransacao: Omit<Transacao, 'id'> = {
+    // Regra de Negócio: Venda é positivo, Despesa é negativo
+    const finalAmount = type === 'despesa' ? -Math.abs(amountNumber) : Math.abs(amountNumber);
+
+    const novaTransacao: any = { // 'any' temporário para compatibilidade de criação
       type,
-      amount: type === 'despesa' ? -Math.abs(amountNumber) : Math.abs(amountNumber),
+      amount: finalAmount,
       description,
-      date, // Enviamos como string "YYYY-MM-DD"
+      date, 
     };
 
     try {
       const transacaoSalva = await createTransacao(novaTransacao);
-      toast.success(`Transação de ${type} registada!`);
+      toast.success(`${type === 'venda' ? 'Receita' : 'Despesa'} registrada!`);
       onTransacaoCriada(transacaoSalva); 
+      
+      // Limpar formulário
       setDescription('');
       setAmount('');
     } catch (error) {
-      toast.error("Erro ao salvar transação.");
+      toast.error("Erro ao salvar.");
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // O JSX do formulário de criação
   return (
-    <Card className="hover:border-prata">
-      <h2 className="text-xl font-semibold mb-4 text-carvao">Registar Nova Transação</h2>
+    <Card className="border-l-4 border-l-carvao">
+      <h2 className="text-lg font-bold mb-4 text-carvao flex items-center gap-2">
+        <DollarSign className="text-dourado" size={20} /> Novo Lançamento
+      </h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Tabs de Venda / Despesa */}
-        <div className="grid grid-cols-2 gap-2 rounded-lg p-1 bg-off-white">
+        {/* Toggle Tipo */}
+        <div className="flex bg-gray-100 p-1 rounded-lg">
           <button
             type="button"
             onClick={() => setType('venda')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
-              ${type === 'venda' ? 'bg-dourado text-carvao shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+            className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center gap-2
+              ${type === 'venda' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            Receita (Venda)
+            <TrendingUp size={16} /> Receita
           </button>
           <button
             type="button"
             onClick={() => setType('despesa')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
-              ${type === 'despesa' ? 'bg-carvao text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+            className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center gap-2
+              ${type === 'despesa' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            Despesa
+            <TrendingDown size={16} /> Despesa
           </button>
         </div>
         
         <div className="space-y-3">
           <input
             type="text"
-            placeholder="Descrição (ex: Embalagens, Venda Anel X)"
+            placeholder="Descrição (ex: Conta de Luz)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
           />
           <div className="grid grid-cols-2 gap-3">
              <input
@@ -98,13 +121,13 @@ function FormularioNovaTransacao({ onTransacaoCriada }: { onTransacaoCriada: (no
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               step="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
             />
              <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-gray-700"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm text-gray-600"
             />
           </div>
         </div>
@@ -112,190 +135,172 @@ function FormularioNovaTransacao({ onTransacaoCriada }: { onTransacaoCriada: (no
         <button 
           type="submit" 
           disabled={loading}
-          className={`w-full px-4 py-2 rounded-lg text-white font-semibold transition-colors
-            ${type === 'venda' ? 'bg-dourado hover:bg-yellow-600' : 'bg-carvao hover:bg-gray-700'}
-            ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`w-full py-3 rounded-lg text-white font-bold text-sm shadow-md transition-all transform active:scale-95 flex items-center justify-center gap-2
+            ${type === 'venda' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+            ${loading ? 'opacity-70 cursor-wait' : ''}`}
         >
-          {loading ? 'A registar...' : `Registar ${type === 'venda' ? 'Receita' : 'Despesa'}`}
+          {loading ? <Loader2 className="animate-spin" size={18} /> : 'Lançar'}
         </button>
       </form>
     </Card>
   );
 }
-// ============================================================================
-// FIM DO FORMULÁRIO DE CRIAÇÃO
-// ============================================================================
 
-
-// Componente Principal da Página
+// --- PÁGINA PRINCIPAL ---
 export function FinanceiroPage() {
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 3. Estados para controlar o NOVO Modal de Edição
+  // Estados do Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [transacaoSelecionada, setTransacaoSelecionada] = useState<Transacao | null>(null);
 
-
   useEffect(() => {
-    async function carregarTransacoes() {
+    async function carregar() {
       try {
         setLoading(true);
-        setError(null);
         const data = await getTransacoes();
         setTransacoes(data);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
-        setError("Falha ao carregar transações.");
+        setError("Erro ao carregar dados.");
       } finally {
         setLoading(false);
       }
     }
-    carregarTransacoes();
+    carregar();
   }, []);
 
-  // Adiciona a nova transação ao topo da lista
   const handleTransacaoCriada = (novaTransacao: Transacao) => {
-    setTransacoes(prevTransacoes => [novaTransacao, ...prevTransacoes]);
+    setTransacoes(prev => [novaTransacao, ...prev]);
   };
 
-  // Lógica de Apagar
   const handleApagarTransacao = (id: string, nome: string) => {
     toast((t) => (
       <div className="flex flex-col p-2">
-        <p className="font-semibold text-carvao">Tem a certeza?</p>
-        <p className="text-sm text-gray-600 mb-3">Quer mesmo apagar a transação "{nome}"?</p>
+        <p className="font-bold text-gray-800">Apagar "{nome}"?</p>
+        <p className="text-xs text-gray-500 mb-3">Esta ação não pode ser desfeita.</p>
         <div className="flex justify-end gap-2">
-          <button
-            className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
-            onClick={() => toast.dismiss(t.id)}
+          <button className="px-3 py-1 text-xs font-bold bg-gray-200 rounded hover:bg-gray-300" onClick={() => toast.dismiss(t.id)}>Cancelar</button>
+          <button 
+            className="px-3 py-1 text-xs font-bold bg-red-600 text-white rounded hover:bg-red-700" 
+            onClick={() => { toast.dismiss(t.id); executarApagar(id); }}
           >
-            Cancelar
-          </button>
-          <button
-            className="px-3 py-1 text-sm rounded bg-red-600 text-white hover:bg-red-700"
-            onClick={() => {
-              toast.dismiss(t.id);
-              executarApagar(id);
-            }}
-          >
-            Apagar
+            Confirmar
           </button>
         </div>
       </div>
-    ), { duration: 6000 });
+    ), { duration: 5000 });
   };
 
   const executarApagar = async (id: string) => {
-    const promise = deleteTransacao(id);
-    toast.promise(promise, {
-      loading: 'A apagar transação...',
-      success: () => {
-        setTransacoes(prev => prev.filter(t => t.id !== id));
-        return 'Transação apagada com sucesso!';
-      },
-      error: 'Erro ao apagar a transação.',
-    });
+    try {
+      await deleteTransacao(id);
+      setTransacoes(prev => prev.filter(t => t.id !== id));
+      toast.success("Apagado com sucesso.");
+    } catch (e) {
+      toast.error("Erro ao apagar.");
+    }
   };
 
-  // --- 4. NOVAS FUNÇÕES PARA EDITAR ---
-  
-  // Abre o modal para EDITAR uma transação
   const handleEditar = (transacao: Transacao) => {
-    setTransacaoSelecionada(transacao); // Define a transação a editar
+    setTransacaoSelecionada(transacao);
     setIsEditModalOpen(true);
   };
   
-  // Chamada quando o modal de edição salva
-  const handleTransacaoSalva = (transacaoAtualizada: Transacao) => {
-    // Atualiza a transação na lista
-    setTransacoes(prev => 
-      prev.map(t => 
-        t.id === transacaoAtualizada.id ? transacaoAtualizada : t
-      )
-    );
+  const handleTransacaoSalva = (atualizada: Transacao) => {
+    setTransacoes(prev => prev.map(t => t.id === atualizada.id ? atualizada : t));
   };
-  // --- FIM DAS NOVAS FUNÇÕES ---
 
-  // Calcula o Saldo Total
-  const saldoTotal = useMemo(() => {
-    return transacoes.reduce((acc, t) => acc + t.amount, 0);
-  }, [transacoes]); 
+  const saldoTotal = useMemo(() => transacoes.reduce((acc, t) => acc + (t.amount || 0), 0), [transacoes]); 
 
-  if (loading) return <div>A carregar financeiro...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-dourado" /></div>;
+  if (error) return <div className="text-red-500 p-10">{error}</div>;
 
   return (
     <>
       <Toaster position="top-right" />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-10">
         
-        {/* Coluna da Esquerda (Formulário e Saldo) */}
+        {/* Esquerda: Saldo e Formulário */}
         <div className="lg:col-span-1 space-y-6">
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex justify-between items-center"
+          <motion.h1 
+            initial={{ opacity: 0, x: -20 }} 
+            animate={{ opacity: 1, x: 0 }}
+            className="text-3xl font-bold text-carvao"
           >
-            <h1 className="text-3xl font-bold text-carvao">Financeiro</h1>
-          </motion.div>
+            Fluxo de Caixa
+          </motion.h1>
 
-          <Card>
-            <h2 className="text-lg font-semibold text-gray-500">Saldo Atual</h2>
-            <p className={`text-4xl font-bold ${saldoTotal >= 0 ? 'text-dourado' : 'text-red-500'}`}>
-              R$ {saldoTotal.toFixed(2)}
-            </p>
+          <Card className="bg-carvao text-white border-none relative overflow-hidden">
+            <div className="relative z-10">
+              <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-1">Saldo Atual</h2>
+              <p className={`text-4xl font-bold ${saldoTotal >= 0 ? 'text-dourado' : 'text-red-400'}`}>
+                {formatMoney(saldoTotal)}
+              </p>
+            </div>
+            {/* Efeito decorativo */}
+            <div className="absolute -right-6 -bottom-6 text-white opacity-5">
+              <DollarSign size={120} />
+            </div>
           </Card>
           
           <FormularioNovaTransacao onTransacaoCriada={handleTransacaoCriada} />
         </div>
 
-        {/* Coluna da Direita (Histórico) */}
+        {/* Direita: Lista de Transações */}
         <div className="lg:col-span-2">
-          <Card delay={0.1}>
-            <h2 className="text-xl font-semibold mb-4 text-carvao">Histórico de Transações</h2>
+          <Card delay={0.1} className="h-full">
+            <h2 className="text-xl font-bold mb-6 text-carvao flex items-center gap-2">
+              Histórico <span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{transacoes.length} registros</span>
+            </h2>
             
             {transacoes.length === 0 ? (
-              <p className="text-gray-500">Nenhuma transação encontrada.</p>
+              <div className="text-center py-10 text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
+                <DollarSign size={40} className="mx-auto mb-2 opacity-20" />
+                <p>Nenhuma transação registrada ainda.</p>
+              </div>
             ) : (
-              <ul className="divide-y divide-gray-200">
+              <ul className="divide-y divide-gray-100">
                 {transacoes.map(t => (
                   <motion.li 
                     key={t.id} 
-                    className="py-3 flex justify-between items-center"
+                    className="py-4 flex justify-between items-center hover:bg-gray-50 px-2 rounded-lg transition-colors group"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     layout 
                   >
-                    <div>
-                      <p className="font-medium text-gray-900">{t.description}</p>
-                      <p className="text-sm text-gray-500">
-                        {/* 5. A data (tipo 'any') tem a propriedade 'seconds' */}
-                        {t.date ? new Date(t.date.seconds * 1000).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'Data Inválida'} - 
-                        <span className={`capitalize font-medium ${t.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{t.type}</span>
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${t.type === 'venda' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {t.type === 'venda' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800 text-sm">{t.description || 'Sem descrição'}</p>
+                        <p className="text-xs text-gray-400 font-mono">{formatDate(t.date)}</p>
+                      </div>
                     </div>
-                    {/* 6. Botões de Ação Atualizados */}
-                    <div className="flex items-center gap-1">
-                      <p className={`text-lg font-semibold ${t.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {t.amount >= 0 ? '+' : ''} R$ {t.amount.toFixed(2)}
+
+                    <div className="flex items-center gap-4">
+                      <p className={`text-sm font-bold ${t.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.amount >= 0 ? '+' : ''} {formatMoney(t.amount)}
                       </p>
-                      <button
-                        onClick={() => handleEditar(t)}
-                        className="p-2 rounded-full text-gray-400 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-                        title="Editar Transação"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleApagarTransacao(t.id, t.description)}
-                        className="p-2 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors"
-                        title="Apagar Transação"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEditar(t)}
+                          className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          title="Editar"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleApagarTransacao(t.id, t.description)}
+                          className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          title="Apagar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </motion.li>
                 ))}
@@ -305,7 +310,6 @@ export function FinanceiroPage() {
         </div>
       </div>
 
-      {/* 7. Renderizar o NOVO Modal de Edição */}
       <TransacaoEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
