@@ -30,14 +30,25 @@ const statusOrdem: OrderStatus[] = [
   'Cancelado'
 ];
 
-// --- CORREÇÃO DO ERRO AQUI ---
-// Esta função protege o sistema contra o erro que você mandou
-const formatCurrency = (value: number | undefined | null): string => {
-  // Se o valor for undefined, null ou não for número, retorna R$ 0,00 e NÃO quebra
-  if (value === undefined || value === null || isNaN(value)) {
+// --- 🛡️ FUNÇÕES BLINDADAS (Anti-Erro) ---
+
+// Formata Dinheiro com Segurança
+const formatCurrency = (value: any): string => {
+  // Se for nulo, indefinido ou não for número
+  if (value === undefined || value === null || isNaN(Number(value))) {
     return 'R$ 0,00';
   }
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+// Formata Data com Segurança
+const formatDate = (timestamp: any): string => {
+  if (!timestamp || !timestamp.seconds) return '-';
+  try {
+    return new Date(timestamp.seconds * 1000).toLocaleDateString('pt-BR');
+  } catch (e) {
+    return '-';
+  }
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -67,10 +78,12 @@ export function PedidosPage() {
   });
 
   const prepararEImprimirCertificado = (pedido: Order) => {
+    // Só imprime se o pedido for válido
+    if (!pedido) return;
     setPedidoParaCertificado(pedido);
     setTimeout(() => {
       handlePrintCertificado();
-    }, 100);
+    }, 200); // Aumentei o timeout para garantir renderização
   };
 
   useEffect(() => {
@@ -82,13 +95,16 @@ export function PedidosPage() {
            getAdminOrders(),
            getConfig()
         ]);
-        // Ordenar pedidos por data (mais recente primeiro)
-        // Proteção extra: verifica se createdAt existe
-        const sortedPedidos = pedidosData.sort((a: any, b: any) => {
+
+        // Sanitização: Remover pedidos nulos ou corrompidos da lista
+        const pedidosLimpos = pedidosData.filter((p: any) => p && p.id);
+
+        const sortedPedidos = pedidosLimpos.sort((a: any, b: any) => {
             const dateA = a.createdAt?.seconds || 0;
             const dateB = b.createdAt?.seconds || 0;
             return dateB - dateA;
         });
+
         setPedidos(sortedPedidos);
         setConfig(configData);
       } catch (err) {
@@ -104,22 +120,21 @@ export function PedidosPage() {
   // --- LÓGICA DE FILTRAGEM ---
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(pedido => {
-      // 1. Filtro de Texto (ID, Nome, Telefone)
       const termo = searchTerm.toLowerCase();
-      const id = pedido.id ? pedido.id.toLowerCase() : ''; // Proteção contra ID nulo
+      // Verificações seguras com "|| ''"
+      const id = pedido.id ? pedido.id.toLowerCase() : '';
       const nome = pedido.clienteNome ? pedido.clienteNome.toLowerCase() : '';
       const tel = pedido.clienteTelefone || '';
 
-      const matchText = 
-        id.includes(termo) ||
-        nome.includes(termo) ||
-        tel.includes(termo);
+      const matchText = id.includes(termo) || nome.includes(termo) || tel.includes(termo);
 
       if (!matchText) return false;
 
-      // 2. Filtro de Data
       if (dateFilter !== 'all') {
-        const dataPedido = pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000) : new Date();
+        const segundos = pedido.createdAt?.seconds;
+        if (!segundos) return false;
+        
+        const dataPedido = new Date(segundos * 1000);
         const diasAtras = (new Date().getTime() - dataPedido.getTime()) / (1000 * 3600 * 24);
         
         if (dateFilter === '7days' && diasAtras > 7) return false;
@@ -134,11 +149,13 @@ export function PedidosPage() {
   const pedidosAgrupados = useMemo(() => {
     const grupos: Record<string, Order[]> = {};
     statusOrdem.forEach(status => { grupos[status] = []; });
+    
     pedidosFiltrados.forEach(pedido => {
-      const statusSeguro = pedido.status || 'Aguardando Pagamento'; // Fallback se status for nulo
+      const statusSeguro = pedido.status || 'Aguardando Pagamento';
       if (grupos[statusSeguro]) {
         grupos[statusSeguro].push(pedido);
       } else {
+        // Se o status for desconhecido, joga para Cancelado por segurança
         if (!grupos['Cancelado']) grupos['Cancelado'] = [];
         grupos['Cancelado'].push(pedido);
       }
@@ -172,7 +189,7 @@ export function PedidosPage() {
       <Toaster position="top-right" />
       <div className="space-y-6 pb-10">
         
-        {/* --- BARRA DE CONTROLE (Topo) --- */}
+        {/* --- BARRA DE CONTROLE --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-bold text-carvao">Gestão de Pedidos</h1>
@@ -180,7 +197,6 @@ export function PedidosPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            {/* Barra de Pesquisa */}
             <div className="relative flex-grow sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
@@ -192,7 +208,6 @@ export function PedidosPage() {
               />
             </div>
 
-            {/* Filtro de Data */}
             <div className="relative">
                <select 
                  value={dateFilter}
@@ -206,19 +221,16 @@ export function PedidosPage() {
                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             </div>
 
-            {/* Alternar Visualização */}
             <div className="flex bg-gray-100 p-1 rounded-lg">
               <button 
                 onClick={() => setViewMode('kanban')}
                 className={`p-1.5 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Visualização Kanban"
               >
                 <LayoutGrid size={18} />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
                 className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Visualização em Lista"
               >
                 <ListIcon size={18} />
               </button>
@@ -252,7 +264,7 @@ export function PedidosPage() {
                           #{pedido.id.substring(0, 5).toUpperCase()}
                         </span>
                         <span className="text-[10px] text-gray-400">
-                          {pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : ''}
+                          {formatDate(pedido.createdAt)}
                         </span>
                       </div>
                       
@@ -262,8 +274,9 @@ export function PedidosPage() {
 
                       <div className="flex justify-between items-end mb-3">
                         <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
-                          {pedido.items.length} itens
+                          {pedido.items ? pedido.items.length : 0} itens
                         </span>
+                        {/* USO BLINDADO DO FORMATCURRENCY */}
                         <span className="font-bold text-dourado text-sm">
                           {formatCurrency(pedido.total)}
                         </span>
@@ -306,7 +319,7 @@ export function PedidosPage() {
           </div>
         )}
 
-        {/* --- MODO LISTA (TABELA) --- */}
+        {/* --- MODO LISTA --- */}
         {viewMode === 'list' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -327,7 +340,7 @@ export function PedidosPage() {
                     <tr key={pedido.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-mono font-bold text-gray-700">#{pedido.id.substring(0, 5).toUpperCase()}</td>
                       <td className="px-4 py-3 text-gray-500">
-                        {pedido.createdAt?.seconds ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : '-'}
+                        {formatDate(pedido.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{pedido.clienteNome || 'S/ Nome'}</p>
@@ -367,6 +380,7 @@ export function PedidosPage() {
 
       </div>
 
+      {/* MODAL (Onde o erro também pode estar) */}
       <DetalhePedidoModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
