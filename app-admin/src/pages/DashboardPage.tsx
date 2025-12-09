@@ -19,19 +19,21 @@ const COLORS = {
   bgTooltip: '#FFFFFF'
 };
 
-// --- FUNÇÃO DE SEGURANÇA (Vacina contra Erros) ---
+// --- 🛡️ FUNÇÃO DE SEGURANÇA (A VACINA) ---
+// Esta função impede que o erro 'toLocaleString of undefined' aconteça
 const formatMoney = (value: number | undefined | null) => {
   if (value === undefined || value === null || isNaN(Number(value))) return 'R$ 0,00';
   return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// --- Componente: Tooltip Personalizado ---
+// --- Componente: Tooltip Personalizado (Agora Blindado) ---
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-xl text-sm z-50">
         <p className="font-bold text-gray-700 mb-1">{label || payload[0].name}</p>
         <p className="text-dourado font-semibold">
+          {/* USANDO A FUNÇÃO SEGURA AQUI */}
           {formatMoney(payload[0].value)}
         </p>
       </div>
@@ -40,7 +42,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// --- Componente: Cartão de Estatística ---
+// --- Componente: Cartão de Estatística (Agora Blindado) ---
 interface StatCardProps {
   titulo: string;
   valor: number;
@@ -59,6 +61,7 @@ const StatCard = ({ titulo, valor, icone, corIcone, delay }: StatCardProps) => (
     <div>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{titulo}</p>
       <p className="text-2xl font-bold text-gray-800">
+        {/* USANDO A FUNÇÃO SEGURA AQUI TAMBÉM */}
         {formatMoney(valor)}
       </p>
     </div>
@@ -88,8 +91,8 @@ export function DashboardPage() {
           getDashboardStats().catch(() => ({ totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 })),
           getDashboardCharts().catch(() => ({ salesByDay: [], incomeVsExpense: [] }))
         ]);
-        setStats(dadosStats);
-        setChartsData(dadosCharts);
+        setStats(dadosStats || { totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
+        setChartsData(dadosCharts || { salesByDay: [], incomeVsExpense: [] });
       } catch (error) {
         console.error("Erro ao carregar dashboard", error);
       } finally {
@@ -108,10 +111,9 @@ export function DashboardPage() {
   // Dados seguros para o Donut Chart
   const pieData = [
     { name: 'Receitas', value: stats.totalVendas || 0 },
-    { name: 'Despesas', value: Math.abs(stats.totalDespesas || 0) } // Garante positivo
+    { name: 'Despesas', value: Math.abs(stats.totalDespesas || 0) }
   ];
 
-  // Se não houver dados, cria um placeholder para o gráfico não sumir
   const hasData = pieData.some(d => d.value > 0);
   const finalPieData = hasData ? pieData : [{ name: 'Sem dados', value: 1 }];
 
@@ -190,7 +192,6 @@ export function DashboardPage() {
           <h3 className="text-lg font-bold text-gray-800 mb-4 text-center lg:text-left">Balanço</h3>
           
           <div className="flex-grow relative flex items-center justify-center">
-             {/* Texto Centralizado (Saldo no meio do Donut) */}
              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                 <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Saldo</span>
                 <span className={`text-xl font-bold ${stats.saldoTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -226,7 +227,6 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Legenda */}
           <div className="mt-4 flex justify-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
