@@ -7,14 +7,22 @@ interface CatalogoImpressaoProps {
   config: ConfigFormData | null;
 }
 
-// Formata moeda
-const formatMoney = (value: number) => 
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+// --- CORREÇÃO: Função Blindada contra Erros ---
+const formatMoney = (value: number | undefined | null) => {
+  // Se for inválido, retorna R$ 0,00 e não quebra o sistema
+  if (value === undefined || value === null || isNaN(Number(value))) {
+    return 'R$ 0,00';
+  }
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export const CatalogoImpressao = React.forwardRef<HTMLDivElement, CatalogoImpressaoProps>(
   ({ produtos, config }, ref) => {
+    // Proteção extra: se a lista de produtos for nula/indefinida
+    const listaSegura = Array.isArray(produtos) ? produtos : [];
+
     return (
-      <div style={{ display: 'none' }}> {/* Invisível na tela, visível na impressão */}
+      <div style={{ display: 'none' }}>
         <div ref={ref} className="p-10 bg-white font-sans text-gray-800">
           
           <style type="text/css" media="print">
@@ -25,7 +33,7 @@ export const CatalogoImpressao = React.forwardRef<HTMLDivElement, CatalogoImpres
             `}
           </style>
 
-          {/* Cabeçalho do Catálogo */}
+          {/* Cabeçalho */}
           <div className="text-center border-b-4 pb-6 mb-8" style={{ borderColor: config?.primaryColor || '#000' }}>
             <h1 className="text-4xl font-bold uppercase tracking-widest text-gray-900">
               {config?.storeName || 'Catálogo de Produtos'}
@@ -37,14 +45,14 @@ export const CatalogoImpressao = React.forwardRef<HTMLDivElement, CatalogoImpres
             )}
           </div>
 
-          {/* Grid de Produtos (2 por linha para destaque) */}
+          {/* Grid de Produtos */}
           <div className="grid grid-cols-2 gap-8">
-            {produtos.map((produto) => (
+            {listaSegura.map((produto) => (
               <div 
                 key={produto.id} 
                 className="page-break border border-gray-200 rounded-xl p-4 flex flex-col items-center justify-between shadow-sm"
               >
-                {/* Imagem Grande */}
+                {/* Imagem */}
                 <div className="w-full h-64 mb-4 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden">
                   {produto.imageUrl ? (
                     <img 
@@ -60,17 +68,17 @@ export const CatalogoImpressao = React.forwardRef<HTMLDivElement, CatalogoImpres
                 {/* Detalhes */}
                 <div className="text-center w-full">
                   <h2 className="text-lg font-bold text-gray-900 line-clamp-2 mb-1 h-14 flex items-center justify-center">
-                    {produto.name}
+                    {produto.name || 'Produto sem nome'}
                   </h2>
                   
                   <p className="text-xs text-gray-500 font-mono mb-3">Ref: {produto.code || 'N/A'}</p>
                   
-                  {/* Preço em Destaque */}
+                  {/* Preço */}
                   <div 
                     className="py-2 px-6 rounded-full inline-block font-bold text-xl text-white"
                     style={{ backgroundColor: config?.primaryColor || '#000' }}
                   >
-                    {formatMoney(produto.salePrice || 0)}
+                    {formatMoney(produto.salePrice)}
                   </div>
                 </div>
               </div>
