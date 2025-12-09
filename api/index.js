@@ -113,7 +113,7 @@ app.get('/config-publica', async (req, res) => {
   try {
     const doc = await CONFIG_PATH.get();
     const settings = doc.exists ? doc.data() : {};
-    
+
     res.status(200).json({
       whatsappNumber: settings.whatsappNumber || null,
       storeName: settings.storeName || "HivePratas",
@@ -158,15 +158,15 @@ app.post('/orders', async (req, res) => {
     // NOTA: Stock é baixado apenas quando o status muda para 'Enviado' ou pode ser aqui.
     // Neste sistema, optamos por baixar stock na confirmação (via Admin) ou aqui.
     // Vamos manter simples: Baixa aqui para garantir reserva.
-    
+
     const batch = db.batch();
     const docRef = db.collection(ORDERS_COLLECTION).doc();
     batch.set(docRef, novoPedido);
 
     // Baixa de Stock Imediata ao criar pedido (Reserva)
     pedidoData.items.forEach(item => {
-        const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
-        batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(-item.quantidade) });
+      const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
+      batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(-item.quantidade) });
     });
 
     await batch.commit();
@@ -278,49 +278,96 @@ app.delete('/admin/transacoes/:id', async (req, res) => {
 
 // --- Dashboard Stats ---
 app.get('/admin/dashboard-stats', async (req, res) => {
-  const s = await db.collection(TRANSACTIONS_COLLECTION).get();
-  const stats = s.docs.reduce((acc, doc) => {
-    const d = doc.data();
-    if (d.type === 'venda') acc.totalVendas += d.amount;
-    if (d.type === 'despesa') acc.totalDespesas += d.amount;
-    return acc;
-  }, { totalVendas: 0, totalDespesas: 0 });
-  res.json({ ...stats, lucroLiquido: stats.totalVendas - stats.totalDespesas });
+  try {
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
+
+    if (snapshot.empty) {
+      return res.status(200).json({
+        totalVendas: 0,
+        totalDespesas: 0,
+        lucroLiquido: 0,
+        saldoTotal: 0
+      });
+    }
+
+    const stats = snapshot.docs.reduce((acc, doc) => {
+      const data = doc.data();
+      let amount = parseFloat(data.amount);
+
+      // Proteção: Se não for número, ignora
+      if (isNaN(amount)) amount = 0;
+
+      // Lógica Inteligente:
+      // Se for 'despesa' e o valor estiver positivo no banco, invertemos para negativo.
+      // Se já estiver negativo (novo padrão), mantemos negativo.
+      let realAmount = amount;
+      if (data.type === 'despesa' && amount > 0) {
+        realAmount = -amount;
+      }
+
+      // 1. Acumula no Saldo Total (Vendas + Despesas Negativas)
+      acc.saldoTotal += realAmount;
+
+      // 2. Separa para os KPIs individuais
+      if (data.type === 'venda') {
+        acc.totalVendas += realAmount;
+      } else if (data.type === 'despesa') {
+        // Para mostrar no card de "Despesas", queremos o valor absoluto (positivo)
+        acc.totalDespesas += Math.abs(realAmount);
+      }
+
+      return acc;
+    }, { totalVendas: 0, totalDespesas: 0, saldoTotal: 0 });
+
+    // O Lucro Líquido é matematicamente igual ao Saldo Total neste contexto
+    const responseData = {
+      totalVendas: stats.totalVendas,
+      totalDespesas: stats.totalDespesas,
+      lucroLiquido: stats.saldoTotal,
+      saldoTotal: stats.saldoTotal
+    };
+
+    res.status(200).json(responseData);
+
+  } catch (error) {
+    console.error("ERRO em /admin/dashboard-stats:", error);
+    res.status(500).json({ message: "Erro interno.", error: error.message });
+  }
 });
 
 // --- Dashboard Charts (Graficos) ---
 app.get('/admin/dashboard-charts', async (req, res) => {
-    try {
-        const today = new Date();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(today.getDate() - 7);
-        const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
-        
-        const last7Days = {};
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(today.getDate() - i);
-            last7Days[d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })] = 0;
-        }
+  try {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
 
-        let income = 0, expense = 0;
-        snapshot.docs.forEach(doc => {
-            const data = doc.data();
-            const date = data.date.toDate();
-            const amount = parseFloat(data.amount);
-            
-            if (data.type === 'venda') income += amount;
-            if (data.type === 'despesa') expense += Math.abs(amount);
+    const last7Days = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      last7Days[d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })] = 0;
+    }
 
-            if (data.type === 'venda' && date >= sevenDaysAgo) {
-                const dayStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                if (last7Days[dayStr] !== undefined) last7Days[dayStr] += amount;
-            }
-        });
+    let income = 0, expense = 0;
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const date = data.date.toDate();
+      const amount = parseFloat(data.amount);
 
-        const salesByDay = Object.keys(last7Days).map(key => ({ name: key, vendas: last7Days[key] }));
-        res.json({ salesByDay, incomeVsExpense: [{ name: 'Receita', value: income }, { name: 'Despesa', value: expense }] });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+      if (data.type === 'venda') income += amount;
+      if (data.type === 'despesa') expense += Math.abs(amount);
+
+      if (data.type === 'venda' && date >= sevenDaysAgo) {
+        const dayStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        if (last7Days[dayStr] !== undefined) last7Days[dayStr] += amount;
+      }
+    });
+
+    const salesByDay = Object.keys(last7Days).map(key => ({ name: key, vendas: last7Days[key] }));
+    res.json({ salesByDay, incomeVsExpense: [{ name: 'Receita', value: income }, { name: 'Despesa', value: expense }] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- Configuração ---
@@ -382,36 +429,36 @@ app.put('/admin/orders/:id', async (req, res) => {
 
     // 1. Cancelamento: Devolve Stock
     if (status === 'Cancelado' && oldStatus !== 'Cancelado') {
-        if (orderData.items) {
-            orderData.items.forEach(item => {
-                const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
-                batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(item.quantidade) });
-            });
-        }
+      if (orderData.items) {
+        orderData.items.forEach(item => {
+          const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
+          batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(item.quantidade) });
+        });
+      }
     }
 
     // 2. Reativação: Remove Stock novamente
     if (oldStatus === 'Cancelado' && status !== 'Cancelado') {
-        if (orderData.items) {
-            orderData.items.forEach(item => {
-                const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
-                batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(-item.quantidade) });
-            });
-        }
+      if (orderData.items) {
+        orderData.items.forEach(item => {
+          const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
+          batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(-item.quantidade) });
+        });
+      }
     }
 
     // 3. Venda Confirmada (Enviado): Lança no Financeiro
     let updateData = { status };
     if (status === 'Enviado' && !orderData.financeiroRegistrado) {
-        const transacao = {
-            type: 'venda',
-            amount: orderData.total,
-            description: `Pedido #${id.substring(0,5).toUpperCase()}`,
-            date: admin.firestore.Timestamp.now()
-        };
-        const transRef = db.collection(TRANSACTIONS_COLLECTION).doc();
-        batch.set(transRef, transacao);
-        updateData.financeiroRegistrado = true;
+      const transacao = {
+        type: 'venda',
+        amount: orderData.total,
+        description: `Pedido #${id.substring(0, 5).toUpperCase()}`,
+        date: admin.firestore.Timestamp.now()
+      };
+      const transRef = db.collection(TRANSACTIONS_COLLECTION).doc();
+      batch.set(transRef, transacao);
+      updateData.financeiroRegistrado = true;
     }
 
     batch.update(orderRef, updateData);
@@ -427,35 +474,35 @@ app.put('/admin/orders/:id', async (req, res) => {
 
 // --- Relatório ABC ---
 app.get('/admin/reports/abc', async (req, res) => {
-    try {
-        const pSnaps = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
-        const oSnaps = await db.collection(ORDERS_COLLECTION).where('status', '!=', 'Cancelado').get();
-        
-        const map = {};
-        pSnaps.forEach(d => {
-            const data = d.data();
-            map[d.id] = { id: d.id, name: data.name, imageUrl: data.imageUrl, stock: data.quantity || 0, revenue: 0, unitsSold: 0 };
-        });
+  try {
+    const pSnaps = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
+    const oSnaps = await db.collection(ORDERS_COLLECTION).where('status', '!=', 'Cancelado').get();
 
-        oSnaps.forEach(d => {
-            const items = d.data().items || [];
-            items.forEach(i => {
-                if (map[i.id]) {
-                    map[i.id].revenue += (i.salePrice * i.quantidade);
-                    map[i.id].unitsSold += i.quantidade;
-                }
-            });
-        });
+    const map = {};
+    pSnaps.forEach(d => {
+      const data = d.data();
+      map[d.id] = { id: d.id, name: data.name, imageUrl: data.imageUrl, stock: data.quantity || 0, revenue: 0, unitsSold: 0 };
+    });
 
-        let report = Object.values(map).sort((a, b) => b.revenue - a.revenue);
-        const total = report.length;
-        report = report.map((p, i) => ({
-            ...p,
-            classification: (i / total <= 0.2) ? 'A' : (i / total <= 0.5) ? 'B' : 'C'
-        }));
+    oSnaps.forEach(d => {
+      const items = d.data().items || [];
+      items.forEach(i => {
+        if (map[i.id]) {
+          map[i.id].revenue += (i.salePrice * i.quantidade);
+          map[i.id].unitsSold += i.quantidade;
+        }
+      });
+    });
 
-        res.json(report);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    let report = Object.values(map).sort((a, b) => b.revenue - a.revenue);
+    const total = report.length;
+    report = report.map((p, i) => ({
+      ...p,
+      classification: (i / total <= 0.2) ? 'A' : (i / total <= 0.5) ? 'B' : 'C'
+    }));
+
+    res.json(report);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Inicialização Local
