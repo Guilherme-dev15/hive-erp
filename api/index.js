@@ -319,7 +319,7 @@ app.get('/admin/dashboard-stats', async (req, res) => {
       return acc;
     }, { totalVendas: 0, totalDespesas: 0, saldoTotal: 0 });
 
-    // O Lucro Líquido é matematicamente igual ao Saldo Total neste contexto
+    //O Lucro Líquido é matematicamente igual ao Saldo Total neste contexto
     const responseData = {
       totalVendas: stats.totalVendas,
       totalDespesas: stats.totalDespesas,
