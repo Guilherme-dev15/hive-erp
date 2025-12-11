@@ -289,7 +289,7 @@ export function ProdutosPage() {
                 onClick={() => setIsImportModalOpen(true)}
                 className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 font-bold flex items-center gap-2 whitespace-nowrap text-sm"
               >
-                <Upload size={16} /> Importar
+                <Upload size={16} /> Importar Excel
               </button>
               
               <button onClick={() => {setProdutoSelecionado(null); setIsModalOpen(true);}} className="bg-carvao text-white px-4 py-2 rounded-lg shadow hover:bg-gray-800 font-bold flex items-center gap-2 whitespace-nowrap text-sm">

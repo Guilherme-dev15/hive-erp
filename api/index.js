@@ -510,57 +510,68 @@ if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => console.log(`API a rodar na porta ${PORT}`));
 }
 
-// --- ROTA: IMPORTAÇÃO EM MASSA DE PRODUTOS ---
+// --- ROTA: IMPORTAÇÃO EM MASSA (Smart Paste) ---
 app.post('/admin/products/bulk', async (req, res) => {
   console.log("ROTA: POST /admin/products/bulk");
   try {
-    const products = req.body;
+    const products = req.body; // Recebe um array de produtos
 
     if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ message: "Lista de produtos vazia ou inválida." });
+      return res.status(400).json({ message: "Nenhum produto enviado." });
     }
 
-    // O Firestore limita batches a 500 operações. Vamos processar em blocos.
-    const CHUNK_SIZE = 450; 
-    const chunks = [];
+    // O Firestore permite gravar até 500 documentos por lote (batch)
+    const batch = db.batch();
     
-    for (let i = 0; i < products.length; i += CHUNK_SIZE) {
-        chunks.push(products.slice(i, i + CHUNK_SIZE));
-    }
+    // Configurações padrão para calcular preços se não vierem
+    // (Num cenário ideal, leríamos do config, mas aqui usamos defaults seguros)
+    const MARKUP_PADRAO = 2.0; 
 
-    let totalImported = 0;
+    products.forEach(prod => {
+      const docRef = db.collection(PRODUCTS_COLLECTION).doc();
+      
+      // Sanitização e Cálculos Automáticos
+      const custo = parseFloat(prod.costPrice) || 0;
+      let venda = parseFloat(prod.salePrice);
+      
+      // Se não enviou preço de venda, calcula automático
+      if (!venda || venda <= custo) {
+         venda = custo * MARKUP_PADRAO;
+      }
 
-    for (const chunk of chunks) {
-        const batch = db.batch();
-        
-        chunk.forEach(prod => {
-            const docRef = db.collection(PRODUCTS_COLLECTION).doc();
-            // Sanitização básica
-            const newProduct = {
-                name: prod.name || 'Produto sem nome',
-                code: prod.code || '',
-                category: prod.category || 'Geral',
-                costPrice: parseFloat(prod.costPrice) || 0,
-                salePrice: parseFloat(prod.salePrice) || 0,
-                quantity: parseInt(prod.quantity) || 0,
-                status: 'ativo',
-                imageUrl: prod.imageUrl || '', // URL opcional
-                description: prod.description || '',
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-            };
-            batch.set(docRef, newProduct);
-        });
+      // Gera SKU se não tiver
+      let code = prod.code;
+      if (!code) {
+         const random = Math.floor(1000 + Math.random() * 9000);
+         const nomePart = prod.name ? prod.name.substring(0, 3).toUpperCase() : 'PRO';
+         code = `${nomePart}-${random}`;
+      }
 
-        await batch.commit();
-        totalImported += chunk.length;
-    }
+      const newProduct = {
+        name: prod.name || 'Produto Sem Nome',
+        costPrice: custo,
+        salePrice: venda,
+        quantity: parseInt(prod.quantity) || 0,
+        code: code,
+        category: prod.category || 'Geral',
+        description: prod.description || '',
+        supplierProductUrl: prod.supplierProductUrl || '',
+        imageUrl: prod.imageUrl || '',
+        status: 'ativo',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      };
 
-    console.log(`Sucesso: ${totalImported} produtos importados.`);
-    res.status(201).json({ message: "Importação concluída!", count: totalImported });
+      batch.set(docRef, newProduct);
+    });
+
+    await batch.commit();
+    
+    console.log(`Sucesso: ${products.length} produtos importados.`);
+    res.status(201).json({ message: "Importação concluída!", count: products.length });
 
   } catch (error) {
-    console.error("ERRO na Importação em Massa:", error);
-    res.status(500).json({ message: "Erro ao importar produtos.", error: error.message });
+    console.error("ERRO na Importação:", error);
+    res.status(500).json({ message: "Erro ao importar.", error: error.message });
   }
 });
 module.exports = app;
