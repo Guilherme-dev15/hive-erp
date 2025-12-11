@@ -2,8 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-// Removido 'ZoomIn' que não estava a ser usado
-import { ShoppingCart, Package, X, Plus, Minus, Send, Search, SlidersHorizontal, TicketPercent, Loader2, User } from 'lucide-react';
+import { ShoppingCart, Package, X, Plus, Minus, Send, Search, SlidersHorizontal, TicketPercent, Loader2, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ============================================================================
@@ -154,7 +153,7 @@ export default function App() {
           document.title = confRes.data.storeName || 'Loja Virtual';
         }
       } catch (err) {
-        console.error(err); // Usar 'err' para não dar erro de lint
+        console.error(err);
         setError("Erro ao carregar loja.");
       } finally {
         setLoading(false);
@@ -338,11 +337,18 @@ export default function App() {
   );
 }
 
-// --- COMPONENTES AUXILIARES ---
+// ============================================================================
+// COMPONENTES AUXILIARES (COM CORREÇÃO DE DESCRIÇÃO)
+// ============================================================================
 
 function CardProduto({ produto, config, onAdicionar, onImageClick }: any) {
   const stock = produto.quantity !== undefined ? produto.quantity : 0;
   const temStock = stock > 0;
+  
+  // --- NOVO: Estado para expandir descrição ---
+  const [expandDesc, setExpandDesc] = useState(false);
+  const desc = produto.description || '';
+  const isLongDesc = desc.length > 60; // Define o que é "longo"
 
   return (
     <motion.div 
@@ -353,12 +359,7 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: any) {
     >
       <div className="relative aspect-[1/1.1] bg-gray-100 cursor-pointer overflow-hidden" onClick={onImageClick}>
         {produto.imageUrl ? (
-          <img 
-            src={produto.imageUrl} 
-            alt={produto.name} 
-            loading="lazy"
-            className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${!temStock && 'grayscale opacity-70'}`} 
-          />
+          <img src={produto.imageUrl} alt={produto.name} loading="lazy" className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${!temStock && 'grayscale opacity-70'}`} />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-300"><Package size={40} strokeWidth={1.5} /></div>
         )}
@@ -373,8 +374,34 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: any) {
 
       <div className="p-3.5 flex flex-col flex-grow justify-between">
         <div>
-          <h3 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-relaxed min-h-[2.8em] tracking-tight">{produto.name}</h3>
+          <h3 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-relaxed min-h-[2.5em] tracking-tight">{produto.name}</h3>
           <p className="text-[10px] text-gray-400 mt-1 font-mono tracking-wide">{produto.code || ''}</p>
+          
+          {/* --- NOVA DESCRIÇÃO EXPANSÍVEL --- */}
+          {desc && (
+            <div className="mt-2 text-xs text-gray-500 relative">
+              <motion.div 
+                animate={{ height: expandDesc ? 'auto' : '2.4em' }} // Altura aproximada de 2 linhas
+                className="overflow-hidden leading-relaxed"
+              >
+                {desc}
+              </motion.div>
+              
+              {isLongDesc && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setExpandDesc(!expandDesc); }}
+                  className="mt-1 text-[10px] font-bold flex items-center gap-1 hover:underline transition-all"
+                  style={{ color: config.primaryColor }}
+                >
+                  {expandDesc ? (
+                    <>Ver menos <ChevronUp size={10} /></>
+                  ) : (
+                    <>Ver mais <ChevronDown size={10} /></>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="mt-3 flex items-end justify-between">
@@ -395,6 +422,7 @@ function CardProduto({ produto, config, onAdicionar, onImageClick }: any) {
   );
 }
 
+// ... (MANTENHA OS OUTROS COMPONENTES: ModalCarrinho e ImageZoomModal IGUAIS) ...
 function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, config }: any) {
   const [nome, setNome] = useState('');
   const [tel, setTel] = useState('');
@@ -495,7 +523,6 @@ function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNumber, co
                                 </div>
                              </div>
                            </div>
-                           {/* CORREÇÃO AQUI: Usando a função helper para deletar */}
                            <button onClick={() => removeItem(item.produto.id)} className="absolute top-2 right-2 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"><X size={16}/></button>
                            <div className="absolute bottom-3 right-3 text-sm font-bold text-gray-800">{formatCurrency(item.produto.salePrice * item.quantidade)}</div>
                         </div>
