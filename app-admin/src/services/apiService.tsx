@@ -207,3 +207,18 @@ export const getABCReport = async (): Promise<ABCProduct[]> => {
   const response = await apiClient.get('/admin/reports/abc');
   return response.data;
 };
+
+// Exemplo de função de upload (caso não tenha)
+export const uploadImage = async (file: File, folder: string): Promise<string> => {
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('folder', folder);
+  
+  // Ajuste a rota para a sua rota de upload real
+  // Se estiver usando Firebase Storage direto no frontend, use a lógica do SDK
+  // Se for via API Node:
+  const response = await apiClient.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data.url;
+};
