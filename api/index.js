@@ -510,53 +510,42 @@ if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => console.log(`API a rodar na porta ${PORT}`));
 }
 
-// --- ROTA: IMPORTAÇÃO EM MASSA (Smart Paste) ---
+// --- ROTA: IMPORTAÇÃO EM MASSA (CORRIGIDA PARA FORNECEDOR E IMAGEM) ---
 app.post('/admin/products/bulk', async (req, res) => {
-  console.log("ROTA: POST /admin/products/bulk");
   try {
-    const products = req.body; // Recebe um array de produtos
+    const products = req.body;
 
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ message: "Nenhum produto enviado." });
     }
 
-    // O Firestore permite gravar até 500 documentos por lote (batch)
     const batch = db.batch();
-    
-    // Configurações padrão para calcular preços se não vierem
-    // (Num cenário ideal, leríamos do config, mas aqui usamos defaults seguros)
-    const MARKUP_PADRAO = 2.0; 
 
     products.forEach(prod => {
       const docRef = db.collection(PRODUCTS_COLLECTION).doc();
-      
-      // Sanitização e Cálculos Automáticos
+
       const custo = parseFloat(prod.costPrice) || 0;
       let venda = parseFloat(prod.salePrice);
-      
-      // Se não enviou preço de venda, calcula automático
-      if (!venda || venda <= custo) {
-         venda = custo * MARKUP_PADRAO;
-      }
 
-      // Gera SKU se não tiver
-      let code = prod.code;
-      if (!code) {
-         const random = Math.floor(1000 + Math.random() * 9000);
-         const nomePart = prod.name ? prod.name.substring(0, 3).toUpperCase() : 'PRO';
-         code = `${nomePart}-${random}`;
+      // Validação de segurança do preço
+      if (!venda || venda <= 0) {
+        venda = custo * 2; // Garante markup de 2x se vier zerado
       }
 
       const newProduct = {
         name: prod.name || 'Produto Sem Nome',
+        code: prod.code || '',
+
+        // --- CORREÇÃO: Salvando os campos de relacionamento ---
+        category: prod.category || 'Geral', // Nome da Categoria
+        supplierId: prod.supplierId || null, // ID do Fornecedor (Faltava isso!)
+        imageUrl: prod.imageUrl || '', // URL da Imagem (Faltava garantir que grava)
+        // -----------------------------------------------------
+
         costPrice: custo,
         salePrice: venda,
         quantity: parseInt(prod.quantity) || 0,
-        code: code,
-        category: prod.category || 'Geral',
         description: prod.description || '',
-        supplierProductUrl: prod.supplierProductUrl || '',
-        imageUrl: prod.imageUrl || '',
         status: 'ativo',
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       };
@@ -565,8 +554,6 @@ app.post('/admin/products/bulk', async (req, res) => {
     });
 
     await batch.commit();
-    
-    console.log(`Sucesso: ${products.length} produtos importados.`);
     res.status(201).json({ message: "Importação concluída!", count: products.length });
 
   } catch (error) {
