@@ -201,7 +201,6 @@ export function ProdutosPage() {
     if (categoryFilter !== "Todos") {
       lista = lista.filter(p => categoryFilter === "Sem Categoria" ? !p.category : p.category === categoryFilter);
     }
-
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       lista = lista.filter(p => p.name.toLowerCase().includes(term) || (p.code && p.code.toLowerCase().includes(term)));
