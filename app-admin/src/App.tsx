@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Loader2, Menu, X } from 'lucide-react'; // Adicionei Menu e X
+import { LogOut, Loader2, Menu, X } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
 // Imports de Autenticação
@@ -16,14 +16,17 @@ import { PrecificacaoPage } from './pages/PrecificacaoPage';
 import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
 import { PedidosPage } from './pages/PedidosPage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
-import { CuponsPage } from './pages/CuponsPage'; 
+import { CuponsPage } from './pages/CuponsPage';
+
+// Importar a Proteção contra Tela Branca (Certifique-se que criou este arquivo)
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'relatorios' | 'configuracoes';
 
 // --- NAVBAR RESPONSIVA ---
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
   const { user, logout } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Estado do Menu Mobile
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'campanhas', 'relatorios', 'precificacao', 'configuracoes'];
 
@@ -41,7 +44,6 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
           {/* LADO ESQUERDO: Logo e Menu Desktop */}
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              {/* Logo Texto */}
               <h1 className="text-xl font-bold text-dourado hidden sm:block">HivePratas ERP</h1>
               <h1 className="text-xl font-bold text-dourado sm:hidden">Hive</h1>
             </div>
@@ -90,7 +92,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
         </div>
       </div>
 
-      {/* --- MENU MOBILE DROPDOWN (AnimatePresence) --- */}
+      {/* --- MENU MOBILE DROPDOWN (Animação Segura) --- */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -130,7 +132,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
   );
 }
 
-// --- CONTEÚDO PROTEGIDO ---
+// --- CONTEÚDO PROTEGIDO (Refatorado para Estabilidade) ---
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
@@ -166,17 +168,18 @@ function ProtectedLayout() {
     <div className="min-h-screen bg-off-white">
       <Navbar paginaAtual={pagina} onNavigate={setPagina} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={pagina}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
+        
+        {/* FIX CRÍTICO: 
+           1. Removemos AnimatePresence daqui para evitar conflitos de re-renderização.
+           2. Adicionamos ErrorBoundary com key={pagina} para resetar erros ao mudar de aba.
+           3. Usamos CSS simples (animate-in) para suavidade sem travamentos.
+        */}
+        <ErrorBoundary key={pagina}>
+          <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
             {renderizarPagina()}
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </ErrorBoundary>
+
       </main>
     </div>
   );
