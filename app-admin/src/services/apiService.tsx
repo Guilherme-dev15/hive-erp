@@ -26,7 +26,7 @@ import type {
 // ============================================================================
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_URL,
 });
 

@@ -510,4 +510,57 @@ if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => console.log(`API a rodar na porta ${PORT}`));
 }
 
+// --- ROTA: IMPORTAÇÃO EM MASSA DE PRODUTOS ---
+app.post('/admin/products/bulk', async (req, res) => {
+  console.log("ROTA: POST /admin/products/bulk");
+  try {
+    const products = req.body;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ message: "Lista de produtos vazia ou inválida." });
+    }
+
+    // O Firestore limita batches a 500 operações. Vamos processar em blocos.
+    const CHUNK_SIZE = 450; 
+    const chunks = [];
+    
+    for (let i = 0; i < products.length; i += CHUNK_SIZE) {
+        chunks.push(products.slice(i, i + CHUNK_SIZE));
+    }
+
+    let totalImported = 0;
+
+    for (const chunk of chunks) {
+        const batch = db.batch();
+        
+        chunk.forEach(prod => {
+            const docRef = db.collection(PRODUCTS_COLLECTION).doc();
+            // Sanitização básica
+            const newProduct = {
+                name: prod.name || 'Produto sem nome',
+                code: prod.code || '',
+                category: prod.category || 'Geral',
+                costPrice: parseFloat(prod.costPrice) || 0,
+                salePrice: parseFloat(prod.salePrice) || 0,
+                quantity: parseInt(prod.quantity) || 0,
+                status: 'ativo',
+                imageUrl: prod.imageUrl || '', // URL opcional
+                description: prod.description || '',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+            batch.set(docRef, newProduct);
+        });
+
+        await batch.commit();
+        totalImported += chunk.length;
+    }
+
+    console.log(`Sucesso: ${totalImported} produtos importados.`);
+    res.status(201).json({ message: "Importação concluída!", count: totalImported });
+
+  } catch (error) {
+    console.error("ERRO na Importação em Massa:", error);
+    res.status(500).json({ message: "Erro ao importar produtos.", error: error.message });
+  }
+});
 module.exports = app;

@@ -9,15 +9,17 @@ import {
   getCategories,
   getConfig 
 } from '../services/apiService';
-import { Trash2, Edit, Package, ExternalLink, Box, Search, Printer, CheckSquare, Square, FileText, AlertTriangle } from 'lucide-react';
+import { Trash2, Edit, Package, ExternalLink, Box, Search, Printer, CheckSquare, Square, FileText, AlertTriangle, Upload } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 import { useReactToPrint } from 'react-to-print';
 import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
 import { CatalogoImpressao } from '../components/CatalogoImpressao';
+// Importação do novo Modal
+import { ImportacaoModal } from '../components/ImportacaoModal';
 
 // ============================================================================
-// COMPONENTE: CARD DE PRODUTO (Refatorado com Alerta de Stock)
+// COMPONENTE: CARD DE PRODUTO
 // ============================================================================
 interface ProdutoAdminCardProps {
   produto: ProdutoAdmin;
@@ -26,7 +28,7 @@ interface ProdutoAdminCardProps {
   onApagar: () => void;
   isSelected: boolean;
   onToggleSelect: () => void;
-  lowStockLimit: number; // NOVO: Limite vindo da config
+  lowStockLimit: number;
 }
 
 const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ 
@@ -37,11 +39,9 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
   const lucro = venda > 0 ? venda - custo : 0;
   const quantity = produto.quantity || 0;
   
-  // Lógica de Estado do Stock
   const isZeroStock = quantity === 0;
   const isLowStock = !isZeroStock && quantity <= lowStockLimit;
 
-  // Definição de Cores da Borda
   let borderClass = 'border-gray-200';
   if (isSelected) borderClass = 'border-dourado ring-2 ring-dourado ring-opacity-50';
   else if (isZeroStock) borderClass = 'border-red-500 ring-1 ring-red-500 bg-red-50/10';
@@ -54,7 +54,6 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       className={`bg-white shadow-lg rounded-xl border flex flex-col h-full overflow-hidden transition-all duration-200 hover:shadow-xl relative group ${borderClass}`}
     >
-      {/* Seleção */}
       <div 
         onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
         className="absolute top-2 left-2 z-20 cursor-pointer bg-white/90 rounded-md p-1 hover:bg-white transition-colors shadow-sm"
@@ -65,7 +64,6 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
         }
       </div>
 
-      {/* Imagem e Badges */}
       <div className="relative w-full h-48 overflow-hidden bg-gray-100">
         <div className="w-full h-full flex items-center justify-center">
           {produto.imageUrl ? (
@@ -75,12 +73,10 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
           )}
         </div>
         
-        {/* Etiqueta de Status (Ativo/Inativo) */}
         <span className={`absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shadow-sm ${produto.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
           {produto.status}
         </span>
 
-        {/* Badges de Stock (Topo Direito) */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
            {isZeroStock && (
              <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1 animate-pulse">
@@ -102,7 +98,6 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
         </div>
       </div>
 
-      {/* Detalhes */}
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <div className="flex justify-between items-start">
@@ -140,7 +135,6 @@ const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({
         </div>
       </div>
 
-      {/* Ações */}
       <div className="flex border-t border-gray-100 bg-gray-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
         <button onClick={onEditar} className="flex-1 py-3 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1 border-r border-gray-200">
           <Edit size={14} /> Editar
@@ -163,11 +157,11 @@ export function ProdutosPage() {
   const [config, setConfig] = useState<ConfigFormData | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false); // NOVO ESTADO
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // --- FILTROS ---
-  const [filterMode, setFilterMode] = useState<'todos' | 'stockBaixo'>('todos'); // Estado do Filtro de Stock
+  const [filterMode, setFilterMode] = useState<'todos' | 'stockBaixo'>('todos');
   const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -180,41 +174,34 @@ export function ProdutosPage() {
   const handlePrintCatalogo = useReactToPrint({ contentRef: catalogoRef, documentTitle: 'Catalogo_Produtos' });
 
   useEffect(() => {
-    async function carregarDadosPagina() {
-      try {
-        setLoading(true);
-        const [produtosData, fornecedoresData, categoriesData, configData] = await Promise.all([
-          getAdminProdutos(), getFornecedores(), getCategories(), getConfig()
-        ]);
-        setProdutos(produtosData);
-        setFornecedores(fornecedoresData);
-        setCategories(categoriesData);
-        setConfig(configData);
-      } catch (err) {
-        toast.error("Falha ao carregar dados.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    carregarDadosPagina();
+    loadData();
   }, []);
 
-  // --- LÓGICA DE FILTRAGEM ---
+  async function loadData() {
+    try {
+      setLoading(true);
+      const [prod, forn, cat, conf] = await Promise.all([
+        getAdminProdutos(), getFornecedores(), getCategories(), getConfig()
+      ]);
+      setProdutos(prod);
+      setFornecedores(forn);
+      setCategories(cat);
+      setConfig(conf);
+    } catch (e) { toast.error("Falha ao carregar dados."); } finally { setLoading(false); }
+  }
+
   const produtosFiltrados = useMemo(() => {
     let lista = produtos;
-    const stockLimit = config?.lowStockThreshold || 5; // Pega o limite da config ou usa 5
+    const stockLimit = config?.lowStockThreshold || 5;
 
-    // 1. Filtro de Stock Baixo
     if (filterMode === 'stockBaixo') {
       lista = lista.filter(p => (p.quantity || 0) <= stockLimit);
     }
 
-    // 2. Filtro de Categoria
     if (categoryFilter !== "Todos") {
       lista = lista.filter(p => categoryFilter === "Sem Categoria" ? !p.category : p.category === categoryFilter);
     }
 
-    // 3. Busca
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       lista = lista.filter(p => p.name.toLowerCase().includes(term) || (p.code && p.code.toLowerCase().includes(term)));
@@ -266,27 +253,13 @@ export function ProdutosPage() {
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-carvao hidden sm:block">Produtos</h1>
             
-            {/* --- SELETOR DE MODO DE VISUALIZAÇÃO --- */}
             <div className="flex bg-gray-100 p-1 rounded-lg">
-                <button 
-                    onClick={() => setFilterMode('todos')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterMode === 'todos' ? 'bg-white shadow text-carvao' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    Todos
-                </button>
-                <button 
-                    onClick={() => setFilterMode('stockBaixo')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${filterMode === 'stockBaixo' ? 'bg-red-100 text-red-700 shadow' : 'text-gray-500 hover:text-red-600'}`}
-                >
-                    <AlertTriangle size={14} /> Stock Baixo
-                </button>
+                <button onClick={() => setFilterMode('todos')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterMode === 'todos' ? 'bg-white shadow text-carvao' : 'text-gray-500 hover:text-gray-700'}`}>Todos</button>
+                <button onClick={() => setFilterMode('stockBaixo')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${filterMode === 'stockBaixo' ? 'bg-red-100 text-red-700 shadow' : 'text-gray-500 hover:text-red-600'}`}><AlertTriangle size={14} /> Stock Baixo</button>
             </div>
 
             <button onClick={selectAllFiltered} className="text-sm font-medium text-gray-600 flex items-center gap-2 hover:text-carvao ml-2">
-               {selectedIds.size > 0 && selectedIds.size === produtosFiltrados.length 
-                 ? <CheckSquare size={20} className="text-dourado" /> 
-                 : <Square size={20} />
-               }
+               {selectedIds.size > 0 && selectedIds.size === produtosFiltrados.length ? <CheckSquare size={20} className="text-dourado" /> : <Square size={20} />}
                <span className="hidden sm:inline">{selectedIds.size > 0 ? `${selectedIds.size} selecionados` : 'Todos'}</span>
             </button>
           </div>
@@ -301,10 +274,7 @@ export function ProdutosPage() {
 
             <div className="relative flex-grow sm:w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input 
-                type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
-              />
+              <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm" />
             </div>
 
             <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado bg-white text-sm">
@@ -313,9 +283,19 @@ export function ProdutosPage() {
               <option value="Sem Categoria">Sem Categoria</option>
             </select>
 
-            <button onClick={() => {setProdutoSelecionado(null); setIsModalOpen(true);}} className="bg-carvao text-white px-4 py-2 rounded-lg shadow hover:bg-gray-800 font-bold flex items-center gap-2 whitespace-nowrap text-sm">
-              + Novo
-            </button>
+            {/* BOTÕES DE AÇÃO: IMPORTAR E NOVO */}
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setIsImportModalOpen(true)}
+                className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 font-bold flex items-center gap-2 whitespace-nowrap text-sm"
+              >
+                <Upload size={16} /> Importar
+              </button>
+              
+              <button onClick={() => {setProdutoSelecionado(null); setIsModalOpen(true);}} className="bg-carvao text-white px-4 py-2 rounded-lg shadow hover:bg-gray-800 font-bold flex items-center gap-2 whitespace-nowrap text-sm">
+                + Novo
+              </button>
+            </div>
           </div>
         </div>
 
@@ -337,7 +317,7 @@ export function ProdutosPage() {
                 onApagar={() => handleApagarProduto(produto.id)}
                 isSelected={selectedIds.has(produto.id)}
                 onToggleSelect={() => toggleSelection(produto.id)}
-                lowStockLimit={config?.lowStockThreshold || 5} // Passando o limite da config
+                lowStockLimit={config?.lowStockThreshold || 5}
               />
             ))}
           </div>
@@ -349,6 +329,16 @@ export function ProdutosPage() {
         fornecedores={fornecedores} categories={categories} setCategories={setCategories} 
         produtoParaEditar={produtoSelecionado} onProdutoSalvo={handleProdutoSalvo} 
         configGlobal={config} 
+      />
+      
+      {/* NOVO MODAL DE IMPORTAÇÃO */}
+      <ImportacaoModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSucesso={() => {
+          loadData(); // Recarrega a lista
+          setIsImportModalOpen(false);
+        }}
       />
       
       <EtiquetaImpressao ref={etiquetaRef} produtos={getSelectedProducts()} />
