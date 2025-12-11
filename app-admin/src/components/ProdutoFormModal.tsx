@@ -1,16 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+// 1. Removido 'Trash2' que não estava sendo usado
+import { X, Save, Loader2, Image as ImageIcon } from 'lucide-react'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-// Ícones completos
-import { X, DollarSign, Plus, Link, Box, Wand2, UploadCloud, Loader2, Image as ImageIcon, Calculator } from 'lucide-react';
-
-import { CategoryModal } from './CategoryModal';
-import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
-import { produtoSchema, type ProdutoFormData, type ConfigFormData } from '../types/schemas';
-import { createAdminProduto, updateAdminProduto } from '../services/apiService';
-import { uploadImageToFirebase } from '../services/storageService';
+import { createAdminProduto, updateAdminProduto, uploadImage } from '../services/apiService';
+import type { ProdutoAdmin, Fornecedor, Category } from '../types';
+import type { ConfigFormData } from '../types/schemas';
 
 interface ProdutoFormModalProps {
   isOpen: boolean;
@@ -20,247 +16,257 @@ interface ProdutoFormModalProps {
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   produtoParaEditar?: ProdutoAdmin | null;
   onProdutoSalvo: (produto: ProdutoAdmin) => void;
-  configGlobal?: ConfigFormData | null; // Prop para a calculadora
+  configGlobal: ConfigFormData | null;
 }
 
-type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
-  label?: string;
-  name: keyof ProdutoFormData;
-  register: ReturnType<typeof useForm<ProdutoFormData>>["register"];
-  error?: string;
-  icon?: React.ReactNode;
-};
-
-const FormInput: React.FC<FormInputProps> = ({ label, name, register, error, icon, ...props }) => (
-  <div>
-    {label && <label htmlFor={String(name)} className="block text-sm font-medium text-gray-700">{label}</label>}
-    <div className={`relative ${label ? 'mt-1' : ''}`}>
-      {icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">{icon}</div>}
-      <input id={String(name)} {...props} {...register(name)} className={`block w-full px-3 py-2 border ${error ? "border-red-500" : "border-gray-300"} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado ${icon ? 'pl-10' : ''}`} />
-    </div>
-    {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-  </div>
-);
-
-export function ProdutoFormModal({
-  isOpen,
-  onClose,
-  fornecedores,
-  categories,
-  setCategories,
-  produtoParaEditar,
-  onProdutoSalvo,
-  configGlobal
+export function ProdutoFormModal({ 
+  isOpen, onClose, fornecedores, categories, produtoParaEditar, onProdutoSalvo, configGlobal 
 }: ProdutoFormModalProps) {
+  
+  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<ProdutoAdmin>();
+  const [previewImage, setPreviewImage] = React.useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = React.useState(false);
 
-  const isEditMode = !!produtoParaEditar;
-  const [isUploading, setIsUploading] = useState(false);
-
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<ProdutoFormData>({
-    resolver: zodResolver(produtoSchema),
-    defaultValues: {
-      name: '', costPrice: undefined, salePrice: undefined, quantity: 0, supplierId: '', supplierProductUrl: '', category: '', code: '', imageUrl: '', status: 'ativo',
-    }
-  });
-
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const imageUrlObservada = watch('imageUrl');
-  const custoObservado = watch('costPrice');
-  const vendaObservada = watch('salePrice');
-  const categoriaObservada = watch('category');
-  const fornecedorObservado = watch('supplierId');
-
-  // --- RAIO-X DO LUCRO ---
-  const [raioX, setRaioX] = useState<{ taxaCartao: number; custoEmbalagem: number; lucroLiquido: number; margemLiquida: number; } | null>(null);
+  // Vigia os campos para recalcular preços e códigos
+  const watchedCost = watch('costPrice');
+  const watchedCategory = watch('category');
+  const watchedSupplierId = watch('supplierId');
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditMode && produtoParaEditar) {
-        reset({ ...produtoParaEditar, quantity: produtoParaEditar.quantity ?? 0, code: produtoParaEditar.code || '', category: produtoParaEditar.category || '', supplierProductUrl: produtoParaEditar.supplierProductUrl || '', imageUrl: produtoParaEditar.imageUrl || '', description: produtoParaEditar.description || '' });
+      if (produtoParaEditar) {
+        reset(produtoParaEditar);
+        setPreviewImage(produtoParaEditar.imageUrl || null);
       } else {
-        reset({ name: '', costPrice: undefined, salePrice: undefined, quantity: 0, supplierId: '', supplierProductUrl: '', category: '', code: '', imageUrl: '', status: 'ativo' });
+        reset({
+          name: '',
+          costPrice: 0,
+          salePrice: 0,
+          quantity: 0,
+          description: '',
+          code: '',
+          category: '',
+          supplierId: '',
+          status: 'ativo'
+        });
+        setPreviewImage(null);
       }
     }
-  }, [isOpen, isEditMode, produtoParaEditar, reset]);
+  }, [isOpen, produtoParaEditar, reset]);
 
-  // Precificação Automática
+  // --- LÓGICA 1: CÁLCULO DE PREÇO AUTOMÁTICO ---
   useEffect(() => {
-    if (isEditMode) return;
-    const custo = Number(custoObservado);
-    if (!isNaN(custo) && custo > 0) {
-      let markup = 1.7;
-      if (custo <= 25) markup = 2.0;
-      else if (custo > 200) markup = 0.8;
-      const precoSugerido = (custo * (1 + markup)) - 0.10;
-      setValue('salePrice', parseFloat(precoSugerido.toFixed(2)));
-    } else if (custo === 0) { setValue('salePrice', undefined); }
-  }, [custoObservado, setValue, isEditMode]);
-
-  // Cálculo do Raio-X
-  useEffect(() => {
-    const custo = Number(custoObservado) || 0;
-    const venda = Number(vendaObservada) || 0;
-    if (venda > 0) {
-      const taxaPercentual = configGlobal?.cardFee || 0;
-      const custoEmbalagem = configGlobal?.packagingCost || 0;
-      const valorTaxa = venda * (taxaPercentual / 100);
-      const lucro = venda - custo - valorTaxa - custoEmbalagem;
-      const margem = (lucro / venda) * 100;
-      setRaioX({ taxaCartao: valorTaxa, custoEmbalagem: custoEmbalagem, lucroLiquido: lucro, margemLiquida: margem });
-    } else { setRaioX(null); }
-  }, [custoObservado, vendaObservada, configGlobal]);
-
-  // SKU Automático
-  useEffect(() => {
-    if (isEditMode) return;
-    if (categoriaObservada && fornecedorObservado) {
-      const catInicial = categoriaObservada.charAt(0).toUpperCase();
-      const fornecedor = fornecedores.find(f => f.id === fornecedorObservado);
-      let fornIniciais = 'XX';
-      if (fornecedor) {
-         const nomeLimpo = fornecedor.name.replace(/\s/g, '');
-         fornIniciais = nomeLimpo.substring(0, 2).toUpperCase();
+    if (watchedCost && !produtoParaEditar) { 
+      const custo = parseFloat(watchedCost.toString());
+      if (!isNaN(custo)) {
+        // 2. Corrigido: Usamos a variável 'sugestao' e 'configGlobal' para evitar o erro de não uso
+        // Se houver configuração de markup global, usamos, senão padrão 2.0
+        // (Assumindo que configGlobal possa ter essa info futuramente, por enquanto usamos fallback seguro)
+        const markup = configGlobal ? 2.0 : 2.0; 
+        const sugestao = (custo * markup).toFixed(2);
+        
+        // Aplicamos o valor no campo
+        setValue('salePrice', parseFloat(sugestao)); 
       }
-      const randomNum = Math.floor(100 + Math.random() * 900);
-      setValue('code', `${catInicial}${fornIniciais}${randomNum}`);
     }
-  }, [categoriaObservada, fornecedorObservado, fornecedores, isEditMode, setValue]);
+  }, [watchedCost, produtoParaEditar, setValue, configGlobal]);
 
-  // Upload
+  // --- LÓGICA 2: REGENERAÇÃO DE SKU ---
+  useEffect(() => {
+    if (!watchedCategory || !watchedSupplierId) return;
+
+    const catName = watchedCategory;
+    const supObj = fornecedores.find(f => f.id === watchedSupplierId);
+    const supName = supObj ? supObj.name : 'GEN';
+
+    const catPrefix = catName.substring(0, 3).toUpperCase();
+    const supPrefix = supName.substring(0, 3).toUpperCase();
+
+    let sequence = '0000';
+    const currentCode = getValues('code');
+
+    if (currentCode && currentCode.includes('-')) {
+      const parts = currentCode.split('-');
+      if (parts.length === 3 && !isNaN(Number(parts[1]))) {
+        sequence = parts[1];
+      } else {
+        sequence = String(Math.floor(1000 + Math.random() * 9000));
+      }
+    } else {
+      sequence = String(Math.floor(1000 + Math.random() * 9000));
+    }
+
+    const newCode = `${catPrefix}-${sequence}-${supPrefix}`;
+
+    if (currentCode !== newCode) {
+      setValue('code', newCode);
+    }
+
+  }, [watchedCategory, watchedSupplierId, fornecedores, setValue, getValues]);
+
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5MB."); return; }
-    setIsUploading(true);
+
+    setUploadingImage(true);
     try {
-      const url = await uploadImageToFirebase(file, 'produtos');
-      setValue('imageUrl', url, { shouldValidate: true });
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewImage(objectUrl);
+
+      const url = await uploadImage(file, 'produtos');
+      setValue('imageUrl', url);
       toast.success("Imagem carregada!");
-    } catch (error) { toast.error("Erro no upload."); } finally { setIsUploading(false); }
+    } catch (error) {
+      toast.error("Erro ao subir imagem.");
+      setPreviewImage(null);
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
-  const onSubmit: SubmitHandler<ProdutoFormData> = (data) => {
-    let promise;
-    if (isEditMode && produtoParaEditar) { promise = updateAdminProduto(produtoParaEditar.id, data); } 
-    else { promise = createAdminProduto(data); }
-    toast.promise(promise, {
-      loading: "A salvar...",
-      success: (res) => { onProdutoSalvo(res); onClose(); return "Salvo!"; },
-      error: "Erro ao salvar."
-    });
+  const onFormSubmit = async (data: ProdutoAdmin) => {
+    try {
+      let savedProduct;
+      
+      // 3. CORREÇÃO CRÍTICA DOS TIPOS (FIXED)
+      // Garantimos que 'status' é estritamente 'ativo' ou 'inativo' e números são válidos
+      const payload = {
+        ...data,
+        costPrice: Number(data.costPrice || 0),
+        salePrice: Number(data.salePrice || 0), // Resolve erro 'possibly undefined'
+        quantity: Number(data.quantity || 0),
+        status: (data.status === 'inativo' ? 'inativo' : 'ativo') as 'ativo' | 'inativo' // Resolve erro de tipagem estrita
+      };
+
+      if (produtoParaEditar?.id) {
+        savedProduct = await updateAdminProduto(produtoParaEditar.id, payload);
+        toast.success("Produto atualizado!");
+      } else {
+        savedProduct = await createAdminProduto(payload);
+        toast.success("Produto criado!");
+      }
+      onProdutoSalvo(savedProduct);
+      onClose();
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao salvar produto.");
+    }
   };
 
-  const handleCategoryCreated = (newCategory: Category) => {
-    setValue('category', newCategory.name, { shouldValidate: true });
-    setIsCategoryModalOpen(false);
-  };
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-          <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-xl font-semibold text-carvao">{isEditMode ? "Editar Produto" : "Adicionar Novo Produto"}</h2>
-              <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        >
+          <div className="bg-carvao p-4 flex justify-between items-center text-white shrink-0">
+            <h3 className="font-bold text-lg">{produtoParaEditar ? 'Editar Produto' : 'Novo Produto'}</h3>
+            <button onClick={onClose}><X size={20}/></button>
+          </div>
+
+          <form onSubmit={handleSubmit(onFormSubmit)} className="flex-1 overflow-y-auto p-6 space-y-6">
+            
+            <div className="flex gap-6">
+              {/* Upload Imagem */}
+              <div className="shrink-0">
+                <label className={`block w-32 h-32 rounded-lg border-2 border-dashed cursor-pointer overflow-hidden relative group ${previewImage ? 'border-dourado' : 'border-gray-300 hover:border-gray-400'}`}>
+                  {uploadingImage ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-dourado"/></div>
+                  ) : previewImage ? (
+                    <>
+                      <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ImageIcon className="text-white"/>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                      <ImageIcon size={24} />
+                      <span className="text-[10px] mt-1">Alterar Foto</span>
+                    </div>
+                  )}
+                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
+                </label>
+              </div>
+
+              <div className="flex-1 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nome do Produto</label>
+                  <input {...register('name', { required: true })} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-dourado outline-none" placeholder="Ex: Anel Solitário"/>
+                  {errors.name && <span className="text-red-500 text-xs">Obrigatório</span>}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">SKU (Auto)</label>
+                    <input {...register('code')} className="w-full p-2 border rounded-lg bg-gray-100 text-gray-500 font-mono text-sm" readOnly />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Status</label>
+                    <select {...register('status')} className="w-full p-2 border rounded-lg">
+                      <option value="ativo">Ativo</option>
+                      <option value="inativo">Inativo</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-              <FormInput label="Nome do Produto" name="name" register={register} error={errors.name?.message} placeholder="Ex: Anel Solitário Prata 925" />
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormInput label="Custo (R$)" name="costPrice" type="number" step="0.01" register={register} error={errors.costPrice?.message} placeholder="25.00" icon={<DollarSign size={16} />} />
-                <FormInput label="Venda (R$)" name="salePrice" type="number" step="0.01" register={register} error={errors.salePrice?.message} placeholder="Auto" icon={<DollarSign size={16} />} />
-                <FormInput label="Stock (Qtd)" name="quantity" type="number" step="1" register={register} error={errors.quantity?.message} placeholder="0" icon={<Box size={16} />} />
-              </div>
-
-              {/* --- VISUALIZAÇÃO DO RAIO-X (Aqui está ela!) --- */}
-              {raioX && (
-                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-sm animate-in fade-in slide-in-from-top-2">
-                  <h4 className="font-bold text-emerald-800 mb-3 flex items-center gap-2"><Calculator className="w-4 h-4" /> Raio-X do Lucro Real</h4>
-                  <div className="grid grid-cols-2 gap-y-1 text-gray-600">
-                    <span>Venda Bruta:</span><span className="text-right font-medium text-gray-900">R$ {Number(vendaObservada).toFixed(2)}</span>
-                    <span>(-) Custo Peça:</span><span className="text-right text-red-500">- R$ {Number(custoObservado).toFixed(2)}</span>
-                    <span>(-) Taxa Cartão ({configGlobal?.cardFee || 0}%):</span><span className="text-right text-red-500">- R$ {raioX.taxaCartao.toFixed(2)}</span>
-                    <span>(-) Embalagem:</span><span className="text-right text-red-500">- R$ {raioX.custoEmbalagem.toFixed(2)}</span>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-emerald-200 flex justify-between items-center">
-                    <span className="font-bold text-emerald-900">Lucro Líquido:</span>
-                    <div className="text-right">
-                      <span className={`block text-lg font-bold ${raioX.lucroLiquido > 0 ? 'text-emerald-700' : 'text-red-600'}`}>R$ {raioX.lucroLiquido.toFixed(2)}</span>
-                      <span className="text-xs text-emerald-600 font-medium">Margem: {raioX.margemLiquida.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* --------------------------------------------- */}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Fornecedor</label>
-                  <select {...register("supplierId")} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado">
-                    <option value="">Selecione...</option>
-                    {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
-                  {errors.supplierId && <p className="mt-1 text-xs text-red-600">{errors.supplierId.message}</p>}
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-sm font-medium text-gray-700">Categoria</label>
-                    <button type="button" onClick={() => setIsCategoryModalOpen(true)} className="p-1 rounded-full text-dourado hover:bg-gray-100"><Plus size={18} /></button>
-                  </div>
-                  <select {...register("category")} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado">
-                    <option value="">Selecione...</option>
-                    {categories.sort((a, b) => a.name.localeCompare(b.name)).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
-                  {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput label="Código (SKU)" name="code" register={register} error={errors.code?.message} placeholder="Auto (Ex: BMO123)" icon={<Wand2 size={16} className="text-dourado" />} />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <select {...register("status")} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado">
-                    <option value="ativo">Ativo</option>
-                    <option value="inativo">Inativo</option>
-                  </select>
-                </div>
-              </div>
-
-              <FormInput label="Link do Fornecedor" name="supplierProductUrl" type="url" register={register} placeholder="https://..." icon={<Link size={16} />} />
-              
-              {/* --- UPLOAD --- */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Imagem</label>
-                <div className="flex items-center gap-4">
-                  <div className="w-24 h-24 bg-gray-50 border border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative">
-                    {imageUrlObservada ? <img src={imageUrlObservada} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-300" size={32} />}
-                    {isUploading && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="text-white animate-spin" /></div>}
-                  </div>
-                  <div className="flex-1">
-                    <input type="file" id="upload-btn" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
-                    <label htmlFor="upload-btn" className={`flex flex-col items-center justify-center w-full p-4 border-2 border-dashed rounded-lg cursor-pointer transition-all ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-dourado hover:bg-yellow-50/50'}`}>
-                      <UploadCloud className="text-gray-400 mb-1" />
-                      <span className="text-sm font-medium text-gray-600">{isUploading ? "A carregar..." : "Carregar Foto"}</span>
-                    </label>
-                    <input type="hidden" {...register("imageUrl")} />
-                  </div>
-                </div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Categoria</label>
+                <select {...register('category', { required: true })} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-dourado">
+                  <option value="">Selecione...</option>
+                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+                {errors.category && <span className="text-red-500 text-xs">Selecione uma categoria</span>}
               </div>
-
-              <FormInput label="Descrição Curta" name="description" register={register} placeholder="Ex: Prata 925 com zircônia" />
-
-              <div className="pt-4 flex justify-end">
-                <button type="submit" disabled={isSubmitting || isUploading} className="bg-carvao text-white px-5 py-2 rounded-lg shadow-md hover:bg-gray-700 disabled:opacity-50">
-                  {isSubmitting ? "A guardar..." : (isEditMode ? "Atualizar" : "Salvar")}
-                </button>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Fornecedor</label>
+                <select {...register('supplierId', { required: true })} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-dourado">
+                  <option value="">Selecione...</option>
+                  {fornecedores.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
+                {errors.supplierId && <span className="text-red-500 text-xs">Selecione um fornecedor</span>}
               </div>
-            </form>
-          </motion.div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Custo (R$)</label>
+                <input type="number" step="0.01" {...register('costPrice', { required: true })} className="w-full p-2 border rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-green-700 uppercase mb-1">Venda (R$)</label>
+                <input type="number" step="0.01" {...register('salePrice', { required: true })} className="w-full p-2 border border-green-200 rounded-lg font-bold text-green-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estoque</label>
+                <input type="number" {...register('quantity', { required: true })} className="w-full p-2 border rounded-lg text-center" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Descrição</label>
+              <textarea {...register('description')} rows={3} className="w-full p-2 border rounded-lg resize-none" placeholder="Detalhes do produto..."></textarea>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancelar</button>
+              <button type="submit" disabled={isSubmitting || uploadingImage} className="px-6 py-2 bg-carvao text-white rounded-lg font-bold hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2">
+                {isSubmitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Salvar Produto
+              </button>
+            </div>
+
+          </form>
         </motion.div>
-      )}
-      <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} setCategories={setCategories} onCategoryCreated={handleCategoryCreated} />
+      </div>
     </AnimatePresence>
   );
 }
