@@ -109,6 +109,11 @@ export const configSchema = z.object({
     .max(500, "O texto não deve ser muito longo para caber no papel.")
     .optional()
     .default("Garantimos a autenticidade da Prata 925. Esta garantia cobre defeitos de fabrico por 90 dias. Não cobre mau uso, quebras ou oxidação natural."),
+
+  // Novos campos de Financeiro/Stock
+  packingCost: z.number().optional(), // Custo Embalagem
+  cardFeePercent: z.number().optional(), // Taxa Cartão
+  lowStockThreshold: z.number().optional().default(5), // NOVO: Limite de Alerta
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

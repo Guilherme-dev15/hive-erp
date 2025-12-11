@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
-// Adicionamos ícones novos: Palette (Cores), Calculator (Custos), Percent, Package, ScrollText
-import { Save, Loader2, Palette, Store, Calculator, Percent, Package, ScrollText } from 'lucide-react';
+import { Save, Loader2, Palette, Store, Calculator, Percent, Package, ScrollText, AlertTriangle } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 
 // --- COMPONENTES AUXILIARES ---
 
-// Card com Borda Colorida
 const Card = ({ children, borderColor = "border-gray-200" }: { children: React.ReactNode, borderColor?: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
@@ -37,8 +35,7 @@ const FormInput = ({ label, description, icon, ...props }: FormInputProps) => (
       )}
       <input
         {...props}
-        className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado transition-all ${icon ? 'pl-10 pr-3' : 'px-3'
-          }`}
+        className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado transition-all ${icon ? 'pl-10 pr-3' : 'px-3'}`}
       />
     </div>
     {description && <p className="mt-1 text-xs text-gray-500">{description}</p>}
@@ -62,8 +59,11 @@ export function ConfiguracoesPage() {
     cardFee: '0',
     packagingCost: '0',
 
-    // Garantia (NOVO)
-    warrantyText: ''
+    // Garantia
+    warrantyText: '',
+
+    // NOVO: Gestão de Stock
+    lowStockThreshold: '5' 
   });
 
   const [loading, setLoading] = useState(true);
@@ -83,11 +83,13 @@ export function ConfiguracoesPage() {
             primaryColor: data.primaryColor || '#D4AF37',
             secondaryColor: data.secondaryColor || '#343434',
 
-            cardFee: data.cardFee?.toString() || '0',
-            packagingCost: data.packagingCost?.toString() || '0',
+            cardFee: data.cardFeePercent?.toString() || '0', // Mapeando cardFeePercent da API para cardFee do form
+            packagingCost: data.packingCost?.toString() || '0', // Mapeando packingCost da API para packagingCost do form
 
-            // Carrega o texto da garantia
-            warrantyText: data.warrantyText || 'Garantimos a autenticidade da Prata 925. Garantia de 90 dias para defeitos de fabrico.'
+            warrantyText: data.warrantyText || 'Garantimos a autenticidade da Prata 925. Garantia de 90 dias para defeitos de fabrico.',
+            
+            // Carrega o limite de stock (ou padrão 5)
+            lowStockThreshold: data.lowStockThreshold?.toString() || '5'
           });
         }
       } catch (error) {
@@ -111,15 +113,29 @@ export function ConfiguracoesPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Convertemos strings numéricas de volta para number antes de enviar
-      await saveConfig({
-        ...formData,
-        monthlyGoal: Number(formData.monthlyGoal),
-        cardFee: Number(formData.cardFee),
-        packagingCost: Number(formData.packagingCost),
-        banners: [], // Mantemos vazio por enquanto
-        // O warrantyText já está no ...formData
-      });
+      // Prepara o objeto exatamente como a API (Schema) espera
+      const payload = {
+        whatsappNumber: formData.whatsappNumber,
+        storeName: formData.storeName,
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        warrantyText: formData.warrantyText,
+        banners: [], // Mantemos banners vazios aqui pois são geridos noutro lugar ou via array separado se necessário
+        
+        // Conversões Numéricas Obrigatórias
+        monthlyGoal: Number(formData.monthlyGoal) || 0,
+        
+        // Mapeamento correto para a API (packingCost e cardFeePercent)
+        packingCost: Number(formData.packagingCost) || 0,
+        cardFeePercent: Number(formData.cardFee) || 0,
+        
+        // O campo que faltava e causava o erro
+        lowStockThreshold: Number(formData.lowStockThreshold) || 5 
+      };
+
+      // @ts-ignore - Ignoramos erros estritos de tipagem aqui pois garantimos o payload acima
+      await saveConfig(payload);
+      
       toast.success("Configurações salvas com sucesso!");
     } catch (error) {
       toast.error("Erro ao salvar.");
@@ -149,7 +165,7 @@ export function ConfiguracoesPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* --- 1. IDENTIDADE VISUAL (WHITE-LABEL) --- */}
+          {/* --- 1. IDENTIDADE VISUAL --- */}
           <Card borderColor="border-blue-500">
             <div className="flex items-center gap-2 mb-6 border-b pb-4">
               <Palette className="text-blue-600" size={24} />
@@ -169,71 +185,33 @@ export function ConfiguracoesPage() {
                 description="Aparece no topo do catálogo e na aba do navegador."
               />
 
-              {/* Seletores de Cor */}
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Cor Principal</label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      name="primaryColor"
-                      value={formData.primaryColor}
-                      onChange={handleChange}
-                      className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
-                    />
-                    <input
-                      type="text"
-                      name="primaryColor"
-                      value={formData.primaryColor}
-                      onChange={handleChange}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono"
-                    />
+                    <input type="color" name="primaryColor" value={formData.primaryColor} onChange={handleChange} className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm" />
+                    <input type="text" name="primaryColor" value={formData.primaryColor} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Botões e destaques.</p>
                 </div>
 
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Cor Secundária</label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      name="secondaryColor"
-                      value={formData.secondaryColor}
-                      onChange={handleChange}
-                      className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
-                    />
-                    <input
-                      type="text"
-                      name="secondaryColor"
-                      value={formData.secondaryColor}
-                      onChange={handleChange}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono"
-                    />
+                    <input type="color" name="secondaryColor" value={formData.secondaryColor} onChange={handleChange} className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm" />
+                    <input type="text" name="secondaryColor" value={formData.secondaryColor} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Fundo do cabeçalho e textos.</p>
                 </div>
               </div>
             </div>
-
-            {/* Preview Rápido */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row items-center gap-4 justify-center sm:justify-start">
-              <span className="text-xs font-bold text-gray-400 uppercase">Preview:</span>
-              <div className="px-6 py-2 rounded text-white text-sm font-bold shadow-sm" style={{ backgroundColor: formData.primaryColor }}>
-                Botão Principal
-              </div>
-              <span className="font-bold text-xl" style={{ color: formData.secondaryColor }}>
-                {formData.storeName || "Título da Loja"}
-              </span>
-            </div>
           </Card>
 
-          {/* --- 2. CUSTOS OPERACIONAIS (LUCRO REAL) --- */}
+          {/* --- 2. CUSTOS OPERACIONAIS --- */}
           <Card borderColor="border-green-500">
             <div className="flex items-center gap-2 mb-6 border-b pb-4">
               <Calculator className="text-green-600" size={24} />
               <div>
                 <h2 className="text-xl font-semibold text-gray-800">Custos Operacionais</h2>
-                <p className="text-xs text-gray-500">Usado para calcular o lucro líquido no cadastro de produtos.</p>
+                <p className="text-xs text-gray-500">Usado para calcular o lucro líquido.</p>
               </div>
             </div>
 
@@ -247,7 +225,7 @@ export function ConfiguracoesPage() {
                 onChange={handleChange}
                 placeholder="4.99"
                 icon={<Percent size={16} />}
-                description="Média da taxa cobrada pela maquininha ou link de pagamento."
+                description="Média da taxa cobrada pela maquininha."
               />
 
               <FormInput
@@ -259,18 +237,46 @@ export function ConfiguracoesPage() {
                 onChange={handleChange}
                 placeholder="1.50"
                 icon={<Package size={16} />}
-                description="Custo médio por pedido (saquinho, caixa, laço, etc.)."
+                description="Custo médio por pedido (saquinho, caixa, etc.)."
               />
             </div>
           </Card>
 
-          {/* --- 3. CONFIGURAÇÕES DE VENDA E GARANTIA --- */}
+          {/* --- 3. CONTROLE DE STOCK (NOVO!) --- */}
+          <Card borderColor="border-yellow-500">
+            <div className="flex items-center gap-2 mb-6 border-b pb-4">
+              <AlertTriangle className="text-yellow-600" size={24} />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">Alertas de Stock</h2>
+                <p className="text-xs text-gray-500">Defina quando o sistema deve avisar que o produto está a acabar.</p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 flex items-center gap-4">
+               <div className="flex-1">
+                 <FormInput
+                    label="Stock Mínimo para Alerta"
+                    name="lowStockThreshold"
+                    type="number"
+                    value={formData.lowStockThreshold}
+                    onChange={handleChange}
+                    placeholder="5"
+                    description="Produtos com quantidade igual ou menor a este valor ficarão destacados."
+                 />
+               </div>
+               <div className="hidden sm:block text-sm text-yellow-800 max-w-xs">
+                  Isto ajuda a gerar a lista de reposição antes que os produtos esgotem.
+               </div>
+            </div>
+          </Card>
+
+          {/* --- 4. CANAIS DE VENDA --- */}
           <Card borderColor="border-dourado">
             <div className="flex items-center gap-2 mb-6 border-b pb-4">
               <Store className="text-dourado" size={24} />
               <div>
-                <h2 className="text-xl font-semibold text-gray-800">Canais de Venda</h2>
-                <p className="text-xs text-gray-500">Onde e como você vende.</p>
+                <h2 className="text-xl font-semibold text-gray-800">Canais & Garantia</h2>
+                <p className="text-xs text-gray-500">Configurações de atendimento.</p>
               </div>
             </div>
 
@@ -281,7 +287,7 @@ export function ConfiguracoesPage() {
                 value={formData.whatsappNumber}
                 onChange={handleChange}
                 placeholder="5511999998888"
-                description="Número que receberá as mensagens do catálogo. Use o formato internacional (55...)."
+                description="Formato: 55 + DDD + Número (apenas dígitos)."
               />
               <FormInput
                 label="Meta de Lucro Mensal (R$)"
@@ -290,34 +296,26 @@ export function ConfiguracoesPage() {
                 value={formData.monthlyGoal}
                 onChange={handleChange}
                 placeholder="1000"
-                description="O seu objetivo para visualizar no Dashboard."
               />
             </div>
 
-            {/* CAMPO DE GARANTIA ADICIONADO */}
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex items-center gap-2 mb-2">
-                <ScrollText size={18} className="text-gray-400" /> {/* Importe ScrollText de lucide-react */}
-                <label className="block text-sm font-medium text-gray-700">
-                  Texto do Certificado de Garantia
-                </label>
+                <ScrollText size={18} className="text-gray-400" />
+                <label className="block text-sm font-medium text-gray-700">Texto da Garantia (PDF)</label>
               </div>
               <textarea
                 name="warrantyText"
-                value={formData.warrantyText || ''} // Certifique-se de adicionar warrantyText ao state inicial!
+                value={formData.warrantyText}
                 onChange={(e) => setFormData(prev => ({ ...prev, warrantyText: e.target.value }))}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
                 placeholder="Ex: Garantia vitalícia na prata. 90 dias para defeitos de fabrico..."
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Este texto aparecerá automaticamente no PDF impresso.
-              </p>
             </div>
-
           </Card>
 
-          {/* Botão de Salvar Flutuante ou Fixo */}
+          {/* Botão de Salvar */}
           <div className="sticky bottom-6 flex justify-end z-10">
             <button
               type="submit"
