@@ -1,49 +1,28 @@
 import axios from 'axios';
-// 1. Imports do Firebase Authentication
+// 1. Importar a 'auth' do Firebase
 import { auth } from '../firebaseConfig'; 
 
-// 2. Imports do Firebase Storage (Para Upload de Imagens direto)
-import { initializeApp } from "firebase/app";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// --- TIPOS ---
 import type { 
   ProdutoAdmin, 
   Fornecedor, 
   Transacao, 
-  DashboardStats, 
-  Category, 
-  Order, 
-  OrderStatus, 
-  Coupon, 
+  DashboardStats,
+  Category,
+  Order,
+  OrderStatus,
+  Coupon,
   ABCProduct
-} from '../types';
+} from '../types/index.ts';
 
 import type { 
   ProdutoFormData, 
   FornecedorFormData, 
   ConfigFormData, 
   TransacaoFormData
-} from '../types/schemas';
+} from '../types/schemas.ts';
 
 // ============================================================================
-// Configuração do Firebase Storage
-// ============================================================================
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, // Essencial!
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
-
-// Inicializa o app secundário para Storage (evita conflito com Auth)
-const storageApp = initializeApp(firebaseConfig, "StorageApp");
-const storage = getStorage(storageApp);
-
-// ============================================================================
-// Configuração da API Axios
+// Configuração da API
 // ============================================================================
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -51,29 +30,32 @@ export const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// --- INTERCEPTOR DE SEGURANÇA ---
+// --- 2. INTERCEPTOR DE SEGURANÇA (O "Crachá") ---
 apiClient.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
+  
   if (user) {
+    // Se o utilizador estiver logado, pega o Token dele
     const token = await user.getIdToken();
+    // E cola no cabeçalho da requisição
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
   return config;
 }, (error) => {
   return Promise.reject(error);
 });
+// --- FIM DO INTERCEPTOR ---
 
-// --- TIPAGEM DA CONFIGURAÇÃO ---
-export interface AppConfig extends Omit<ConfigFormData, 'warrantyText' | 'lowStockThreshold' | 'banners'> {
-  banners: string[]; 
-  cardFee: number;
-  packagingCost: number;
+export interface AppConfig extends ConfigFormData {
+  banners: never[];
+  cardFee: any;
+  packagingCost: any;
   secondaryColor: string;
   primaryColor: string;
   storeName: string;
-  warrantyText?: string;
-  lowStockThreshold?: number;
   productCounter?: number;
+  split?: { net: number, reinvest: number, ops: number };
 }
 
 // ============================================================================
@@ -85,11 +67,10 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 };
 
 // ============================================================================
-// Módulo: Produtos (ROTAS CORRIGIDAS PARA PORTUGUÊS)
+// Módulo: Produtos
 // ============================================================================
-// A API antiga usa /admin/produtos, não /admin/products
 export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
-  const response = await apiClient.get('/admin/produtos'); 
+  const response = await apiClient.get('/admin/produtos');
   return response.data;
 };
 
@@ -108,7 +89,7 @@ export const deleteAdminProduto = async (id: string): Promise<void> => {
 };
 
 // ============================================================================
-// Módulo: Fornecedores (ROTAS CORRIGIDAS PARA PORTUGUÊS)
+// Módulo: Fornecedores
 // ============================================================================
 export const getFornecedores = async (): Promise<Fornecedor[]> => {
   const response = await apiClient.get('/admin/fornecedores');
@@ -155,7 +136,7 @@ export const deleteTransacao = async (id: string): Promise<void> => {
 // Módulo: Configurações
 // ============================================================================
 export const getConfig = async (): Promise<AppConfig> => {
-  const response = await apiClient.get('/config-publica'); // Ou /admin/config dependendo da API
+  const response = await apiClient.get('/admin/config');
   return response.data;
 };
 
@@ -165,12 +146,10 @@ export const saveConfig = async (config: ConfigFormData): Promise<AppConfig> => 
 };
 
 // ============================================================================
-// Módulo: Categorias (ROTAS CORRIGIDAS PARA PORTUGUÊS)
+// Módulo: Categorias
 // ============================================================================
-// A API antiga costuma usar /admin/categorias ou /categorias
 export const getCategories = async (): Promise<Category[]> => {
-  // Tentamos a rota mais provável da API antiga
-  const response = await apiClient.get('/categories'); // Se der 404, tente '/admin/categorias'
+  const response = await apiClient.get('/admin/categories');
   return response.data;
 };
 
@@ -196,8 +175,9 @@ export const updateAdminOrderStatus = async (id: string, status: OrderStatus): P
   return response.data;
 };
 
+
 // ============================================================================
-// Módulo: Gráficos e Relatórios
+// Módulo: Gráficos do Dashboard
 // ============================================================================
 export interface ChartData {
   salesByDay: { name: string; vendas: number }[];
@@ -228,25 +208,17 @@ export const getABCReport = async (): Promise<ABCProduct[]> => {
   return response.data;
 };
 
-// ============================================================================
-// Módulo: Upload de Imagens (Firebase Direto)
-// ============================================================================
-export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
-  if (!file) return '';
+// Exemplo de função de upload (caso não tenha)
+export const uploadImage = async (file: File, folder: string): Promise<string> => {
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('folder', folder);
   
-  try {
-    // 1. Cria uma referência única: produtos/timestamp_nomearquivo
-    const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
-    const storageRef = ref(storage, `${folder}/${fileName}`);
-    
-    // 2. Faz o upload
-    const snapshot = await uploadBytes(storageRef, file);
-    
-    // 3. Pega a URL pública
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
-  } catch (error) {
-    console.error("Erro no upload Firebase:", error);
-    throw new Error("Falha ao subir imagem. Verifique a configuração do Firebase.");
-  }
+  // Ajuste a rota para a sua rota de upload real
+  // Se estiver usando Firebase Storage direto no frontend, use a lógica do SDK
+  // Se for via API Node:
+  const response = await apiClient.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data.url;
 };
