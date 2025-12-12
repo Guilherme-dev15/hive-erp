@@ -1,11 +1,10 @@
 import axios from 'axios';
 
 // 1. IMPORTAÇÃO DAS INSTÂNCIAS JÁ CONFIGURADAS
-// (Isso resolve o erro de Bucket porque usa a config correta do firebaseConfig.ts)
-import { auth, storage } from '../firebaseConfig'; 
+import { auth } from '../firebaseConfig'; 
 
-// 2. Imports utilitários do Storage (apenas funções)
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// 2. Imports utilitários do Storage
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // --- TIPOS ---
 import type { 
@@ -28,9 +27,15 @@ import type {
 } from '../types/schemas';
 
 // ============================================================================
-// Configuração da API Axios
+// CONFIGURAÇÃO DO STORAGE (BUCKET FORÇADO)
 // ============================================================================
-// Usa a URL de produção para garantir conexão com a API antiga
+// Isso resolve o erro "No default bucket found"
+const BUCKET_URL = "gs://hive-1874c.firebasestorage.app"; 
+const storage = getStorage(auth.app, BUCKET_URL);
+
+// ============================================================================
+// CONFIGURAÇÃO DA API
+// ============================================================================
 const API_URL = import.meta.env.VITE_API_URL || 'https://hiveerp-api.vercel.app';
 
 export const apiClient = axios.create({
@@ -51,7 +56,7 @@ apiClient.interceptors.request.use(async (config) => {
   return Promise.reject(error);
 });
 
-// --- TIPAGEM DA CONFIGURAÇÃO (Corrigida) ---
+// --- TIPAGEM DA CONFIGURAÇÃO ---
 export interface AppConfig extends Omit<ConfigFormData, 'warrantyText' | 'lowStockThreshold' | 'banners'> {
   banners: string[]; 
   cardFee: number;
@@ -65,32 +70,29 @@ export interface AppConfig extends Omit<ConfigFormData, 'warrantyText' | 'lowSto
 }
 
 // ============================================================================
-// FUNÇÃO DE UPLOAD (MÁGICA AQUI)
+// FUNÇÃO DE UPLOAD (COM BUCKET FIXO)
 // ============================================================================
 export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
   if (!file) return '';
   
   try {
-    // 1. Gera nome único
     const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
     
-    // 2. Usa a variável 'storage' importada (já configurada com o bucket certo)
+    // Usa a instância 'storage' com o bucket correto
     const storageRef = ref(storage, `${folder}/${fileName}`);
     
-    // 3. Faz o upload
     const snapshot = await uploadBytes(storageRef, file);
-    
-    // 4. Pega a URL pública
     const downloadURL = await getDownloadURL(snapshot.ref);
+    
     return downloadURL;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro no upload Firebase:", error);
-    throw new Error("Falha ao subir imagem. Verifique o firebaseConfig.ts.");
+    throw new Error(`Falha ao subir imagem: ${error.message}`);
   }
 };
 
 // ============================================================================
-// ROTAS DA API (PORTUGUÊS - LEGADO)
+// ROTAS PADRONIZADAS EM INGLÊS (STANDARD)
 // ============================================================================
 
 // --- Dashboard ---
@@ -99,47 +101,50 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
   return response.data;
 };
 
-// --- Produtos (/admin/produtos) ---
+// --- Produtos (/admin/products) ---
 export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
-  const response = await apiClient.get('/admin/produtos');
+  const response = await apiClient.get('/admin/products');
   return response.data;
 };
 
 export const createAdminProduto = async (produto: ProdutoFormData): Promise<ProdutoAdmin> => {
-  const response = await apiClient.post('/admin/produtos', produto);
+  const response = await apiClient.post('/admin/products', produto);
   return response.data;
 };
 
 export const updateAdminProduto = async (id: string, produto: ProdutoFormData): Promise<ProdutoAdmin> => {
-  const response = await apiClient.put(`/admin/produtos/${id}`, produto);
+  const response = await apiClient.put(`/admin/products/${id}`, produto);
   return response.data;
 };
 
 export const deleteAdminProduto = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/produtos/${id}`);
+  await apiClient.delete(`/admin/products/${id}`);
 };
 
-// --- Fornecedores (/admin/fornecedores) ---
+// --- Fornecedores (/admin/suppliers) ---
 export const getFornecedores = async (): Promise<Fornecedor[]> => {
-  const response = await apiClient.get('/admin/fornecedores');
+  const response = await apiClient.get('/admin/suppliers');
   return response.data;
 };
 
 export const createFornecedor = async (fornecedor: FornecedorFormData): Promise<Fornecedor> => {
-  const response = await apiClient.post('/admin/fornecedores', fornecedor);
+  const response = await apiClient.post('/admin/suppliers', fornecedor);
   return response.data;
 };
 
 export const updateFornecedor = async (id: string, fornecedor: FornecedorFormData): Promise<Fornecedor> => {
-  const response = await apiClient.put(`/admin/fornecedores/${id}`, fornecedor);
+  const response = await apiClient.put(`/admin/suppliers/${id}`, fornecedor);
   return response.data;
 };
 
 export const deleteFornecedor = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/fornecedores/${id}`);
+  await apiClient.delete(`/admin/suppliers/${id}`);
 };
 
-// --- Transações (/admin/transacoes) ---
+// --- Transações (/admin/transacoes) - Mantido misto se a API não mudou esta ---
+// Geralmente a rota de transações não foi alterada para transactions em alguns deploys,
+// mas para padronizar inglês seria /admin/transactions. 
+// VOU MANTER O QUE FUNCIONAVA NA VERSÃO INGLESA ANTERIOR:
 export const getTransacoes = async (): Promise<Transacao[]> => {
   const response = await apiClient.get('/admin/transacoes');
   return response.data;
@@ -161,8 +166,7 @@ export const deleteTransacao = async (id: string): Promise<void> => {
 
 // --- Configurações ---
 export const getConfig = async (): Promise<AppConfig> => {
-  // Se a rota admin/config falhar, tente '/config-publica'
-  const response = await apiClient.get('/admin/config'); 
+  const response = await apiClient.get('/config-publica');
   return response.data;
 };
 
@@ -171,17 +175,10 @@ export const saveConfig = async (config: ConfigFormData): Promise<AppConfig> => 
   return response.data;
 };
 
-// --- Categorias (/admin/categories ou /admin/categorias - verifique seu banco) ---
+// --- Categorias (/categories) ---
 export const getCategories = async (): Promise<Category[]> => {
-  // Tentando rota em inglês pois a API antiga às vezes usa inglês para categorias
-  // Se der erro 404, mude para '/admin/categorias'
-  try {
-    const response = await apiClient.get('/admin/categories'); 
-    return response.data;
-  } catch (e) {
-    const response = await apiClient.get('/categories'); // Fallback
-    return response.data;
-  }
+  const response = await apiClient.get('/categories');
+  return response.data;
 };
 
 export const createCategory = async (data: { name: string }): Promise<Category> => {
