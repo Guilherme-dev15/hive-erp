@@ -342,5 +342,4 @@ if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => console.log(`API running on ${PORT}`));
 }
 
-
 module.exports = app;
