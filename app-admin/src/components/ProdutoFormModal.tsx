@@ -28,19 +28,18 @@ export function ProdutoFormModal({
 
   // Vigia os campos para recalcular preços e códigos
   const watchedCost = watch('costPrice');
-  const watchedSale = watch('salePrice'); // Agora vigiamos a venda também
+  const watchedSale = watch('salePrice');
   const watchedCategory = watch('category');
   const watchedSupplierId = watch('supplierId');
 
-  // --- CÁLCULO DE LUCRO E MARGEM (MEMOIZADO) ---
+  // --- CÁLCULO DE LUCRO E MARGEM ---
   const indicadores = useMemo(() => {
     const custo = parseFloat(String(watchedCost || 0));
     const venda = parseFloat(String(watchedSale || 0));
     
-    if (isNaN(custo) || isNaN(venda)) return { lucro: 0, margem: 0, markup: 0 };
+    if (isNaN(custo) || isNaN(venda)) return { lucro: 0, margem: 0 };
 
     const lucro = venda - custo;
-    // Margem = (Lucro / Venda) * 100
     const margem = venda > 0 ? (lucro / venda) * 100 : 0;
     
     return { lucro, margem };
@@ -49,26 +48,23 @@ export function ProdutoFormModal({
   useEffect(() => {
     if (isOpen) {
       if (produtoParaEditar) {
+        // MODO EDIÇÃO
         reset(produtoParaEditar);
         setPreviewImage(produtoParaEditar.imageUrl || null);
+        // Garante que o hook form sabe que existe um valor inicial
+        setValue('imageUrl', produtoParaEditar.imageUrl || ''); 
       } else {
+        // MODO CRIAÇÃO
         reset({
-          name: '',
-          costPrice: 0,
-          salePrice: 0,
-          quantity: 0,
-          description: '',
-          code: '',
-          category: '',
-          supplierId: '',
-          status: 'ativo'
+          name: '', costPrice: 0, salePrice: 0, quantity: 0, description: '', 
+          code: '', category: '', supplierId: '', status: 'ativo', imageUrl: ''
         });
         setPreviewImage(null);
       }
     }
-  }, [isOpen, produtoParaEditar, reset]);
+  }, [isOpen, produtoParaEditar, reset, setValue]);
 
-  // --- LÓGICA 1: SUGESTÃO DE PREÇO (APENAS NA CRIAÇÃO) ---
+  // --- LÓGICA DE SUGESTÃO DE PREÇO ---
   useEffect(() => {
     if (watchedCost && !produtoParaEditar && !watchedSale) { 
       const custo = parseFloat(watchedCost.toString());
@@ -78,9 +74,9 @@ export function ProdutoFormModal({
         setValue('salePrice', parseFloat(sugestao)); 
       }
     }
-  }, [watchedCost, produtoParaEditar, setValue, configGlobal]); // Removido watchedSale do deps para não loopar
+  }, [watchedCost, produtoParaEditar, setValue, configGlobal]);
 
-  // --- LÓGICA 2: REGENERAÇÃO DE SKU ---
+  // --- LÓGICA DE SKU ---
   useEffect(() => {
     if (!watchedCategory || !watchedSupplierId) return;
 
@@ -106,10 +102,7 @@ export function ProdutoFormModal({
     }
 
     const newCode = `${catPrefix}-${sequence}-${supPrefix}`;
-
-    if (currentCode !== newCode) {
-      setValue('code', newCode);
-    }
+    if (currentCode !== newCode) setValue('code', newCode);
 
   }, [watchedCategory, watchedSupplierId, fornecedores, setValue, getValues]);
 
@@ -120,13 +113,19 @@ export function ProdutoFormModal({
 
     setUploadingImage(true);
     try {
+      // Preview imediato
       const objectUrl = URL.createObjectURL(file);
       setPreviewImage(objectUrl);
 
+      // Upload para Firebase
       const url = await uploadImage(file, 'produtos');
-      setValue('imageUrl', url);
+      
+      // CRÍTICO: Atualiza o form e marca como "sujo" (alterado)
+      setValue('imageUrl', url, { shouldDirty: true, shouldTouch: true });
+      
       toast.success("Imagem carregada!");
     } catch (error) {
+      console.error(error);
       toast.error("Erro ao subir imagem.");
       setPreviewImage(null);
     } finally {
@@ -138,13 +137,20 @@ export function ProdutoFormModal({
     try {
       let savedProduct;
       
+      // CRÍTICO: Recupera a imagem via getValues se o data vier vazio
+      // Isso garante que a imagem recém-uploadada seja pega
+      const finalImageUrl = getValues('imageUrl') || data.imageUrl || '';
+
       const payload = {
         ...data,
+        imageUrl: finalImageUrl, // Força o envio da URL correta
         costPrice: Number(data.costPrice || 0),
         salePrice: Number(data.salePrice || 0),
         quantity: Number(data.quantity || 0),
         status: (data.status === 'inativo' ? 'inativo' : 'ativo') as 'ativo' | 'inativo'
       };
+
+      console.log("Enviando Produto:", payload); // Debug
 
       if (produtoParaEditar?.id) {
         savedProduct = await updateAdminProduto(produtoParaEditar.id, payload);
@@ -179,6 +185,9 @@ export function ProdutoFormModal({
 
           <form onSubmit={handleSubmit(onFormSubmit)} className="flex-1 overflow-y-auto p-6 space-y-6">
             
+            {/* --- FIX CRÍTICO: INPUT HIDDEN PARA GARANTIR O REGISTRO DA IMAGEM --- */}
+            <input type="hidden" {...register('imageUrl')} />
+
             <div className="flex gap-6">
               {/* Upload Imagem */}
               <div className="shrink-0">
@@ -244,7 +253,7 @@ export function ProdutoFormModal({
               </div>
             </div>
 
-            {/* --- ÁREA FINANCEIRA COM CÁLCULOS (REFATORADA) --- */}
+            {/* --- ÁREA FINANCEIRA --- */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
               <div className="flex items-center gap-2 mb-1">
                  <DollarSign size={16} className="text-green-600"/>
@@ -272,7 +281,6 @@ export function ProdutoFormModal({
                 </div>
               </div>
 
-              {/* BARRA DE LUCRO E MARGEM (VISUAL) */}
               {(indicadores.lucro !== 0 || indicadores.margem !== 0) && (
                 <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-1">
                    <div className="flex flex-col">
@@ -281,9 +289,7 @@ export function ProdutoFormModal({
                         R$ {indicadores.lucro.toFixed(2)}
                       </span>
                    </div>
-                   
                    <div className="h-8 w-px bg-gray-100 mx-4"></div>
-
                    <div className="flex flex-col items-end">
                       <span className="text-[10px] text-gray-400 uppercase font-bold flex items-center gap-1">
                         Margem <TrendingUp size={10}/>
