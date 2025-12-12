@@ -2,24 +2,44 @@ import axios from 'axios';
 // 1. Importar a 'auth' do Firebase
 import { auth } from '../firebaseConfig'; 
 
+// --- NOVO: Imports do Firebase Storage (NECESSÁRIO PARA UPLOAD) ---
+import { initializeApp } from "firebase/app";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 import type { 
   ProdutoAdmin, 
   Fornecedor, 
   Transacao, 
-  DashboardStats,
-  Category,
-  Order,
-  OrderStatus,
-  Coupon,
+  DashboardStats, 
+  Category, 
+  Order, 
+  OrderStatus, 
+  Coupon, 
   ABCProduct
-} from '../types/index.ts';
+} from '../types';
 
 import type { 
   ProdutoFormData, 
   FornecedorFormData, 
   ConfigFormData, 
   TransacaoFormData
-} from '../types/schemas.ts';
+} from '../types/schemas';
+
+// ============================================================================
+// Configuração do Firebase Storage (Para Upload de Imagens)
+// ============================================================================
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, // Essencial!
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+// Inicializa o app secundário apenas para o Storage
+const storageApp = initializeApp(firebaseConfig, "StorageApp");
+const storage = getStorage(storageApp);
 
 // ============================================================================
 // Configuração da API
@@ -35,9 +55,7 @@ apiClient.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
   
   if (user) {
-    // Se o utilizador estiver logado, pega o Token dele
     const token = await user.getIdToken();
-    // E cola no cabeçalho da requisição
     config.headers.Authorization = `Bearer ${token}`;
   }
   
@@ -45,17 +63,18 @@ apiClient.interceptors.request.use(async (config) => {
 }, (error) => {
   return Promise.reject(error);
 });
-// --- FIM DO INTERCEPTOR ---
 
-export interface AppConfig extends ConfigFormData {
-  banners: never[];
-  cardFee: any;
-  packagingCost: any;
+// --- TIPAGEM DA CONFIGURAÇÃO (Corrigida com Omit para evitar erros) ---
+export interface AppConfig extends Omit<ConfigFormData, 'warrantyText' | 'lowStockThreshold' | 'banners'> {
+  banners: string[];
+  cardFee: number;
+  packagingCost: number;
   secondaryColor: string;
   primaryColor: string;
   storeName: string;
+  warrantyText?: string;
+  lowStockThreshold?: number;
   productCounter?: number;
-  split?: { net: number, reinvest: number, ops: number };
 }
 
 // ============================================================================
@@ -136,6 +155,7 @@ export const deleteTransacao = async (id: string): Promise<void> => {
 // Módulo: Configurações
 // ============================================================================
 export const getConfig = async (): Promise<AppConfig> => {
+  // Se der erro aqui, mude para '/config-publica'
   const response = await apiClient.get('/admin/config');
   return response.data;
 };
@@ -149,7 +169,7 @@ export const saveConfig = async (config: ConfigFormData): Promise<AppConfig> => 
 // Módulo: Categorias
 // ============================================================================
 export const getCategories = async (): Promise<Category[]> => {
-  const response = await apiClient.get('/admin/categories');
+  const response = await apiClient.get('/admin/categories'); // Ou /admin/categorias se falhar
   return response.data;
 };
 
@@ -174,7 +194,6 @@ export const updateAdminOrderStatus = async (id: string, status: OrderStatus): P
   const response = await apiClient.put(`/admin/orders/${id}`, { status });
   return response.data;
 };
-
 
 // ============================================================================
 // Módulo: Gráficos do Dashboard
@@ -208,17 +227,25 @@ export const getABCReport = async (): Promise<ABCProduct[]> => {
   return response.data;
 };
 
-// Exemplo de função de upload (caso não tenha)
-export const uploadImage = async (file: File, folder: string): Promise<string> => {
-  const formData = new FormData();
-  formData.append('image', file);
-  formData.append('folder', folder);
+// ============================================================================
+// Módulo: Upload de Imagens (CORRIGIDO - Firebase Direto)
+// ============================================================================
+export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
+  if (!file) return '';
   
-  // Ajuste a rota para a sua rota de upload real
-  // Se estiver usando Firebase Storage direto no frontend, use a lógica do SDK
-  // Se for via API Node:
-  const response = await apiClient.post('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-  return response.data.url;
+  try {
+    // 1. Gera nome único
+    const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
+    const storageRef = ref(storage, `${folder}/${fileName}`);
+    
+    // 2. Faz o upload direto para o Firebase
+    const snapshot = await uploadBytes(storageRef, file);
+    
+    // 3. Pega a URL pública
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error("Erro no upload Firebase:", error);
+    throw new Error("Falha ao subir imagem. Verifique as chaves no .env.");
+  }
 };
