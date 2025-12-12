@@ -9,11 +9,9 @@ const PORT = 3001;
 // 1. CONFIGURAÇÕES INICIAIS (CORS & FIREBASE)
 // ============================================================================
 
-// Configuração de CORS (Permite acesso dos frontends)
 const allowedOrigins = [
   'https://hiveerp-catalogo.vercel.app',
   'https://hive-erp.vercel.app',
-  // Regex para permitir deploy previews da Vercel
   /https:\/\/hiveerp-catalogo-.*\.vercel\.app$/,
   /https:\/\/hive-erp-.*\.vercel\.app$/,
   'http://localhost:5173',
@@ -38,9 +36,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' })); // Limite aumentado para importação em massa
 
-// Inicialização do Firebase (Suporta Local e Vercel)
+// Inicialização do Firebase
 let serviceAccount;
 if (process.env.VERCEL_ENV === 'production') {
   if (!process.env.SERVICE_ACCOUNT_KEY) {
@@ -69,20 +67,23 @@ if (!admin.apps.length && serviceAccount) {
 
 const db = admin.firestore();
 
-// Nomes das Coleções
+// ============================================================================
+// 2. CONSTANTES DE COLEÇÃO (A PONTE ENTRE O NOVO E O ANTIGO)
+// ============================================================================
+// As rotas são em INGLÊS, mas as coleções são em PORTUGUÊS para manter os dados.
 const CONFIG_PATH = db.collection('config').doc('settings');
-const PRODUCTS_COLLECTION = 'products';
-const SUPPLIERS_COLLECTION = 'suppliers';
+const PRODUCTS_COLLECTION = 'produtos';       // <--- Mantém dados antigos
+const SUPPLIERS_COLLECTION = 'fornecedores';  // <--- Mantém dados antigos
+const CATEGORIES_COLLECTION = 'categorias';   // <--- Mantém dados antigos
 const TRANSACTIONS_COLLECTION = 'transactions';
-const CATEGORIES_COLLECTION = 'categories';
 const ORDERS_COLLECTION = 'orders';
 const COUPONS_COLLECTION = 'coupons';
 
 // ============================================================================
-// 2. ROTAS PÚBLICAS (Catálogo & Configuração)
+// 3. ROTAS PÚBLICAS (Catálogo & Configuração)
 // ============================================================================
 
-// Listar Produtos do Catálogo (Apenas Ativos)
+// Listar Produtos do Catálogo (Rota Legada mantida para compatibilidade, mas lê 'produtos')
 app.get('/produtos-catalogo', async (req, res) => {
   try {
     const snapshot = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
@@ -108,7 +109,7 @@ app.get('/produtos-catalogo', async (req, res) => {
   }
 });
 
-// Configuração Pública (White-Label)
+// Configuração Pública
 app.get('/config-publica', async (req, res) => {
   try {
     const doc = await CONFIG_PATH.get();
@@ -126,18 +127,23 @@ app.get('/config-publica', async (req, res) => {
   }
 });
 
-// Categorias Públicas
-app.get('/categories-public', async (req, res) => {
+// Categorias Públicas (Agora '/categories')
+app.get('/categories', async (req, res) => {
   try {
-    const snapshot = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
+    const snapshot = await db.collection(CATEGORIES_COLLECTION).get();
+    // Extrai apenas nomes únicos e ordena
     const categorySet = new Set();
     snapshot.docs.forEach(doc => {
-      if (doc.data().category) categorySet.add(doc.data().category);
+      if (doc.data().name) categorySet.add(doc.data().name);
     });
     res.status(200).json(Array.from(categorySet).sort());
   } catch (error) {
     res.status(500).json({ message: "Erro ao buscar categorias." });
   }
+});
+// Alias para compatibilidade antiga
+app.get('/categories-public', async (req, res) => {
+    res.redirect('/categories');
 });
 
 // Criar Pedido (Checkout)
@@ -151,19 +157,15 @@ app.post('/orders', async (req, res) => {
     const novoPedido = {
       ...pedidoData,
       status: 'Aguardando Pagamento',
-      financeiroRegistrado: false, // Flag para controle
+      financeiroRegistrado: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
-
-    // NOTA: Stock é baixado apenas quando o status muda para 'Enviado' ou pode ser aqui.
-    // Neste sistema, optamos por baixar stock na confirmação (via Admin) ou aqui.
-    // Vamos manter simples: Baixa aqui para garantir reserva.
 
     const batch = db.batch();
     const docRef = db.collection(ORDERS_COLLECTION).doc();
     batch.set(docRef, novoPedido);
 
-    // Baixa de Stock Imediata ao criar pedido (Reserva)
+    // Baixa de Stock Imediata
     pedidoData.items.forEach(item => {
       const prodRef = db.collection(PRODUCTS_COLLECTION).doc(item.id);
       batch.update(prodRef, { quantity: admin.firestore.FieldValue.increment(-item.quantidade) });
@@ -178,7 +180,7 @@ app.post('/orders', async (req, res) => {
   }
 });
 
-// Validar Cupão
+// Validar Cupom
 app.post('/validate-coupon', async (req, res) => {
   try {
     const { code } = req.body;
@@ -200,7 +202,7 @@ app.post('/validate-coupon', async (req, res) => {
 });
 
 // ============================================================================
-// 3. MIDDLEWARE DE SEGURANÇA (Para Rotas Admin)
+// 4. MIDDLEWARE DE SEGURANÇA
 // ============================================================================
 const authenticateUser = async (req, res, next) => {
   const header = req.headers.authorization;
@@ -219,49 +221,114 @@ const authenticateUser = async (req, res, next) => {
 app.use('/admin', authenticateUser);
 
 // ============================================================================
-// 4. ROTAS ADMIN (Protegidas)
+// 5. ROTAS ADMIN (Padronizadas em Inglês)
 // ============================================================================
 
-// --- Produtos ---
-app.get('/admin/produtos', async (req, res) => {
-  const s = await db.collection(PRODUCTS_COLLECTION).get();
+// --- Products (/admin/products) ---
+app.get('/admin/products', async (req, res) => {
+  const s = await db.collection(PRODUCTS_COLLECTION).orderBy('createdAt', 'desc').get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
 });
 
-app.post('/admin/produtos', async (req, res) => {
-  const ref = await db.collection(PRODUCTS_COLLECTION).add(req.body);
+app.post('/admin/products', async (req, res) => {
+  const ref = await db.collection(PRODUCTS_COLLECTION).add({
+      ...req.body,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
   res.status(201).json({ id: ref.id, ...req.body });
 });
 
-app.put('/admin/produtos/:id', async (req, res) => {
+app.put('/admin/products/:id', async (req, res) => {
   await db.collection(PRODUCTS_COLLECTION).doc(req.params.id).update(req.body);
   res.json({ id: req.params.id, ...req.body });
 });
 
-app.delete('/admin/produtos/:id', async (req, res) => {
+app.delete('/admin/products/:id', async (req, res) => {
   await db.collection(PRODUCTS_COLLECTION).doc(req.params.id).delete();
   res.status(204).send();
 });
 
-// --- Fornecedores ---
-app.get('/admin/fornecedores', async (req, res) => {
+// --- Importação em Massa (/admin/products/bulk) ---
+app.post('/admin/products/bulk', async (req, res) => {
+  try {
+    const products = req.body;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ message: "Nenhum produto enviado." });
+    }
+
+    const batch = db.batch();
+
+    products.forEach(prod => {
+      const docRef = db.collection(PRODUCTS_COLLECTION).doc();
+
+      const custo = parseFloat(prod.costPrice) || 0;
+      let venda = parseFloat(prod.salePrice);
+
+      if (!venda || venda <= 0) {
+        venda = custo * 2; 
+      }
+
+      const newProduct = {
+        name: prod.name || 'Produto Sem Nome',
+        code: prod.code || '',
+        category: prod.category || 'Geral',
+        supplierId: prod.supplierId || null,
+        imageUrl: prod.imageUrl || '', 
+        costPrice: custo,
+        salePrice: venda,
+        quantity: parseInt(prod.quantity) || 0,
+        description: prod.description || '',
+        status: 'ativo',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+
+      batch.set(docRef, newProduct);
+    });
+
+    await batch.commit();
+    res.status(201).json({ message: "Importação concluída!", count: products.length });
+
+  } catch (error) {
+    console.error("ERRO na Importação:", error);
+    res.status(500).json({ message: "Erro ao importar.", error: error.message });
+  }
+});
+
+// --- Suppliers (/admin/suppliers) ---
+app.get('/admin/suppliers', async (req, res) => {
   const s = await db.collection(SUPPLIERS_COLLECTION).get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
 });
-app.post('/admin/fornecedores', async (req, res) => {
+app.post('/admin/suppliers', async (req, res) => {
   const ref = await db.collection(SUPPLIERS_COLLECTION).add(req.body);
   res.status(201).json({ id: ref.id, ...req.body });
 });
-app.put('/admin/fornecedores/:id', async (req, res) => {
+app.put('/admin/suppliers/:id', async (req, res) => {
   await db.collection(SUPPLIERS_COLLECTION).doc(req.params.id).update(req.body);
   res.json({ id: req.params.id, ...req.body });
 });
-app.delete('/admin/fornecedores/:id', async (req, res) => {
+app.delete('/admin/suppliers/:id', async (req, res) => {
   await db.collection(SUPPLIERS_COLLECTION).doc(req.params.id).delete();
   res.status(204).send();
 });
 
-// --- Financeiro ---
+// --- Categories (/admin/categories) ---
+app.get('/admin/categories', async (req, res) => {
+  const s = await db.collection(CATEGORIES_COLLECTION).orderBy('name').get();
+  res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
+});
+app.post('/admin/categories', async (req, res) => {
+  const ref = await db.collection(CATEGORIES_COLLECTION).add(req.body);
+  res.status(201).json({ id: ref.id, ...req.body });
+});
+app.delete('/admin/categories/:id', async (req, res) => {
+  await db.collection(CATEGORIES_COLLECTION).doc(req.params.id).delete();
+  res.status(204).send();
+});
+
+// --- Transactions (/admin/transacoes - mantido legado se frontend chama assim, ou mudamos para transactions) ---
+// Para padronizar 100% em inglês, o ideal seria /admin/transactions, mas mantive o que estava no seu código.
 app.get('/admin/transacoes', async (req, res) => {
   const s = await db.collection(TRANSACTIONS_COLLECTION).orderBy('date', 'desc').get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -282,60 +349,42 @@ app.get('/admin/dashboard-stats', async (req, res) => {
     const snapshot = await db.collection(TRANSACTIONS_COLLECTION).get();
 
     if (snapshot.empty) {
-      return res.status(200).json({
-        totalVendas: 0,
-        totalDespesas: 0,
-        lucroLiquido: 0,
-        saldoTotal: 0
-      });
+      return res.status(200).json({ totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, saldoTotal: 0 });
     }
 
     const stats = snapshot.docs.reduce((acc, doc) => {
       const data = doc.data();
       let amount = parseFloat(data.amount);
-
-      // Proteção: Se não for número, ignora
       if (isNaN(amount)) amount = 0;
 
-      // Lógica Inteligente:
-      // Se for 'despesa' e o valor estiver positivo no banco, invertemos para negativo.
-      // Se já estiver negativo (novo padrão), mantemos negativo.
       let realAmount = amount;
       if (data.type === 'despesa' && amount > 0) {
         realAmount = -amount;
       }
 
-      // 1. Acumula no Saldo Total (Vendas + Despesas Negativas)
       acc.saldoTotal += realAmount;
 
-      // 2. Separa para os KPIs individuais
       if (data.type === 'venda') {
         acc.totalVendas += realAmount;
       } else if (data.type === 'despesa') {
-        // Para mostrar no card de "Despesas", queremos o valor absoluto (positivo)
         acc.totalDespesas += Math.abs(realAmount);
       }
-
       return acc;
     }, { totalVendas: 0, totalDespesas: 0, saldoTotal: 0 });
 
-    //O Lucro Líquido é matematicamente igual ao Saldo Total neste contexto
-    const responseData = {
+    res.status(200).json({
       totalVendas: stats.totalVendas,
       totalDespesas: stats.totalDespesas,
       lucroLiquido: stats.saldoTotal,
       saldoTotal: stats.saldoTotal
-    };
-
-    res.status(200).json(responseData);
+    });
 
   } catch (error) {
-    console.error("ERRO em /admin/dashboard-stats:", error);
     res.status(500).json({ message: "Erro interno.", error: error.message });
   }
 });
 
-// --- Dashboard Charts (Graficos) ---
+// --- Dashboard Charts ---
 app.get('/admin/dashboard-charts', async (req, res) => {
   try {
     const today = new Date();
@@ -370,7 +419,7 @@ app.get('/admin/dashboard-charts', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- Configuração ---
+// --- Config (/admin/config) ---
 app.get('/admin/config', async (req, res) => {
   const doc = await CONFIG_PATH.get();
   res.json(doc.exists ? doc.data() : {});
@@ -380,21 +429,7 @@ app.post('/admin/config', async (req, res) => {
   res.json(req.body);
 });
 
-// --- Categorias ---
-app.get('/admin/categories', async (req, res) => {
-  const s = await db.collection(CATEGORIES_COLLECTION).orderBy('name').get();
-  res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
-});
-app.post('/admin/categories', async (req, res) => {
-  const ref = await db.collection(CATEGORIES_COLLECTION).add(req.body);
-  res.status(201).json({ id: ref.id, ...req.body });
-});
-app.delete('/admin/categories/:id', async (req, res) => {
-  await db.collection(CATEGORIES_COLLECTION).doc(req.params.id).delete();
-  res.status(204).send();
-});
-
-// --- Cupões ---
+// --- Coupons (/admin/coupons) ---
 app.get('/admin/coupons', async (req, res) => {
   const s = await db.collection(COUPONS_COLLECTION).get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -408,7 +443,7 @@ app.delete('/admin/coupons/:id', async (req, res) => {
   res.status(204).send();
 });
 
-// --- Pedidos (Com Lógica Inteligente de Stock) ---
+// --- Orders (/admin/orders) ---
 app.get('/admin/orders', async (req, res) => {
   const s = await db.collection(ORDERS_COLLECTION).orderBy('createdAt', 'desc').get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -447,7 +482,7 @@ app.put('/admin/orders/:id', async (req, res) => {
       }
     }
 
-    // 3. Venda Confirmada (Enviado): Lança no Financeiro
+    // 3. Venda Confirmada: Lança no Financeiro
     let updateData = { status };
     if (status === 'Enviado' && !orderData.financeiroRegistrado) {
       const transacao = {
@@ -472,7 +507,7 @@ app.put('/admin/orders/:id', async (req, res) => {
   }
 });
 
-// --- Relatório ABC ---
+// --- Relatório ABC (/admin/reports/abc) ---
 app.get('/admin/reports/abc', async (req, res) => {
   try {
     const pSnaps = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
@@ -510,55 +545,4 @@ if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => console.log(`API a rodar na porta ${PORT}`));
 }
 
-// --- ROTA: IMPORTAÇÃO EM MASSA (CORRIGIDA PARA FORNECEDOR E IMAGEM) ---
-app.post('/admin/products/bulk', async (req, res) => {
-  try {
-    const products = req.body;
-
-    if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ message: "Nenhum produto enviado." });
-    }
-
-    const batch = db.batch();
-
-    products.forEach(prod => {
-      const docRef = db.collection(PRODUCTS_COLLECTION).doc();
-
-      const custo = parseFloat(prod.costPrice) || 0;
-      let venda = parseFloat(prod.salePrice);
-
-      // Validação de segurança do preço
-      if (!venda || venda <= 0) {
-        venda = custo * 2; // Garante markup de 2x se vier zerado
-      }
-
-      const newProduct = {
-        name: prod.name || 'Produto Sem Nome',
-        code: prod.code || '',
-
-        // --- CORREÇÃO: Salvando os campos de relacionamento ---
-        category: prod.category || 'Geral', // Nome da Categoria
-        supplierId: prod.supplierId || null, // ID do Fornecedor (Faltava isso!)
-        imageUrl: prod.imageUrl || '', // URL da Imagem (Faltava garantir que grava)
-        // -----------------------------------------------------
-
-        costPrice: custo,
-        salePrice: venda,
-        quantity: parseInt(prod.quantity) || 0,
-        description: prod.description || '',
-        status: 'ativo',
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      };
-
-      batch.set(docRef, newProduct);
-    });
-
-    await batch.commit();
-    res.status(201).json({ message: "Importação concluída!", count: products.length });
-
-  } catch (error) {
-    console.error("ERRO na Importação:", error);
-    res.status(500).json({ message: "Erro ao importar.", error: error.message });
-  }
-});
 module.exports = app;
