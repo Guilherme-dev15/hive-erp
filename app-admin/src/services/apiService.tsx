@@ -222,18 +222,22 @@ export const getABCReport = async (): Promise<ABCProduct[]> => {
 };
 
 // ============================================================================
-// FUNÇÃO DE UPLOAD (AGORA USA O STORAGE IMPORTADO CORRETAMENTE)
+// FUNÇÃO DE UPLOAD (AGORA USA A CONEXÃO CORRETA)
 // ============================================================================
 export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
   if (!file) return '';
   
   try {
+    // Gera nome único: timestamp_nomedoarquivo
     const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
     
-    // Usa a variável 'storage' que importamos lá em cima (já configurada com o bucket)
+    // Usa a variável 'storage' importada do firebaseConfig.ts (que tem o bucket certo)
     const storageRef = ref(storage, `${folder}/${fileName}`);
     
+    // Faz o upload
     const snapshot = await uploadBytes(storageRef, file);
+    
+    // Pega o link (Aquele link https://firebasestorage... que você quer)
     const downloadURL = await getDownloadURL(snapshot.ref);
     
     return downloadURL;
