@@ -78,29 +78,43 @@ const authenticateUser = async (req, res, next) => {
 // 4. ROTAS PÚBLICAS (CATÁLOGO)
 // ============================================================================
 
-// Rota crítica do Catálogo: Lê da coleção 'produtos' (onde tem dados)
+// Rota Pública do Catálogo (Com Tradutor de Dados Antigos)
 app.get('/produtos-catalogo', async (req, res) => {
   try {
+    // 1. Busca na coleção antiga
     const snapshot = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
     
     if (snapshot.empty) return res.status(200).json([]);
 
     const produtos = snapshot.docs.map(doc => {
       const data = doc.data();
+      
+      // 2. O TRADUTOR: Normaliza os campos
       return {
         id: doc.id,
-        name: data.name,
-        imageUrl: data.imageUrl || null,
-        code: data.code || 'N/A',
-        category: data.category || 'Geral',
-        description: data.description || '',
-        salePrice: data.salePrice || 0,
-        status: data.status,
-        quantity: data.quantity !== undefined ? data.quantity : 0
+        // Garante que 'name' existe, ou tenta 'nome' (antigo), ou fallback
+        name: data.name || data.nome || 'Produto Sem Nome',
+        
+        // Garante que 'imageUrl' existe, ou tenta 'imagem', 'foto', 'url'
+        imageUrl: data.imageUrl || data.imagem || data.foto || data.url || null,
+        
+        // Garante 'salePrice', ou tenta 'preco', 'precoVenda'
+        salePrice: parseFloat(data.salePrice || data.preco || data.precoVenda || 0),
+        
+        // Outros campos essenciais
+        code: data.code || data.codigo || 'N/A',
+        category: data.category || data.categoria || 'Geral',
+        description: data.description || data.descricao || '',
+        status: data.status || 'ativo',
+        quantity: parseInt(data.quantity || data.quantidade || data.estoque || 0)
       };
     });
+
     res.status(200).json(produtos);
-  } catch (error) { res.status(500).json({ message: "Erro ao buscar produtos." }); }
+  } catch (error) {
+    console.error("Erro catalogo:", error);
+    res.status(500).json({ message: "Erro ao buscar produtos." });
+  }
 });
 
 app.get('/config-publica', async (req, res) => {
