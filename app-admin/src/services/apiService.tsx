@@ -228,7 +228,7 @@ export const getABCReport = async (): Promise<ABCProduct[]> => {
 };
 
 // ============================================================================
-// Módulo: Upload de Imagens (CORRIGIDO - Firebase Direto)
+// FUNÇÃO DE UPLOAD (USANDO A INSTÂNCIA PRINCIPAL)
 // ============================================================================
 export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
   if (!file) return '';
@@ -236,16 +236,23 @@ export const uploadImage = async (file: File, folder: string = 'produtos'): Prom
   try {
     // 1. Gera nome único
     const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
+    
+    // 2. Referência usando o 'storage' derivado do auth.app
     const storageRef = ref(storage, `${folder}/${fileName}`);
     
-    // 2. Faz o upload direto para o Firebase
+    // 3. Upload
     const snapshot = await uploadBytes(storageRef, file);
     
-    // 3. Pega a URL pública
+    // 4. URL Pública
     const downloadURL = await getDownloadURL(snapshot.ref);
     return downloadURL;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro no upload Firebase:", error);
-    throw new Error("Falha ao subir imagem. Verifique as chaves no .env.");
+    
+    // Diagnóstico para você: Se o erro persistir, é porque o firebaseConfig.ts original está sem o bucket.
+    if (error.code === 'storage/no-default-bucket') {
+      throw new Error("Erro Crítico: O arquivo 'firebaseConfig.ts' não tem a chave 'storageBucket'. Adicione-a lá.");
+    }
+    throw new Error("Falha ao subir imagem.");
   }
 };
