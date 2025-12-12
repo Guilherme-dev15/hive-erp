@@ -44,29 +44,23 @@ const storage = getStorage(storageApp);
 // ============================================================================
 // Configuração da API
 // ============================================================================
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'https://hiveerp-api.vercel.app';
 
-export const apiClient = axios.create({
-  baseURL: API_URL,
-});
+export const apiClient = axios.create({ baseURL: API_URL });
 
 // --- 2. INTERCEPTOR DE SEGURANÇA (O "Crachá") ---
 apiClient.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
-  
   if (user) {
     const token = await user.getIdToken();
     config.headers.Authorization = `Bearer ${token}`;
   }
-  
   return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+}, (error) => Promise.reject(error));
 
 // --- TIPAGEM DA CONFIGURAÇÃO (Corrigida com Omit para evitar erros) ---
 export interface AppConfig extends Omit<ConfigFormData, 'warrantyText' | 'lowStockThreshold' | 'banners'> {
-  banners: string[];
+  banners: string[]; 
   cardFee: number;
   packagingCost: number;
   secondaryColor: string;
@@ -228,31 +222,23 @@ export const getABCReport = async (): Promise<ABCProduct[]> => {
 };
 
 // ============================================================================
-// FUNÇÃO DE UPLOAD (USANDO A INSTÂNCIA PRINCIPAL)
+// FUNÇÃO DE UPLOAD (AGORA USA O STORAGE IMPORTADO CORRETAMENTE)
 // ============================================================================
 export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
   if (!file) return '';
   
   try {
-    // 1. Gera nome único
     const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
     
-    // 2. Referência usando o 'storage' derivado do auth.app
+    // Usa a variável 'storage' que importamos lá em cima (já configurada com o bucket)
     const storageRef = ref(storage, `${folder}/${fileName}`);
     
-    // 3. Upload
     const snapshot = await uploadBytes(storageRef, file);
-    
-    // 4. URL Pública
     const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
-  } catch (error: any) {
-    console.error("Erro no upload Firebase:", error);
     
-    // Diagnóstico para você: Se o erro persistir, é porque o firebaseConfig.ts original está sem o bucket.
-    if (error.code === 'storage/no-default-bucket') {
-      throw new Error("Erro Crítico: O arquivo 'firebaseConfig.ts' não tem a chave 'storageBucket'. Adicione-a lá.");
-    }
-    throw new Error("Falha ao subir imagem.");
+    return downloadURL;
+  } catch (error) {
+    console.error("Erro no upload Firebase:", error);
+    throw new Error("Falha ao subir imagem. Verifique se o arquivo firebaseConfig.ts exporta 'storage'.");
   }
 };
