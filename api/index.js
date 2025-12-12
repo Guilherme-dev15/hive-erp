@@ -27,7 +27,7 @@ app.use(cors({
       return false;
     });
     if (isAllowed) callback(null, true);
-    else callback(new Error('Bloqueado pelo CORS'));
+    else callback(new Error('Blocked by CORS'));
   }
 }));
 
@@ -51,16 +51,15 @@ if (!admin.apps.length && serviceAccount) {
 const db = admin.firestore();
 
 // ============================================================================
-// 2. CONSTANTES DE COLEÇÃO (AQUI ESTAVA O ERRO!)
+// 2. CONSTANTES DE COLEÇÃO (DADOS ANTIGOS EM PORTUGUÊS)
 // ============================================================================
-// Apontamos para os nomes em PORTUGUÊS onde seus dados realmente estão.
-const PRODUCTS_COLLECTION = 'produtos';       // <--- Traz os produtos de volta
-const SUPPLIERS_COLLECTION = 'fornecedores';  // <--- Traz os fornecedores de volta
-const CATEGORIES_COLLECTION = 'categorias';   // <--- Traz as categorias de volta
+const PRODUCTS_COLLECTION = 'produtos';       // <--- SEUS DADOS
+const SUPPLIERS_COLLECTION = 'fornecedores'; 
+const CATEGORIES_COLLECTION = 'categorias';
 const TRANSACTIONS_COLLECTION = 'transactions';
-const CONFIG_PATH = db.collection('config').doc('settings');
 const ORDERS_COLLECTION = 'orders';
 const COUPONS_COLLECTION = 'coupons';
+const CONFIG_PATH = db.collection('config').doc('settings');
 
 // ============================================================================
 // 3. MIDDLEWARE AUTH
@@ -75,46 +74,38 @@ const authenticateUser = async (req, res, next) => {
 };
 
 // ============================================================================
-// 4. ROTAS PÚBLICAS (CATÁLOGO)
+// 4. ROTAS PÚBLICAS (CATÁLOGO COM TRADUTOR)
 // ============================================================================
 
-// Rota Pública do Catálogo (Com Tradutor de Dados Antigos)
 app.get('/produtos-catalogo', async (req, res) => {
   try {
-    // 1. Busca na coleção antiga
-    const snapshot = await db.collection(PRODUCTS_COLLECTION).where('status', '==', 'ativo').get();
+    // SEM FILTRO ESTRITO para garantir que produtos antigos apareçam
+    const snapshot = await db.collection(PRODUCTS_COLLECTION).get();
     
     if (snapshot.empty) return res.status(200).json([]);
 
     const produtos = snapshot.docs.map(doc => {
       const data = doc.data();
       
-      // 2. O TRADUTOR: Normaliza os campos
+      // TRADUTOR DE DADOS (Resolve o problema do catálogo branco)
       return {
         id: doc.id,
-        // Garante que 'name' existe, ou tenta 'nome' (antigo), ou fallback
         name: data.name || data.nome || 'Produto Sem Nome',
-        
-        // Garante que 'imageUrl' existe, ou tenta 'imagem', 'foto', 'url'
         imageUrl: data.imageUrl || data.imagem || data.foto || data.url || null,
-        
-        // Garante 'salePrice', ou tenta 'preco', 'precoVenda'
-        salePrice: parseFloat(data.salePrice || data.preco || data.precoVenda || 0),
-        
-        // Outros campos essenciais
         code: data.code || data.codigo || 'N/A',
         category: data.category || data.categoria || 'Geral',
         description: data.description || data.descricao || '',
-        status: data.status || 'ativo',
+        salePrice: parseFloat(data.salePrice || data.preco || data.precoVenda || 0),
+        status: data.status || 'ativo', // Força ativo se não tiver status
         quantity: parseInt(data.quantity || data.quantidade || data.estoque || 0)
       };
     });
-
-    res.status(200).json(produtos);
-  } catch (error) {
-    console.error("Erro catalogo:", error);
-    res.status(500).json({ message: "Erro ao buscar produtos." });
-  }
+    
+    // Filtra apenas os que não estão marcados explicitamente como inativos
+    const ativos = produtos.filter(p => p.status !== 'inativo');
+    
+    res.status(200).json(ativos);
+  } catch (error) { res.status(500).json({ message: "Erro ao buscar produtos." }); }
 });
 
 app.get('/config-publica', async (req, res) => {
@@ -167,7 +158,7 @@ app.post('/validate-coupon', async (req, res) => {
 });
 
 // ============================================================================
-// 5. ROTAS ADMIN (PADRÃO INGLÊS - LÊ DE DADOS PORTUGUÊS)
+// 5. ROTAS ADMIN (PADRÃO INGLÊS)
 // ============================================================================
 app.use('/admin', authenticateUser);
 
@@ -199,7 +190,6 @@ app.post('/admin/products/bulk', async (req, res) => {
 
     const batch = db.batch();
     products.forEach(prod => {
-      // Salva na coleção 'produtos' (correta)
       const docRef = db.collection(PRODUCTS_COLLECTION).doc();
       const newProduct = {
         name: prod.name || 'Sem Nome',
