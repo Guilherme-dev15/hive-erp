@@ -1,14 +1,6 @@
-import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Phone, MessageCircle, Printer } from 'lucide-react';
-import { type Order, type OrderLineItem } from '../types';
-import { useReactToPrint } from 'react-to-print';
-
-// Função Utilitária Blindada
-const formatCurrency = (value: number | undefined | null): string => {
-  if (value === undefined || value === null || isNaN(value)) return 'R$ 0,00';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
+import { X, User, Phone, Package, Calendar, FileText } from 'lucide-react';
+import { type Order } from '../types';
 
 interface DetalhePedidoModalProps {
   isOpen: boolean;
@@ -16,186 +8,149 @@ interface DetalhePedidoModalProps {
   pedido: Order | null;
 }
 
-export const DetalhePedidoModal: React.FC<DetalhePedidoModalProps> = ({ isOpen, onClose, pedido }) => {
-  const componentRef = useRef<HTMLDivElement>(null);
+// Utilitários de Formatação
+const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Hook de Impressão (Correto: definido fora do render condicional)
-  const handlePrint = useReactToPrint({
-    contentRef: componentRef,
-    documentTitle: pedido ? `Pedido_${pedido.id.substring(0, 5)}` : 'Pedido',
-  });
+const formatDate = (timestamp: any) => {
+  if (!timestamp || !timestamp.seconds) return '-';
+  return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR');
+};
 
-  if (!isOpen || !pedido) return null;
-
-  const dataPedido = pedido.createdAt?.seconds 
-    ? new Date(pedido.createdAt.seconds * 1000).toLocaleDateString('pt-BR') 
-    : 'Data indisponível';
-
-  const linkWhatsAppCliente = pedido.clienteTelefone 
-    ? `https://wa.me/55${pedido.clienteTelefone.replace(/\D/g, '')}` 
-    : null;
-
-  const orderIdShort = pedido.id ? pedido.id.substring(0, 5).toUpperCase() : '???';
+export function DetalhePedidoModal({ isOpen, onClose, pedido }: DetalhePedidoModalProps) {
+  if (!pedido) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-          onClick={(e) => e.stopPropagation()}
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
         >
-          {/* Cabeçalho */}
-          <div className="flex items-center justify-between p-4 border-b bg-gray-50 shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Pedido #{orderIdShort}</h2>
-              <p className="text-xs text-gray-500">{dataPedido}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePrint()}
-                className="p-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2 shadow-sm"
-                title="Imprimir Pedido"
-              >
-                <Printer size={18} />
-                <span className="text-sm font-medium hidden sm:inline">Imprimir</span>
-              </button>
-              <button onClick={onClose} className="p-2 rounded-full text-gray-400 hover:bg-gray-200 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Corpo (Scrollável) */}
-          <div className="p-6 overflow-y-auto flex-grow custom-scrollbar">
-            
-            {/* Dados Cliente */}
-            <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 flex flex-col sm:flex-row justify-between items-start gap-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gray-50 border-b p-5 flex justify-between items-center sticky top-0 z-10">
               <div>
-                <p className="text-xs text-blue-500 uppercase font-bold mb-1">Cliente</p>
-                <div className="flex items-center gap-2">
-                  <User size={16} className="text-blue-700" />
-                  <p className="font-bold text-gray-900">{pedido.clienteNome || 'Sem Nome'}</p>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Phone size={14} className="text-blue-400" />
-                  <p className="text-sm text-gray-600">{pedido.clienteTelefone || '-'}</p>
-                </div>
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  Pedido #{pedido.id.substring(0, 5).toUpperCase()}
+                </h2>
+                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                  <Calendar size={12}/> {formatDate(pedido.createdAt)}
+                </p>
               </div>
+              <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} className="text-gray-500"/></button>
+            </div>
+
+            {/* Conteúdo com Scroll */}
+            <div className="p-6 overflow-y-auto space-y-6">
               
-              {linkWhatsAppCliente && (
-                <a 
-                  href={linkWhatsAppCliente} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-sm w-full sm:w-auto justify-center"
-                >
-                  <MessageCircle size={18} /> WhatsApp
-                </a>
-              )}
-            </div>
-
-            {/* Lista de Itens */}
-            <div className="mb-6">
-              <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Itens</h3>
-              <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
-                {pedido.items && pedido.items.map((item: OrderLineItem, idx) => (
-                  <li key={item.id || idx} className="p-3 bg-white flex justify-between items-center hover:bg-gray-50">
-                    <div>
-                      <p className="font-medium text-gray-800">{item.name}</p>
-                      <p className="text-xs text-gray-400 font-mono">
-                        {item.code || 'S/C'} • {item.quantidade}x {formatCurrency(item.salePrice)}
-                      </p>
+              {/* Status e Cliente */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <h3 className="text-sm font-bold text-blue-800 uppercase mb-3 flex items-center gap-2">
+                    <User size={16}/> Cliente
+                  </h3>
+                  <div className="space-y-1">
+                    {/* CAMPO CORRIGIDO: customerName */}
+                    <p className="text-gray-900 font-bold text-lg">{pedido.customerName || 'Nome não informado'}</p>
+                    {/* CAMPO CORRIGIDO: customerPhone */}
+                    <div className="flex items-center gap-2 text-gray-600 text-sm">
+                      <Phone size={14}/> 
+                      {pedido.customerPhone ? (
+                        <a href={`https://wa.me/${pedido.customerPhone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-blue-600">
+                          {pedido.customerPhone}
+                        </a>
+                      ) : '-'}
                     </div>
-                    <p className="font-bold text-gray-700">
-                      {formatCurrency((item.salePrice || 0) * (item.quantidade || 0))}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Observações */}
-            {pedido.observacoes && (
-              <div className="mb-6">
-                <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Observações</h3>
-                <div className="bg-yellow-50 p-3 rounded border border-yellow-100 text-sm text-gray-700 italic">
-                  "{pedido.observacoes}"
-                </div>
-              </div>
-            )}
-
-            {/* Totais */}
-            <div className="flex justify-end pt-4 border-t border-gray-200">
-              <div className="w-full sm:w-1/2 space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(pedido.subtotal)}</span>
-                </div>
-                {pedido.desconto > 0 && (
-                  <div className="flex justify-between text-sm text-green-600 font-medium">
-                    <span>Desconto</span>
-                    <span>- {formatCurrency(pedido.desconto)}</span>
                   </div>
-                )}
-                <div className="flex justify-between text-lg font-bold text-gray-900 border-t pt-2 mt-2">
-                  <span>Total</span>
-                  <span>{formatCurrency(pedido.total)}</span>
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-600 uppercase mb-3 flex items-center gap-2">
+                    <FileText size={16}/> Observações
+                  </h3>
+                  {/* CAMPO CORRIGIDO: notes */}
+                  <p className="text-sm text-gray-600 italic">
+                    {pedido.notes || "Nenhuma observação feita pelo cliente."}
+                  </p>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* --- ÁREA DE IMPRESSÃO (Escondida) --- */}
-          <div style={{ display: 'none' }}>
-            <div ref={componentRef} className="p-10 bg-white text-black font-sans">
-              <div className="text-center border-b-2 border-black pb-6 mb-8">
-                <h1 className="text-3xl font-bold uppercase tracking-widest">HivePratas</h1>
-                <p className="text-sm text-gray-500 mt-2">Comprovante de Pedido #{orderIdShort}</p>
+              {/* Lista de Itens */}
+              <div>
+                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <Package size={18} className="text-dourado"/> Itens do Pedido
+                </h3>
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-500 font-medium">
+                      <tr>
+                        <th className="px-4 py-3">Produto</th>
+                        <th className="px-4 py-3 text-center">Qtd</th>
+                        <th className="px-4 py-3 text-right">Unitário</th>
+                        <th className="px-4 py-3 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {pedido.items?.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-800">{item.name}</p>
+                            <p className="text-xs text-gray-400 font-mono">{item.code || '-'}</p>
+                          </td>
+                          <td className="px-4 py-3 text-center font-bold">{item.quantidade}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(item.salePrice)}</td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-800">
+                            {formatCurrency(item.salePrice * item.quantidade)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              <div className="mb-8 p-4 border border-gray-300 rounded">
-                <p className="font-bold text-lg mb-1">{pedido.clienteNome}</p>
-                <p className="text-gray-600">{pedido.clienteTelefone}</p>
-                <p className="text-xs text-gray-400 mt-2">Data: {dataPedido}</p>
-              </div>
-
-              <table className="w-full mb-8 text-left text-sm">
-                <thead>
-                  <tr className="border-b-2 border-black">
-                    <th className="py-2">Item</th>
-                    <th className="py-2 text-center">Qtd</th>
-                    <th className="py-2 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pedido.items && pedido.items.map((item, idx) => (
-                    <tr key={idx} className="border-b border-gray-100">
-                      <td className="py-3 pr-2">
-                        <p className="font-bold">{item.name}</p>
-                        <span className="text-xs text-gray-500">{item.code}</span>
-                      </td>
-                      <td className="py-3 text-center">{item.quantidade}</td>
-                      <td className="py-3 text-right">{formatCurrency((item.salePrice || 0) * (item.quantidade || 0))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
+              {/* Totais Financeiros */}
               <div className="flex justify-end">
-                <div className="w-1/2 text-right">
-                  <p className="mb-1">Subtotal: {formatCurrency(pedido.subtotal)}</p>
-                  {pedido.desconto > 0 && <p className="mb-1 text-gray-600">Desconto: -{formatCurrency(pedido.desconto)}</p>}
-                  <p className="text-xl font-bold mt-2 pt-2 border-t border-black">Total: {formatCurrency(pedido.total)}</p>
+                <div className="w-full md:w-1/2 bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
+                  <div className="flex justify-between text-gray-500 text-sm">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(pedido.subtotal || 0)}</span>
+                  </div>
+                  
+                  {/* CAMPO CORRIGIDO: discount */}
+                  {(pedido.discount || 0) > 0 && (
+                    <div className="flex justify-between text-green-600 text-sm font-medium">
+                      <span>Desconto</span>
+                      <span>- {formatCurrency(pedido.discount)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between text-gray-900 text-xl font-extrabold pt-2 border-t border-gray-200">
+                    <span>Total</span>
+                    <span>{formatCurrency(pedido.total || 0)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 p-4 border-t flex justify-end">
+              <button 
+                onClick={onClose} 
+                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-bold transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </motion.div>
         </motion.div>
-      </div>
+      )}
     </AnimatePresence>
   );
-};
+}

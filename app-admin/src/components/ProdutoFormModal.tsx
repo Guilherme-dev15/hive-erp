@@ -1,11 +1,14 @@
-import React, { useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { X, Save, Loader2, Image as ImageIcon, TrendingUp, DollarSign } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+import { X, DollarSign, Plus, Link, Box, Wand2, UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
+
+import { CategoryModal } from './CategoryModal';
+import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
+import { produtoSchema, type ProdutoFormData, type ConfigFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto, uploadImage } from '../services/apiService';
-import type { ProdutoAdmin, Fornecedor, Category } from '../types';
-import type { ConfigFormData } from '../types/schemas';
 
 interface ProdutoFormModalProps {
   isOpen: boolean;
@@ -15,218 +18,360 @@ interface ProdutoFormModalProps {
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   produtoParaEditar?: ProdutoAdmin | null;
   onProdutoSalvo: (produto: ProdutoAdmin) => void;
-  configGlobal: ConfigFormData | null;
+  configGlobal?: ConfigFormData | null;
 }
 
-export function ProdutoFormModal({ 
-  isOpen, onClose, fornecedores, categories, produtoParaEditar, onProdutoSalvo, configGlobal 
+// Componente de Input Reutilizável
+type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
+  label?: string;
+  name: keyof ProdutoFormData;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  register: any; // Simplificado para evitar conflito de tipos profundos do RHF
+  error?: string;
+  icon?: React.ReactNode;
+};
+
+const FormInput: React.FC<FormInputProps> = ({ label, name, register, error, icon, ...props }) => (
+  <div>
+    {label && <label htmlFor={String(name)} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+    <div className="relative">
+      {icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">{icon}</div>}
+      <input
+        id={String(name)}
+        {...props}
+        {...register(name)}
+        className={`block w-full px-3 py-2 border ${error ? "border-red-500" : "border-gray-300"} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-dourado focus:border-transparent transition-all ${icon ? 'pl-10' : ''}`}
+      />
+    </div>
+    {error && <p className="mt-1 text-xs text-red-600 font-medium">{error}</p>}
+  </div>
+);
+
+export function ProdutoFormModal({
+  isOpen,
+  onClose,
+  fornecedores,
+  categories,
+  setCategories,
+  produtoParaEditar,
+  onProdutoSalvo,
+  configGlobal
 }: ProdutoFormModalProps) {
-  
-  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<ProdutoAdmin>();
-  const [previewImage, setPreviewImage] = React.useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = React.useState(false);
 
-  const watchedCost = watch('costPrice');
-  const watchedSale = watch('salePrice');
-  const watchedCategory = watch('category');
-  const watchedSupplierId = watch('supplierId');
+  const isEditMode = !!produtoParaEditar;
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
+  // Hook Form com Zod Schema em Inglês
+  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<ProdutoFormData>({
+    resolver: zodResolver(produtoSchema),
+    defaultValues: {
+      name: '',
+      costPrice: 0,
+      salePrice: 0,
+      quantity: 0,
+      supplierId: '',
+      supplierProductUrl: '',
+      category: '',
+      code: '',
+      imageUrl: '',
+      status: 'ativo',
+      description: ''
+    }
+  });
+
+  // Observadores para Reatividade (Calculadora e SKU)
+  const custoObservado = watch('costPrice');
+  const vendaObservada = watch('salePrice');
+  const categoriaObservada = watch('category');
+  const fornecedorObservado = watch('supplierId');
+
+  // --- MÓDULO: CALCULADORA DE LUCRO (RAIO-X) ---
   const indicadores = useMemo(() => {
-    const custo = parseFloat(String(watchedCost || 0));
-    const venda = parseFloat(String(watchedSale || 0));
-    if (isNaN(custo) || isNaN(venda)) return { lucro: 0, margem: 0 };
-    const lucro = venda - custo;
-    const margem = venda > 0 ? (lucro / venda) * 100 : 0;
-    return { lucro, margem };
-  }, [watchedCost, watchedSale]);
+    const custo = Number(custoObservado) || 0;
+    const venda = Number(vendaObservada) || 0;
 
+    if (venda === 0) return null;
+
+    // Pega taxas das configurações globais ou usa padrão
+    const taxaCartao = configGlobal?.cardFee || 0;
+    const custoEmbalagem = configGlobal?.packagingCost || 0;
+
+    const valorTaxa = venda * (taxaCartao / 100);
+    const custoTotal = custo + valorTaxa + custoEmbalagem;
+    const lucro = venda - custoTotal;
+    const margem = (lucro / venda) * 100;
+
+    return {
+      taxaCartaoValor: valorTaxa,
+      custoEmbalagem: custoEmbalagem,
+      lucroLiquido: lucro,
+      margemLiquida: margem
+    };
+  }, [custoObservado, vendaObservada, configGlobal]);
+
+  // --- EFEITOS ---
+
+  // 1. Inicializar Formulário ao Abrir
   useEffect(() => {
     if (isOpen) {
-      if (produtoParaEditar) {
-        reset(produtoParaEditar);
+      if (isEditMode && produtoParaEditar) {
+        // Preenche com os dados em INGLÊS que já vêm da API/Tabela
+        reset({
+          name: produtoParaEditar.name,
+          costPrice: produtoParaEditar.costPrice || 0,
+          salePrice: produtoParaEditar.salePrice || 0,
+          quantity: produtoParaEditar.quantity || 0,
+          code: produtoParaEditar.code || '',
+          category: produtoParaEditar.category || '',
+          supplierId: produtoParaEditar.supplierId || '',
+          supplierProductUrl: produtoParaEditar.supplierProductUrl || '',
+          imageUrl: produtoParaEditar.imageUrl || '',
+          description: produtoParaEditar.description || '',
+          status: produtoParaEditar.status || 'ativo'
+        });
         setPreviewImage(produtoParaEditar.imageUrl || null);
-        setValue('imageUrl', produtoParaEditar.imageUrl || '');
       } else {
-        reset({ name: '', costPrice: 0, salePrice: 0, quantity: 0, description: '', code: '', category: '', supplierId: '', status: 'ativo', imageUrl: '' });
+        reset({
+          name: '', costPrice: 0, salePrice: 0, quantity: 0,
+          supplierId: '', category: '', code: '', imageUrl: '',
+          status: 'ativo', description: ''
+        });
         setPreviewImage(null);
       }
     }
-  }, [isOpen, produtoParaEditar, reset, setValue]);
+  }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
-  // Sugestão de Preço
+  // 2. Precificação Automática (Sugestão de Preço)
   useEffect(() => {
-    if (watchedCost && !produtoParaEditar && !watchedSale) { 
-      const custo = parseFloat(watchedCost.toString());
-      if (!isNaN(custo) && custo > 0) {
-        const markup = configGlobal ? 2.0 : 2.0; 
-        const sugestao = (custo * markup).toFixed(2);
-        setValue('salePrice', parseFloat(sugestao)); 
+    if (isEditMode) return;
+    const custo = Number(custoObservado);
+    // Só sugere se tiver custo e venda estiver vazia/zerada
+    if (custo > 0 && !getValues('salePrice')) {
+      let markup = 2.0; // Padrão 100% de lucro bruto
+      if (custo > 200) markup = 1.5;
+      const precoSugerido = Math.ceil(custo * markup) - 0.10; // Ex: 99.90
+      setValue('salePrice', precoSugerido);
+    }
+  }, [custoObservado, setValue, isEditMode, getValues]);
+
+  // 3. Geração Automática de SKU
+  useEffect(() => {
+    if (isEditMode) return;
+    if (categoriaObservada && fornecedorObservado && !getValues('code')) {
+      const catInicial = categoriaObservada.charAt(0).toUpperCase();
+      const fornecedor = fornecedores.find(f => f.id === fornecedorObservado);
+      let fornIniciais = 'XX';
+      if (fornecedor) {
+        const nomeLimpo = fornecedor.name.replace(/[^a-zA-Z]/g, '');
+        fornIniciais = nomeLimpo.substring(0, 2).toUpperCase();
       }
+      const randomNum = Math.floor(1000 + Math.random() * 9000); // 4 dígitos
+      setValue('code', `${catInicial}${fornIniciais}${randomNum}`);
     }
-  }, [watchedCost, produtoParaEditar, setValue, configGlobal]);
+  }, [categoriaObservada, fornecedorObservado, fornecedores, isEditMode, setValue, getValues]);
 
-  // SKU Automático
-  useEffect(() => {
-    if (!watchedCategory || !watchedSupplierId) return;
-    const catName = watchedCategory;
-    const supObj = fornecedores.find(f => f.id === watchedSupplierId);
-    const supName = supObj ? supObj.name : 'GEN';
-    const catPrefix = catName.substring(0, 3).toUpperCase();
-    const supPrefix = supName.substring(0, 3).toUpperCase();
-    let sequence = '0000';
-    const currentCode = getValues('code');
-    if (currentCode && currentCode.includes('-')) {
-      const parts = currentCode.split('-');
-      if (parts.length === 3 && !isNaN(Number(parts[1]))) sequence = parts[1];
-      else sequence = String(Math.floor(1000 + Math.random() * 9000));
-    } else {
-      sequence = String(Math.floor(1000 + Math.random() * 9000));
-    }
-    const newCode = `${catPrefix}-${sequence}-${supPrefix}`;
-    if (currentCode !== newCode) setValue('code', newCode);
-  }, [watchedCategory, watchedSupplierId, fornecedores, setValue, getValues]);
+  // --- HANDLERS ---
 
-  // --- UPLOAD DA IMAGEM ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingImage(true);
+    if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5MB."); return; }
+
+    setIsUploading(true);
     try {
       const objectUrl = URL.createObjectURL(file);
-      setPreviewImage(objectUrl);
+      setPreviewImage(objectUrl); // Preview imediato
 
-      const url = await uploadImage(file, 'produtos'); // Gera o link https://firebasestorage...
-      setValue('imageUrl', url, { shouldDirty: true, shouldTouch: true });
+      const url = await uploadImage(file, 'products'); // Pasta 'products' no storage
+      setValue('imageUrl', url, { shouldDirty: true });
       toast.success("Imagem carregada!");
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao subir imagem.");
+      toast.error("Erro no upload.");
       setPreviewImage(null);
     } finally {
-      setUploadingImage(false);
+      setIsUploading(false);
     }
   };
 
-  const onFormSubmit = async (data: ProdutoAdmin) => {
+  const onSubmit: SubmitHandler<ProdutoFormData> = async (data) => {
     try {
-      let savedProduct;
-      const finalImageUrl = getValues('imageUrl') || data.imageUrl || '';
-
+      // Garante que imageUrl está preenchido (pode vir do register hidden ou do estado)
       const payload = {
         ...data,
-        imageUrl: finalImageUrl,
-        costPrice: Number(data.costPrice || 0),
-        salePrice: Number(data.salePrice || 0),
-        quantity: Number(data.quantity || 0),
-        status: (data.status === 'inativo' ? 'inativo' : 'ativo') as 'ativo' | 'inativo'
+        imageUrl: data.imageUrl || getValues('imageUrl') || '',
       };
 
-      if (produtoParaEditar?.id) {
-        savedProduct = await updateAdminProduto(produtoParaEditar.id, payload);
+      let result;
+      if (isEditMode && produtoParaEditar) {
+        result = await updateAdminProduto(produtoParaEditar.id, payload);
         toast.success("Produto atualizado!");
       } else {
-        savedProduct = await createAdminProduto(payload);
+        result = await createAdminProduto(payload);
         toast.success("Produto criado!");
       }
-      onProdutoSalvo(savedProduct);
+
+      onProdutoSalvo(result);
       onClose();
-    } catch (error) {
-      console.error(error);
+    } catch (e) {
+      console.error(e);
       toast.error("Erro ao salvar produto.");
     }
   };
 
-  if (!isOpen) return null;
+  const handleCategoryCreated = (newCategory: Category) => {
+    setValue('category', newCategory.name, { shouldValidate: true });
+    setIsCategoryModalOpen(false);
+  };
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="bg-carvao p-4 flex justify-between items-center text-white shrink-0">
-            <h3 className="font-bold text-lg">{produtoParaEditar ? 'Editar Produto' : 'Novo Produto'}</h3>
-            <button onClick={onClose}><X size={20}/></button>
-          </div>
-
-          <form onSubmit={handleSubmit(onFormSubmit)} className="flex-1 overflow-y-auto p-6 space-y-6">
-            <input type="hidden" {...register('imageUrl')} />
-
-            <div className="flex gap-6">
-              <div className="shrink-0">
-                {/* --- BOTÃO DE UPLOAD RESTAURADO --- */}
-                <label className={`block w-32 h-32 rounded-lg border-2 border-dashed cursor-pointer overflow-hidden relative group ${previewImage ? 'border-dourado' : 'border-gray-300 hover:border-gray-400'}`}>
-                  {uploadingImage ? (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-dourado"/></div>
-                  ) : previewImage ? (
-                    <>
-                      <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><ImageIcon className="text-white"/></div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50"><ImageIcon size={24} /><span className="text-[10px] mt-1">Alterar Foto</span></div>
-                  )}
-                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
-                </label>
+      {isOpen && (
+        <motion.div
+          key="modal-produto"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ y: 50, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 50, opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white/95 backdrop-blur z-10">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">{isEditMode ? "Editar Produto" : "Novo Produto"}</h2>
+                <p className="text-xs text-gray-500">Preencha os detalhes abaixo.</p>
               </div>
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} className="text-gray-500" /></button>
+            </div>
 
-              <div className="flex-1 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nome do Produto</label>
-                  <input {...register('name', { required: true })} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-dourado outline-none" placeholder="Ex: Anel Solitário"/>
-                  {errors.name && <span className="text-red-500 text-xs">Obrigatório</span>}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">SKU (Auto)</label><input {...register('code')} className="w-full p-2 border rounded-lg bg-gray-100 text-gray-500 font-mono text-sm" readOnly /></div>
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+
+              {/* CAMPO OCULTO PARA URL DA IMAGEM */}
+              <input type="hidden" {...register('imageUrl')} />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Lado Esquerdo: Imagem e Campos Básicos */}
+                <div className="space-y-4">
+                  {/* Upload Area */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Status</label>
-                    <select {...register('status')} className="w-full p-2 border rounded-lg"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Produto</label>
+                    <div className="flex gap-4">
+                      <div className="w-24 h-24 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden relative shrink-0">
+                        {previewImage ? <img src={previewImage} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-300" size={32} />}
+                        {isUploading && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="text-white animate-spin" /></div>}
+                      </div>
+                      <div className="flex-1">
+                        <input type="file" id="upload-btn" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
+                        <label htmlFor="upload-btn" className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer transition-all ${isUploading ? 'opacity-50' : 'border-gray-300 hover:border-dourado hover:bg-yellow-50/30'}`}>
+                          <UploadCloud className="text-gray-400 mb-1" />
+                          <span className="text-xs font-bold text-gray-500">{isUploading ? "Enviando..." : "Clique para enviar"}</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <FormInput label="Nome do Produto" name="name" register={register} error={errors.name?.message} placeholder="Ex: Anel Solitário" />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                      <div className="flex gap-1">
+                        <select {...register("category")} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado text-sm">
+                          <option value="">Selecione...</option>
+                          {categories.sort((a, b) => a.name.localeCompare(b.name)).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                        <button type="button" onClick={() => setIsCategoryModalOpen(true)} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-600"><Plus size={18} /></button>
+                      </div>
+                      {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
+                    </div>
+                    <FormInput label="SKU (Auto)" name="code" register={register} placeholder="Auto" icon={<Wand2 size={14} />} />
+                  </div>
+                </div>
+
+                {/* Lado Direito: Financeiro e Estoque */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> Precificação</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormInput label="Custo (R$)" name="costPrice" type="number" step="0.01" register={register} error={errors.costPrice?.message} />
+                      <FormInput label="Venda (R$)" name="salePrice" type="number" step="0.01" register={register} error={errors.salePrice?.message} />
+                    </div>
+
+                    {/* RAIO-X DO LUCRO */}
+                    {indicadores && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 text-xs">
+                        <div className="flex justify-between text-gray-500 mb-1">
+                          <span>Taxas ({configGlobal?.cardFee || 0}% + Emb):</span>
+                          <span className="text-red-500">- R$ {(indicadores.taxaCartaoValor + indicadores.custoEmbalagem).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold">
+                          <span className="text-gray-700">Lucro Líquido:</span>
+                          <span className={`text-sm ${indicadores.lucroLiquido > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            R$ {indicadores.lucroLiquido.toFixed(2)} ({indicadores.margemLiquida.toFixed(0)}%)
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormInput label="Estoque Atual" name="quantity" type="number" register={register} error={errors.quantity?.message} icon={<Box size={14} />} />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select {...register("status")} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado text-sm">
+                        <option value="ativo">Ativo</option>
+                        <option value="inativo">Inativo</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                    <select {...register("supplierId")} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado text-sm">
+                      <option value="">Selecione...</option>
+                      {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Categoria</label>
-                <select {...register('category', { required: true })} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-dourado">
-                  <option value="">Selecione...</option>
-                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
+              <div className="pt-2">
+                <FormInput label="Link do Fornecedor (Opcional)" name="supplierProductUrl" type="url" register={register} icon={<Link size={14} />} placeholder="https://..." />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Fornecedor</label>
-                <select {...register('supplierId', { required: true })} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-dourado">
-                  <option value="">Selecione...</option>
-                  {fornecedores.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
+
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição Curta</label>
+                <textarea {...register("description")} rows={2} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado text-sm resize-none" placeholder="Ex: Prata 925 legítima..." />
               </div>
-            </div>
 
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
-              <div className="flex items-center gap-2 mb-1"><DollarSign size={16} className="text-green-600"/><h4 className="text-sm font-bold text-gray-700 uppercase">Precificação</h4></div>
-              <div className="grid grid-cols-3 gap-4">
-                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Custo</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">R$</span><input type="number" step="0.01" {...register('costPrice', { required: true })} className="w-full pl-8 p-2 border rounded-lg text-sm" placeholder="0.00"/></div></div>
-                <div><label className="block text-xs font-bold text-gray-800 uppercase mb-1">Venda</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-800 text-xs font-bold">R$</span><input type="number" step="0.01" {...register('salePrice', { required: true })} className="w-full pl-8 p-2 border border-green-300 rounded-lg font-bold text-green-700 text-sm focus:ring-2 focus:ring-green-500 outline-none" placeholder="0.00"/></div></div>
-                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estoque</label><input type="number" {...register('quantity', { required: true })} className="w-full p-2 border rounded-lg text-center text-sm" /></div>
+              {/* Footer Actions */}
+              <div className="pt-4 flex justify-end gap-3 border-t">
+                <button type="button" onClick={onClose} className="px-5 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
+                <button type="submit" disabled={isSubmitting || isUploading} className="bg-carvao text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : null}
+                  {isEditMode ? "Atualizar Produto" : "Salvar Produto"}
+                </button>
               </div>
-              {(indicadores.lucro !== 0 || indicadores.margem !== 0) && (
-                <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-1">
-                   <div className="flex flex-col"><span className="text-[10px] text-gray-400 uppercase font-bold">Lucro Líquido</span><span className={`text-sm font-bold ${indicadores.lucro > 0 ? 'text-green-600' : 'text-red-500'}`}>R$ {indicadores.lucro.toFixed(2)}</span></div>
-                   <div className="h-8 w-px bg-gray-100 mx-4"></div>
-                   <div className="flex flex-col items-end"><span className="text-[10px] text-gray-400 uppercase font-bold flex items-center gap-1">Margem <TrendingUp size={10}/></span><span className={`text-sm font-bold ${indicadores.margem >= 50 ? 'text-green-600' : indicadores.margem > 20 ? 'text-yellow-600' : 'text-red-500'}`}>{indicadores.margem.toFixed(1)}%</span></div>
-                </div>
-              )}
-            </div>
-
-            <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Descrição</label><textarea {...register('description')} rows={3} className="w-full p-2 border rounded-lg resize-none text-sm" placeholder="Detalhes do produto..."></textarea></div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-bold">Cancelar</button>
-              <button type="submit" disabled={isSubmitting || uploadingImage} className="px-6 py-2 bg-carvao text-white rounded-lg font-bold hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2 text-sm shadow-lg">{isSubmitting ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Salvar Produto</button>
-            </div>
-          </form>
+            </form>
+          </motion.div>
         </motion.div>
-      </div>
+      )}
+
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        setCategories={setCategories}
+        onCategoryCreated={handleCategoryCreated}
+      />
     </AnimatePresence>
   );
 }

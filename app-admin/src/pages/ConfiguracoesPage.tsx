@@ -63,7 +63,10 @@ export function ConfiguracoesPage() {
     warrantyText: '',
 
     // NOVO: Gestão de Stock
-    lowStockThreshold: '5' 
+    lowStockThreshold: '5',
+    
+    // Banners (Mantido no estado para não perder se vier da API)
+    banners: [] as string[]
   });
 
   const [loading, setLoading] = useState(true);
@@ -83,13 +86,15 @@ export function ConfiguracoesPage() {
             primaryColor: data.primaryColor || '#D4AF37',
             secondaryColor: data.secondaryColor || '#343434',
 
-            cardFee: data.cardFeePercent?.toString() || '0', // Mapeando cardFeePercent da API para cardFee do form
-            packagingCost: data.packingCost?.toString() || '0', // Mapeando packingCost da API para packagingCost do form
+            // Mapeando da API (cardFeePercent -> cardFee)
+            cardFee: (data.cardFeePercent ?? data.cardFee ?? 0).toString(),
+            // Mapeando da API (packingCost -> packagingCost)
+            packagingCost: (data.packingCost ?? data.packagingCost ?? 0).toString(),
 
-            warrantyText: data.warrantyText || 'Garantimos a autenticidade da Prata 925. Garantia de 90 dias para defeitos de fabrico.',
+            warrantyText: data.warrantyText || '', // Garante string vazia se undefined
             
-            // Carrega o limite de stock (ou padrão 5)
-            lowStockThreshold: data.lowStockThreshold?.toString() || '5'
+            lowStockThreshold: data.lowStockThreshold?.toString() || '5',
+            banners: data.banners || []
           });
         }
       } catch (error) {
@@ -113,27 +118,29 @@ export function ConfiguracoesPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Prepara o objeto exatamente como a API (Schema) espera
+      // Prepara o objeto exatamente como a API espera (Convertendo números)
       const payload = {
         whatsappNumber: formData.whatsappNumber,
         storeName: formData.storeName,
         primaryColor: formData.primaryColor,
         secondaryColor: formData.secondaryColor,
         warrantyText: formData.warrantyText,
-        banners: [], // Mantemos banners vazios aqui pois são geridos noutro lugar ou via array separado se necessário
+        banners: formData.banners, 
         
-        // Conversões Numéricas Obrigatórias
+        // Conversões Numéricas e Mapeamento de Nomes
         monthlyGoal: Number(formData.monthlyGoal) || 0,
         
-        // Mapeamento correto para a API (packingCost e cardFeePercent)
-        packingCost: Number(formData.packagingCost) || 0,
+        // A API pode esperar cardFeePercent ou cardFee (enviamos os dois por segurança ou conforme o tipo)
+        cardFee: Number(formData.cardFee) || 0, 
         cardFeePercent: Number(formData.cardFee) || 0,
         
-        // O campo que faltava e causava o erro
-        lowStockThreshold: Number(formData.lowStockThreshold) || 5 
+        packagingCost: Number(formData.packagingCost) || 0,
+        packingCost: Number(formData.packagingCost) || 0,
+        
+        lowStockThreshold: Number(formData.lowStockThreshold) || 5,
+        productCounter: 0 // Campo obrigatório em alguns schemas, enviamos 0 se não usado
       };
 
-      // @ts-ignore - Ignoramos erros estritos de tipagem aqui pois garantimos o payload acima
       await saveConfig(payload);
       
       toast.success("Configurações salvas com sucesso!");
@@ -242,7 +249,7 @@ export function ConfiguracoesPage() {
             </div>
           </Card>
 
-          {/* --- 3. CONTROLE DE STOCK (NOVO!) --- */}
+          {/* --- 3. CONTROLE DE STOCK --- */}
           <Card borderColor="border-yellow-500">
             <div className="flex items-center gap-2 mb-6 border-b pb-4">
               <AlertTriangle className="text-yellow-600" size={24} />
@@ -307,7 +314,7 @@ export function ConfiguracoesPage() {
               <textarea
                 name="warrantyText"
                 value={formData.warrantyText}
-                onChange={(e) => setFormData(prev => ({ ...prev, warrantyText: e.target.value }))}
+                onChange={handleChange}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
                 placeholder="Ex: Garantia vitalícia na prata. 90 dias para defeitos de fabrico..."
@@ -332,3 +339,4 @@ export function ConfiguracoesPage() {
     </>
   );
 }
+export default ConfiguracoesPage;

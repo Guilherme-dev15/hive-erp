@@ -1,132 +1,103 @@
 import { z } from 'zod';
 
 // ============================================================================
-// HELPERS (Utilitários para validação)
+// HELPERS (Utilitários de Validação)
 // ============================================================================
 
-// Converte string vazia para undefined (para campos opcionais funcionarem bem com o formulário)
+// Transforma string vazia em undefined (para campos opcionais)
 const emptyToUndefined = z.literal('').transform(() => undefined);
 
-// Valida URL mas aceita vazio
-const optionalUrl = z.string().url("Insira uma URL válida (ex: https://...)").optional().or(emptyToUndefined);
-
-// String opcional que remove espaços em branco extras
+// String opcional limpa
 const optionalString = z.string().trim().optional().or(emptyToUndefined);
 
-// Validação de Cor Hexadecimal (ex: #FFFFFF)
-const hexColorSchema = (defaultColor: string) =>
-  z.string()
-    .regex(/^#([0-9a-fA-F]{3}){1,2}$/, "Cor inválida (use Hex, ex: #D4AF37)")
-    .default(defaultColor);
+// URL opcional
+const optionalUrl = z.string().url("URL inválida").optional().or(emptyToUndefined);
+
+// Validação de Cor (Hex)
+const hexColor = z.string().regex(/^#([0-9a-fA-F]{3}){1,2}$/, "Cor inválida (Ex: #000000)");
 
 // ============================================================================
-// 1. Schema de Produto
+// 1. PRODUTO (Product Schema)
 // ============================================================================
 export const produtoSchema = z.object({
-  name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres.").trim(),
-
-  costPrice: z.coerce
-    .number({ invalid_type_error: "O custo é obrigatório." })
-    .positive("O custo deve ser um número positivo."),
-
-  supplierId: z.string().min(1, "Selecione um fornecedor."),
-
+  name: z.string().min(1, "Nome é obrigatório").trim(),
+  
+  // Financeiro (Coerce converte "10.50" string para 10.50 number)
+  costPrice: z.coerce.number().min(0, "O custo não pode ser negativo"),
+  salePrice: z.coerce.number().min(0, "O preço de venda não pode ser negativo"),
+  
+  // Estoque
+  quantity: z.coerce.number().int().default(0),
+  
+  // Detalhes Opcionais
   code: optionalString,
-  category: optionalString,
+  category: z.string().min(1, "Categoria é obrigatória"), // Select retorna string
   description: optionalString,
-
-  // URLs
-  imageUrl: optionalUrl,
+  imageUrl: optionalString, // URL da imagem (upload retorna string)
+  
+  // Relacionamentos
+  supplierId: optionalString,
   supplierProductUrl: optionalUrl,
-
-  // Stock (Módulo de Controlo de Stock)
-  quantity: z.coerce
-    .number()
-    .int("A quantidade deve ser um número inteiro.")
-    .min(0, "O stock não pode ser negativo.")
-    .default(0),
-
-  // Precificação e Status
-  salePrice: z.coerce.number().optional(),
-  marginPercent: z.coerce.number().optional(),
-  status: z.enum(['ativo', 'inativo']).default('ativo'),
+  
+  // Status
+  status: z.enum(['ativo', 'inativo']).default('ativo')
 });
 
 export type ProdutoFormData = z.infer<typeof produtoSchema>;
 
 
 // ============================================================================
-// 2. Schema de Fornecedor
+// 2. FORNECEDOR (Supplier Schema)
 // ============================================================================
 export const fornecedorSchema = z.object({
-  name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres.").trim(),
-  url: optionalUrl,
+  name: z.string().min(1, "Nome é obrigatório").trim(),
   contactPhone: optionalString,
-  paymentTerms: optionalString,
+  email: z.string().email("E-mail inválido").optional().or(emptyToUndefined),
+  pixKey: optionalString,
+  url: optionalUrl,
+  paymentTerms: optionalString
 });
 
 export type FornecedorFormData = z.infer<typeof fornecedorSchema>;
 
 
 // ============================================================================
-// 3. Schema de Configurações (White-Label & Custos)
+// 3. CONFIGURAÇÃO (Config Schema)
 // ============================================================================
 export const configSchema = z.object({
-  // Comunicação e Metas
-  whatsappNumber: z.string()
-    .regex(/^[0-9]+$/, "Apenas números (incluindo código país e DDD)")
-    .min(10, "Número curto demais")
-    .optional()
-    .or(emptyToUndefined),
-
-  monthlyGoal: z.coerce
-    .number()
-    .min(0, "A meta deve ser positiva")
-    .optional(),
-
-  // --- WHITE-LABEL (Identidade Visual) ---
-  storeName: z.string().min(2, "Nome da loja é obrigatório").trim().default("Minha Loja"),
-  primaryColor: hexColorSchema("#D4AF37"),
-  secondaryColor: hexColorSchema("#343434"),
-
-  // Banners (Vitrine Viva)
-  banners: z.array(z.string()).optional().default([]),
-
-  // --- CUSTOS OPERACIONAIS (Calculadora de Lucro) ---
-  cardFee: z.coerce
-    .number()
-    .min(0, "A taxa não pode ser negativa")
-    .max(100, "A taxa não pode ser maior que 100%")
-    .default(0), // Ex: 4.99 (%)
-
-  packagingCost: z.coerce
-    .number()
-    .min(0, "O custo não pode ser negativo")
-    .default(0), // Ex: 1.50 (R$)
-
-  // --- NOVO CAMPO: Texto da Garantia ---
-  warrantyText: z.string()
-    .max(500, "O texto não deve ser muito longo para caber no papel.")
-    .optional()
-    .default("Garantimos a autenticidade da Prata 925. Esta garantia cobre defeitos de fabrico por 90 dias. Não cobre mau uso, quebras ou oxidação natural."),
-
-  // Novos campos de Financeiro/Stock
-  packingCost: z.number().optional(), // Custo Embalagem
-  cardFeePercent: z.number().optional(), // Taxa Cartão
-  lowStockThreshold: z.number().optional().default(5), // NOVO: Limite de Alerta
+  // Vendas
+  whatsappNumber: z.string().optional(),
+  monthlyGoal: z.coerce.number().min(0).optional(),
+  
+  // White-Label (Visual)
+  storeName: z.string().min(1, "Nome da loja é obrigatório"),
+  primaryColor: hexColor.default('#D4AF37'),
+  secondaryColor: hexColor.default('#343434'),
+  banners: z.array(z.string()).optional(),
+  
+  // Custos Operacionais
+  cardFee: z.coerce.number().min(0).max(100).default(0),
+  packagingCost: z.coerce.number().min(0).default(0),
+  
+  // Gestão de Stock (Novo Padrão)
+  lowStockThreshold: z.coerce.number().min(0).default(5),
+  
+  // Garantia (Aceita texto ou vazio)
+  warrantyText: z.string().optional().default('')
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;
 
 
 // ============================================================================
-// 4. Schema de Transação
+// 4. TRANSAÇÃO (Transaction Schema)
 // ============================================================================
 export const transacaoSchema = z.object({
-  type: z.enum(['venda', 'despesa', 'capital']),
-  description: z.string().min(1, "Descrição é obrigatória").trim(),
-  amount: z.coerce.number().positive("O valor deve ser positivo."),
-  date: z.string().min(1, "Data é obrigatória"),
+  type: z.enum(['venda', 'despesa']),
+  amount: z.coerce.number().positive("O valor deve ser maior que zero"),
+  description: z.string().min(1, "Descrição é obrigatória"),
+  date: z.string().min(1, "Data é obrigatória"), // Input type="date" retorna string YYYY-MM-DD
+  category: optionalString
 });
 
 export type TransacaoFormData = z.infer<typeof transacaoSchema>;
