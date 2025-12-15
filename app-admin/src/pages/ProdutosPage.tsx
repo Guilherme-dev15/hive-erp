@@ -1,7 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
-import type { ProdutoAdmin, Fornecedor, Category } from '../types';
-import { type ConfigFormData } from '../types/schemas';
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Plus, Search, Edit, Trash2, Package, Loader2, 
+  RefreshCw, Filter, FolderTree, FileSpreadsheet, FileDown,
+  CheckSquare, Square, X
+} from 'lucide-react';
+import { toast, Toaster } from 'react-hot-toast';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+
+// --- SERVIÇOS ---
 import { 
   getAdminProdutos, 
   deleteAdminProduto, 
@@ -9,339 +16,309 @@ import {
   getCategories,
   getConfig 
 } from '../services/apiService';
-import { Trash2, Edit, Package, ExternalLink, Box, Search, Printer, CheckSquare, Square, FileText, AlertTriangle, Upload } from 'lucide-react';
-import { toast, Toaster } from 'react-hot-toast';
+
+// --- COMPONENTES ---
+import { ImportModal } from '../components/ImportModal';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
-import { useReactToPrint } from 'react-to-print';
-import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
-import { CatalogoImpressao } from '../components/CatalogoImpressao';
-// Importação do novo Modal
-import { ImportacaoModal } from '../components/ImportacaoModal';
+import { CategoryModal } from '../components/CategoryModal';
+import { CatalogPDF } from '../components/CatologPDF'; 
 
-// ============================================================================
-// COMPONENTE: CARD DE PRODUTO
-// ============================================================================
-interface ProdutoAdminCardProps {
-  produto: ProdutoAdmin;
-  fornecedorNome: string;
-  onEditar: () => void;
-  onApagar: () => void;
-  isSelected: boolean;
-  onToggleSelect: () => void;
-  lowStockLimit: number;
-}
+// --- TIPOS ---
+import type { ProdutoAdmin, Category, Fornecedor } from '../types';
 
-const ProdutoAdminCard: React.FC<ProdutoAdminCardProps> = ({ 
-  produto, fornecedorNome, onEditar, onApagar, isSelected, onToggleSelect, lowStockLimit 
-}) => {
-  const custo = produto.costPrice || 0;
-  const venda = produto.salePrice || 0;
-  const lucro = venda > 0 ? venda - custo : 0;
-  const quantity = produto.quantity || 0;
-  
-  const isZeroStock = quantity === 0;
-  const isLowStock = !isZeroStock && quantity <= lowStockLimit;
-
-  let borderClass = 'border-gray-200';
-  if (isSelected) borderClass = 'border-dourado ring-2 ring-dourado ring-opacity-50';
-  else if (isZeroStock) borderClass = 'border-red-500 ring-1 ring-red-500 bg-red-50/10';
-  else if (isLowStock) borderClass = 'border-yellow-400 ring-1 ring-yellow-400';
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`bg-white shadow-lg rounded-xl border flex flex-col h-full overflow-hidden transition-all duration-200 hover:shadow-xl relative group ${borderClass}`}
-    >
-      <div 
-        onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
-        className="absolute top-2 left-2 z-20 cursor-pointer bg-white/90 rounded-md p-1 hover:bg-white transition-colors shadow-sm"
-      >
-        {isSelected 
-          ? <CheckSquare className="text-dourado" size={24} /> 
-          : <Square className="text-gray-400 hover:text-gray-600" size={24} />
-        }
-      </div>
-
-      <div className="relative w-full h-48 overflow-hidden bg-gray-100">
-        <div className="w-full h-full flex items-center justify-center">
-          {produto.imageUrl ? (
-            <img src={produto.imageUrl} alt={produto.name} className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isZeroStock ? 'grayscale opacity-70' : ''}`} loading="lazy" />
-          ) : (
-            <Package size={48} className="text-prata opacity-50" />
-          )}
-        </div>
-        
-        <span className={`absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shadow-sm ${produto.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
-          {produto.status}
-        </span>
-
-        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-           {isZeroStock && (
-             <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1 animate-pulse">
-               <AlertTriangle size={12}/> ESGOTADO
-             </span>
-           )}
-           {isLowStock && (
-             <span className="bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1">
-               <AlertTriangle size={12}/> REPOR
-             </span>
-           )}
-           
-           <div className={`flex items-center gap-1 px-2 py-1 rounded shadow-sm text-[10px] font-bold ${
-             quantity > 0 ? 'bg-white text-carvao' : 'bg-red-100 text-red-700'
-           }`}>
-             <Box size={12} />
-             <span>{quantity} un.</span>
-           </div>
-        </div>
-      </div>
-
-      <div className="p-4 flex-grow flex flex-col justify-between">
-        <div>
-          <div className="flex justify-between items-start">
-             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">
-               {produto.category || 'Geral'}
-             </p>
-             {produto.supplierProductUrl && (
-               <a href={produto.supplierProductUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Link Fornecedor">
-                 <ExternalLink size={14} />
-               </a>
-             )}
-          </div>
-          <h3 className="font-bold text-gray-900 leading-tight mb-1 line-clamp-2">{produto.name}</h3>
-          <p className="text-xs text-gray-400 font-mono mb-3">SKU: {produto.code || 'S/N'}</p>
-          
-          <div className="flex items-center gap-1 mb-3">
-            <span className="text-xs text-gray-500">Forn:</span>
-            <span className="text-xs font-semibold text-carvao truncate max-w-[150px]">{fornecedorNome}</span>
-          </div>
-        </div>
-
-        <div className="mt-2 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase">Custo</p>
-            <p className="text-sm font-semibold text-red-600">R$ {custo.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase">Venda</p>
-            <p className="text-sm font-bold text-green-600">R$ {venda.toFixed(0)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase">Lucro</p>
-            <p className="text-sm font-bold text-carvao">R$ {lucro.toFixed(0)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex border-t border-gray-100 bg-gray-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-        <button onClick={onEditar} className="flex-1 py-3 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center justify-center gap-1 border-r border-gray-200">
-          <Edit size={14} /> Editar
-        </button>
-        <button onClick={onApagar} className="flex-1 py-3 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center justify-center gap-1">
-          <Trash2 size={14} /> Apagar
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-// ============================================================================
-// PÁGINA PRINCIPAL
-// ============================================================================
 export function ProdutosPage() {
+  // 1. DADOS
   const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [config, setConfig] = useState<ConfigFormData | null>(null);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [storeConfig, setStoreConfig] = useState<{ storeName: string } | null>(null);
   
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false); // NOVO ESTADO
-  const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoAdmin | null>(null);
+  // 2. CONTROLE
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('Todas');
+
+  // 3. SELEÇÃO & PDF
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
-  const [filterMode, setFilterMode] = useState<'todos' | 'stockBaixo'>('todos');
-  const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
-  const [searchTerm, setSearchTerm] = useState("");
+  // 4. MODAIS
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [produtoEditando, setProdutoEditando] = useState<ProdutoAdmin | null>(null);
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  
-  const etiquetaRef = useRef<HTMLDivElement>(null);
-  const catalogoRef = useRef<HTMLDivElement>(null);
-
-  const handlePrintEtiquetas = useReactToPrint({ contentRef: etiquetaRef, documentTitle: 'Etiquetas_Stock' });
-  const handlePrintCatalogo = useReactToPrint({ contentRef: catalogoRef, documentTitle: 'Catalogo_Produtos' });
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  // ============================================================================
+  // CARREGAMENTO
+  // ============================================================================
+  const carregarDados = async () => {
     try {
       setLoading(true);
-      const [prod, forn, cat, conf] = await Promise.all([
-        getAdminProdutos(), getFornecedores(), getCategories(), getConfig()
+      const [prodsData, catsData, fornsData, configData] = await Promise.all([
+        getAdminProdutos(),
+        getCategories(),
+        getFornecedores(),
+        getConfig()
       ]);
-      setProdutos(prod);
-      setFornecedores(forn);
-      setCategories(cat);
-      setConfig(conf);
-    } catch (e) { toast.error("Falha ao carregar dados."); } finally { setLoading(false); }
-  }
 
+      setProdutos(prodsData);
+      setCategories(catsData);
+      setFornecedores(fornsData);
+      setStoreConfig(configData);
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Erro ao conectar com o servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { carregarDados(); }, []);
+
+  // ============================================================================
+  // LÓGICA DE FILTRAGEM (MOVIDO PARA CIMA PARA CORRIGIR O ERRO)
+  // ============================================================================
   const produtosFiltrados = useMemo(() => {
-    let lista = produtos;
-    const stockLimit = config?.lowStockThreshold || 5;
-
-    if (filterMode === 'stockBaixo') {
-      lista = lista.filter(p => (p.quantity || 0) <= stockLimit);
-    }
-
-    if (categoryFilter !== "Todos") {
-      lista = lista.filter(p => categoryFilter === "Sem Categoria" ? !p.category : p.category === categoryFilter);
-    }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      lista = lista.filter(p => p.name.toLowerCase().includes(term) || (p.code && p.code.toLowerCase().includes(term)));
-    }
-    return lista;
-  }, [produtos, filterMode, categoryFilter, searchTerm, config]);
-
-  const getFornecedorNome = (id: string) => fornecedores.find(f => f.id === id)?.name || 'N/A';
-
-  const toggleSelection = (id: string) => {
-    const newSelection = new Set(selectedIds);
-    if (newSelection.has(id)) newSelection.delete(id);
-    else newSelection.add(id);
-    setSelectedIds(newSelection);
-  };
-
-  const selectAllFiltered = () => {
-    if (selectedIds.size === produtosFiltrados.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(produtosFiltrados.map(p => p.id)));
-  };
-
-  const getSelectedProducts = () => produtos.filter(p => selectedIds.has(p.id));
-
-  const handleApagarProduto = async (id: string) => {
-    if (!confirm("Tem certeza que deseja apagar?")) return;
-    try {
-        await deleteAdminProduto(id);
-        setProdutos(prev => prev.filter(p => p.id !== id));
-        toast.success("Apagado!");
-    } catch (e) { toast.error("Erro ao apagar."); }
-  };
-  
-  const handleProdutoSalvo = (produtoSalvo: ProdutoAdmin) => {
-    setProdutos(prev => {
-        const existe = prev.find(p => p.id === produtoSalvo.id);
-        return existe ? prev.map(p => p.id === produtoSalvo.id ? produtoSalvo : p) : [produtoSalvo, ...prev];
+    return produtos.filter(p => {
+      const termo = searchTerm.toLowerCase();
+      const matchTexto = (p.name && p.name.toLowerCase().includes(termo)) || (p.code && p.code.toLowerCase().includes(termo));
+      const matchCategoria = filterCategory === 'Todas' || p.category === filterCategory;
+      return matchTexto && matchCategoria;
     });
+  }, [produtos, searchTerm, filterCategory]);
+
+  // ============================================================================
+  // LÓGICA DE PDF (DEPENDE DO FILTRADO)
+  // ============================================================================
+  const produtosParaPdf = useMemo(() => {
+    if (selectedIds.length > 0) {
+      return produtos.filter(p => selectedIds.includes(p.id));
+    }
+    return produtosFiltrados; 
+  }, [selectedIds, produtos, produtosFiltrados]);
+
+  // ============================================================================
+  // LÓGICA DE SELEÇÃO
+  // ============================================================================
+  
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    );
+    setIsGeneratingPdf(false);
   };
 
-  if (loading) return <div>A carregar...</div>;
+  const handleSelectAll = () => {
+    if (selectedIds.length === produtosFiltrados.length) {
+      setSelectedIds([]); 
+    } else {
+      setSelectedIds(produtosFiltrados.map(p => p.id)); 
+    }
+    setIsGeneratingPdf(false);
+  };
+
+  const handlePreparePdf = () => {
+    if (selectedIds.length === 0 && !confirm("Nenhum produto selecionado. Deseja gerar o catálogo com TODOS os produtos filtrados?")) {
+      return;
+    }
+    setIsGeneratingPdf(true); 
+  };
+
+  // ============================================================================
+  // CRUD
+  // ============================================================================
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza?")) return;
+    try {
+      await deleteAdminProduto(id);
+      setProdutos(prev => prev.filter(p => p.id !== id));
+      toast.success("Excluído!");
+    } catch (e) { toast.error("Erro ao excluir."); }
+  };
+
+  const handleEdit = (prod: ProdutoAdmin) => {
+    setProdutoEditando(prod);
+    setIsModalOpen(true);
+  };
+
+  const handleNew = () => {
+    setProdutoEditando(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveSuccess = (prodSalvo: ProdutoAdmin) => {
+    if (produtoEditando) {
+      setProdutos(prev => prev.map(p => p.id === prodSalvo.id ? prodSalvo : p));
+    } else {
+      setProdutos(prev => [prodSalvo, ...prev]);
+    }
+    setIsModalOpen(false);
+  };
+
+  // ============================================================================
+  // RENDERIZAÇÃO
+  // ============================================================================
+  if (loading) return <div className="flex justify-center items-center h-[60vh]"><Loader2 className="animate-spin text-dourado" size={48} /></div>;
 
   return (
-    <>
-      <Toaster position="top-right" />
-      <div className="space-y-6">
-        
-        {/* BARRA DE CONTROLE */}
-        <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-carvao hidden sm:block">Produtos</h1>
-            
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-                <button onClick={() => setFilterMode('todos')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterMode === 'todos' ? 'bg-white shadow text-carvao' : 'text-gray-500 hover:text-gray-700'}`}>Todos</button>
-                <button onClick={() => setFilterMode('stockBaixo')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${filterMode === 'stockBaixo' ? 'bg-red-100 text-red-700 shadow' : 'text-gray-500 hover:text-red-600'}`}><AlertTriangle size={14} /> Stock Baixo</button>
-            </div>
-
-            <button onClick={selectAllFiltered} className="text-sm font-medium text-gray-600 flex items-center gap-2 hover:text-carvao ml-2">
-               {selectedIds.size > 0 && selectedIds.size === produtosFiltrados.length ? <CheckSquare size={20} className="text-dourado" /> : <Square size={20} />}
-               <span className="hidden sm:inline">{selectedIds.size > 0 ? `${selectedIds.size} selecionados` : 'Todos'}</span>
-            </button>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 flex-grow lg:flex-grow-0">
-             {selectedIds.size > 0 && (
-               <div className="flex gap-2 animate-in fade-in slide-in-from-left-4">
-                 <button onClick={() => handlePrintEtiquetas()} className="bg-indigo-600 text-white px-3 py-2 rounded-lg shadow hover:bg-indigo-700 flex items-center gap-2 text-sm font-bold"><Printer size={16}/> Etiquetas</button>
-                 <button onClick={() => handlePrintCatalogo()} className="bg-carvao text-dourado px-3 py-2 rounded-lg shadow hover:bg-gray-800 flex items-center gap-2 text-sm font-bold"><FileText size={16}/> Catálogo PDF</button>
-               </div>
-             )}
-
-            <div className="relative flex-grow sm:w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm" />
-            </div>
-
-            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado bg-white text-sm">
-              <option value="Todos">Todas as Categorias</option>
-              {categories.map(c => (<option key={c.id} value={c.name}>{c.name}</option>))}
-              <option value="Sem Categoria">Sem Categoria</option>
-            </select>
-
-            {/* BOTÕES DE AÇÃO: IMPORTAR E NOVO */}
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setIsImportModalOpen(true)}
-                className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 font-bold flex items-center gap-2 whitespace-nowrap text-sm"
-              >
-                <Upload size={16} /> Importar Excel
-              </button>
-              
-              <button onClick={() => {setProdutoSelecionado(null); setIsModalOpen(true);}} className="bg-carvao text-white px-4 py-2 rounded-lg shadow hover:bg-gray-800 font-bold flex items-center gap-2 whitespace-nowrap text-sm">
-                + Novo
-              </button>
-            </div>
-          </div>
+    <div className="space-y-6 pb-20 p-4 md:p-0">
+      <Toaster position="top-right"/>
+      
+      {/* --- HEADER --- */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <Package className="text-dourado" /> Produtos
+            <span className="text-sm font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{produtos.length}</span>
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {selectedIds.length > 0 
+              ? <span className="text-blue-600 font-bold">{selectedIds.length} produtos selecionados para o catálogo</span>
+              : "Selecione produtos para gerar um catálogo personalizado."
+            }
+          </p>
         </div>
 
-        {/* GRID DE PRODUTOS */}
-        {produtosFiltrados.length === 0 ? (
-          <div className="text-center text-gray-500 py-20 bg-white rounded-xl border border-dashed border-gray-200">
-             <Package size={48} className="mx-auto mb-2 opacity-20" />
-             <p>Nenhum produto encontrado.</p>
-             {filterMode === 'stockBaixo' && <p className="text-sm text-green-600 font-medium mt-1">Seu stock está saudável!</p>}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {produtosFiltrados.map(produto => (
-              <ProdutoAdminCard
-                key={produto.id}
-                produto={produto}
-                fornecedorNome={getFornecedorNome(produto.supplierId)}
-                onEditar={() => { setProdutoSelecionado(produto); setIsModalOpen(true); }}
-                onApagar={() => handleApagarProduto(produto.id)}
-                isSelected={selectedIds.has(produto.id)}
-                onToggleSelect={() => toggleSelection(produto.id)}
-                lowStockLimit={config?.lowStockThreshold || 5}
-              />
-            ))}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-3 w-full lg:w-auto items-center">
+           {/* BOTÃO GERAR PDF INTELIGENTE */}
+           {isGeneratingPdf ? (
+             <div className="flex items-center gap-2 bg-red-50 border border-red-100 px-4 py-2 rounded-xl animate-pulse">
+                <PDFDownloadLink
+                  document={
+                    <CatalogPDF 
+                      produtos={produtosParaPdf} 
+                      storeName={storeConfig?.storeName || "Catálogo"} 
+                    />
+                  }
+                  fileName="catalogo.pdf"
+                  className="flex items-center gap-2 text-red-600 font-bold text-sm"
+                >
+                  {/* @ts-ignore */}
+                  {({ loading }) => (loading ? 'Gerando PDF...' : 'Baixar Arquivo PDF')}
+                </PDFDownloadLink>
+                <button onClick={() => setIsGeneratingPdf(false)}><X size={14} className="text-red-400"/></button>
+             </div>
+           ) : (
+             <button 
+                onClick={handlePreparePdf}
+                className={`px-4 py-2 border rounded-xl flex items-center gap-2 font-medium transition-colors shadow-sm ${selectedIds.length > 0 ? 'bg-red-600 text-white border-red-600 hover:bg-red-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+             >
+                <FileDown size={18} /> 
+                <span className="hidden sm:inline">
+                  {selectedIds.length > 0 ? `Gerar PDF (${selectedIds.length})` : 'Gerar PDF Completo'}
+                </span>
+             </button>
+           )}
+
+          <div className="h-6 w-px bg-gray-300 mx-1 hidden lg:block"></div>
+
+          <button onClick={() => setIsCategoryModalOpen(true)} className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50" title="Categorias">
+            <FolderTree size={18}/>
+          </button>
+
+          <button onClick={() => setIsImportModalOpen(true)} className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50" title="Importar Excel">
+             <FileSpreadsheet size={18} className="text-green-600"/>
+          </button>
+
+          <button onClick={handleNew} className="px-5 py-2 bg-carvao text-white rounded-xl hover:bg-gray-800 flex items-center gap-2 font-bold shadow-lg">
+            <Plus size={20}/> <span className="hidden sm:inline">Novo</span>
+          </button>
+        </div>
       </div>
 
-      <ProdutoFormModal 
-        isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} 
-        fornecedores={fornecedores} categories={categories} setCategories={setCategories} 
-        produtoParaEditar={produtoSelecionado} onProdutoSalvo={handleProdutoSalvo} 
-        configGlobal={config} 
-      />
-      
-      {/* NOVO MODAL DE IMPORTAÇÃO */}
-      <ImportacaoModal 
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSucesso={() => {
-          loadData(); // Recarrega a lista
-          setIsImportModalOpen(false);
-        }}
-      />
-      
-      <EtiquetaImpressao ref={etiquetaRef} produtos={getSelectedProducts()} />
-      <CatalogoImpressao ref={catalogoRef} produtos={getSelectedProducts()} config={config} />
-    </>
+      {/* --- FILTROS E SELEÇÃO --- */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <button 
+          onClick={handleSelectAll}
+          className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 font-bold text-sm min-w-[140px]"
+        >
+          {selectedIds.length > 0 && selectedIds.length === produtosFiltrados.length ? (
+             <><CheckSquare size={18} className="text-blue-600"/> Todos</>
+          ) : (
+             <><Square size={18}/> Selecionar</>
+          )}
+        </button>
+
+        <div className="flex-grow relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+          <input 
+            type="text" placeholder="Buscar..." 
+            value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-dourado outline-none"
+          />
+        </div>
+
+        <div className="min-w-[200px] relative">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select 
+            value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-dourado outline-none appearance-none cursor-pointer"
+          >
+            <option value="Todas">Todas as Categorias</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        
+        <button onClick={carregarDados} className="p-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500"><RefreshCw size={20}/></button>
+      </div>
+
+      {/* --- GRID --- */}
+      {produtosFiltrados.length === 0 ? (
+        <div className="text-center py-20 text-gray-400 bg-white rounded-2xl border border-dashed">Nada encontrado.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <AnimatePresence>
+            {produtosFiltrados.map((p) => {
+              const isSelected = selectedIds.includes(p.id);
+              return (
+                <motion.div 
+                  layout key={p.id} 
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className={`group bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col transition-all duration-300 relative ${isSelected ? 'ring-2 ring-blue-500 border-blue-500' : 'border-gray-100 hover:shadow-xl'}`}
+                  onClick={(e) => {
+                     if ((e.target as HTMLElement).closest('button')) return;
+                     toggleSelection(p.id);
+                  }}
+                >
+                  <div className="absolute top-3 right-3 z-20">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 text-white' : 'bg-white/80 backdrop-blur text-gray-300 border border-gray-200'}`}>
+                       {isSelected ? <CheckSquare size={14}/> : <Square size={14}/>}
+                    </div>
+                  </div>
+
+                  <div className="h-56 relative bg-gray-100">
+                    {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300"><Package size={40}/></div>}
+                    
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                      <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="p-3 bg-white text-blue-600 rounded-full hover:scale-110 transition-all"><Edit size={20}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-3 bg-white text-red-600 rounded-full hover:scale-110 transition-all"><Trash2 size={20}/></button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 flex-grow flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase">{p.category || 'Geral'}</p>
+                        <p className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{p.code}</p>
+                      </div>
+                      <h3 className="font-bold text-gray-800 text-lg leading-tight line-clamp-2 mb-2">{p.name}</h3>
+                    </div>
+                    <div className="flex justify-between items-end mt-4 pt-3 border-t border-gray-50">
+                      <div><p className="text-xs text-gray-400">Preço</p><p className="text-xl font-extrabold text-dourado">R$ {Number(p.salePrice || 0).toFixed(2)}</p></div>
+                      <div className="text-right"><p className="text-xs text-gray-400">Qtd</p><p className="font-bold text-gray-700">{p.quantity || 0}</p></div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* MODAIS */}
+      <ProdutoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} fornecedores={fornecedores} categories={categories} setCategories={setCategories} produtoParaEditar={produtoEditando} onProdutoSalvo={handleSaveSuccess} configGlobal={undefined} />
+      <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} setCategories={setCategories} onCategoryCreated={(newCat) => setCategories(prev => [...prev, newCat])} />
+      <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onSuccess={carregarDados} />
+    </div>
   );
 }

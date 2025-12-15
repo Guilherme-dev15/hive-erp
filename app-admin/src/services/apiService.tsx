@@ -1,13 +1,8 @@
 import axios from 'axios';
-
-// 1. IMPORTAÇÃO DAS INSTÂNCIAS JÁ CONFIGURADAS
-// (Isso resolve o erro de Bucket porque usa a config correta do firebaseConfig.ts)
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, storage } from '../firebaseConfig'; 
 
-// 2. Imports utilitários do Storage (apenas funções)
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// --- TIPOS ---
+// --- TYPES & SCHEMAS ---
 import type { 
   ProdutoAdmin, 
   Fornecedor, 
@@ -17,219 +12,98 @@ import type {
   Order, 
   OrderStatus, 
   Coupon, 
-  ABCProduct
+  ABCProduct,
+  ChartData
 } from '../types';
 
 import type { 
   ProdutoFormData, 
   FornecedorFormData, 
   ConfigFormData, 
-  TransacaoFormData
+  TransacaoFormData 
 } from '../types/schemas';
 
 // ============================================================================
-// Configuração da API Axios
+// CONFIGURAÇÃO DA CONEXÃO
 // ============================================================================
-// Usa a URL de produção para garantir conexão com a API antiga
-const API_URL = import.meta.env.VITE_API_URL || 'https://hiveerp-api.vercel.app';
+
+const API_URL = 'http://localhost:3001';
+// const API_URL = import.meta.env.VITE_API_URL || 'https://hiveerp-api.vercel.app';
 
 export const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// --- INTERCEPTOR DE SEGURANÇA ---
-apiClient.interceptors.request.use(async (config) => {
-  const user = auth.currentUser;
-  
-  if (user) {
-    const token = await user.getIdToken();
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
-// --- TIPAGEM DA CONFIGURAÇÃO (Corrigida) ---
-export interface AppConfig extends Omit<ConfigFormData, 'warrantyText' | 'lowStockThreshold' | 'banners'> {
-  banners: string[]; 
-  cardFee: number;
-  packagingCost: number;
-  secondaryColor: string;
-  primaryColor: string;
-  storeName: string;
-  warrantyText?: string;
-  lowStockThreshold?: number;
-  productCounter?: number;
-}
+apiClient.interceptors.request.use(
+  async (config) => {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // ============================================================================
-// FUNÇÃO DE UPLOAD (MÁGICA AQUI)
+// SERVIÇO DE UPLOAD
 // ============================================================================
-export const uploadImage = async (file: File, folder: string = 'produtos'): Promise<string> => {
+export const uploadImage = async (file: File, _p0?: string): Promise<string> => {
   if (!file) return '';
-  
   try {
-    // 1. Gera nome único
-    const fileName = `${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()}`;
-    
-    // 2. Usa a variável 'storage' importada (já configurada com o bucket certo)
-    const storageRef = ref(storage, `${folder}/${fileName}`);
-    
-    // 3. Faz o upload
+    const cleanName = file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+    const fileName = `products/${Date.now()}_${cleanName}`;
+    const storageRef = ref(storage, fileName);
     const snapshot = await uploadBytes(storageRef, file);
-    
-    // 4. Pega a URL pública
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
-  } catch (error) {
-    console.error("Erro no upload Firebase:", error);
-    throw new Error("Falha ao subir imagem. Verifique o firebaseConfig.ts.");
+    return await getDownloadURL(snapshot.ref);
+  } catch (error: any) {
+    console.error("Erro no Upload:", error);
+    throw new Error("Falha ao subir imagem.");
   }
 };
 
 // ============================================================================
-// ROTAS DA API (PORTUGUÊS - LEGADO)
+// ENDPOINTS DA API
 // ============================================================================
 
-// --- Dashboard ---
-export const getDashboardStats = async (): Promise<DashboardStats> => {
-  const response = await apiClient.get('/admin/dashboard-stats');
-  return response.data;
-};
+// --- PRODUTOS ---
+export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => (await apiClient.get('/admin/products')).data;
+export const createAdminProduto = async (data: ProdutoFormData): Promise<ProdutoAdmin> => (await apiClient.post('/admin/products', data)).data;
+export const updateAdminProduto = async (id: string, data: ProdutoFormData): Promise<ProdutoAdmin> => (await apiClient.put(`/admin/products/${id}`, data)).data;
+export const deleteAdminProduto = async (id: string): Promise<void> => apiClient.delete(`/admin/products/${id}`);
+export const importProductsBulk = async (products: any[]): Promise<any> => (await apiClient.post('/admin/products/bulk', products)).data;
 
-// --- Produtos (/admin/produtos) ---
-export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
-  const response = await apiClient.get('/admin/produtos');
-  return response.data;
-};
+// --- FORNECEDORES ---
+export const getFornecedores = async (): Promise<Fornecedor[]> => (await apiClient.get('/admin/suppliers')).data;
+export const createFornecedor = async (data: FornecedorFormData): Promise<Fornecedor> => (await apiClient.post('/admin/suppliers', data)).data;
+export const updateFornecedor = async (id: string, data: FornecedorFormData): Promise<Fornecedor> => (await apiClient.put(`/admin/suppliers/${id}`, data)).data;
+export const deleteFornecedor = async (id: string): Promise<void> => apiClient.delete(`/admin/suppliers/${id}`);
 
-export const createAdminProduto = async (produto: ProdutoFormData): Promise<ProdutoAdmin> => {
-  const response = await apiClient.post('/admin/produtos', produto);
-  return response.data;
-};
+// --- CATEGORIAS ---
+export const getCategories = async (): Promise<Category[]> => (await apiClient.get('/admin/categories')).data;
+export const createCategory = async (data: { name: string }): Promise<Category> => (await apiClient.post('/admin/categories', data)).data;
+export const deleteCategory = async (id: string): Promise<void> => apiClient.delete(`/admin/categories/${id}`);
 
-export const updateAdminProduto = async (id: string, produto: ProdutoFormData): Promise<ProdutoAdmin> => {
-  const response = await apiClient.put(`/admin/produtos/${id}`, produto);
-  return response.data;
-};
+// --- FINANCEIRO ---
+export const getTransacoes = async (): Promise<Transacao[]> => (await apiClient.get('/admin/transactions')).data;
+export const createTransacao = async (data: TransacaoFormData): Promise<Transacao> => (await apiClient.post('/admin/transactions', data)).data;
+export const updateTransacao = async (id: string, data: TransacaoFormData): Promise<Transacao> => (await apiClient.put(`/admin/transactions/${id}`, data)).data;
+export const deleteTransacao = async (id: string): Promise<void> => apiClient.delete(`/admin/transactions/${id}`);
 
-export const deleteAdminProduto = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/produtos/${id}`);
-};
+// --- PEDIDOS (AQUI ESTAVA O ERRO DE DUPLICIDADE) ---
+export const getAdminOrders = async (): Promise<Order[]> => (await apiClient.get('/admin/orders')).data;
+export const updateAdminOrderStatus = async (id: string, status: OrderStatus): Promise<Order> => (await apiClient.put(`/admin/orders/${id}`, { status })).data;
+export const deleteAdminOrder = async (id: string): Promise<void> => apiClient.delete(`/admin/orders/${id}`);
 
-// --- Fornecedores (/admin/fornecedores) ---
-export const getFornecedores = async (): Promise<Fornecedor[]> => {
-  const response = await apiClient.get('/admin/fornecedores');
-  return response.data;
-};
+// --- CUPONS ---
+export const getCoupons = async (): Promise<Coupon[]> => (await apiClient.get('/admin/coupons')).data;
+export const createCoupon = async (data: { code: string; discountPercent: number }): Promise<Coupon> => (await apiClient.post('/admin/coupons', data)).data;
+export const deleteCoupon = async (id: string): Promise<void> => apiClient.delete(`/admin/coupons/${id}`);
 
-export const createFornecedor = async (fornecedor: FornecedorFormData): Promise<Fornecedor> => {
-  const response = await apiClient.post('/admin/fornecedores', fornecedor);
-  return response.data;
-};
-
-export const updateFornecedor = async (id: string, fornecedor: FornecedorFormData): Promise<Fornecedor> => {
-  const response = await apiClient.put(`/admin/fornecedores/${id}`, fornecedor);
-  return response.data;
-};
-
-export const deleteFornecedor = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/fornecedores/${id}`);
-};
-
-// --- Transações (/admin/transacoes) ---
-export const getTransacoes = async (): Promise<Transacao[]> => {
-  const response = await apiClient.get('/admin/transacoes');
-  return response.data;
-};
-
-export const createTransacao = async (transacao: Omit<Transacao, 'id'>): Promise<Transacao> => {
-  const response = await apiClient.post('/admin/transacoes', transacao);
-  return response.data;
-};
-
-export const updateTransacao = async (id: string, transacao: TransacaoFormData): Promise<Transacao> => {
-  const response = await apiClient.put(`/admin/transacoes/${id}`, transacao);
-  return response.data;
-};
-
-export const deleteTransacao = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/transacoes/${id}`);
-};
-
-// --- Configurações ---
-export const getConfig = async (): Promise<AppConfig> => {
-  // Se a rota admin/config falhar, tente '/config-publica'
-  const response = await apiClient.get('/admin/config'); 
-  return response.data;
-};
-
-export const saveConfig = async (config: ConfigFormData): Promise<AppConfig> => {
-  const response = await apiClient.post('/admin/config', config);
-  return response.data;
-};
-
-// --- Categorias (/admin/categories ou /admin/categorias - verifique seu banco) ---
-export const getCategories = async (): Promise<Category[]> => {
-  // Tentando rota em inglês pois a API antiga às vezes usa inglês para categorias
-  // Se der erro 404, mude para '/admin/categorias'
-  try {
-    const response = await apiClient.get('/admin/categories'); 
-    return response.data;
-  } catch (e) {
-    const response = await apiClient.get('/categories'); // Fallback
-    return response.data;
-  }
-};
-
-export const createCategory = async (data: { name: string }): Promise<Category> => {
-  const response = await apiClient.post('/admin/categories', data);
-  return response.data;
-};
-
-export const deleteCategory = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/categories/${id}`);
-};
-
-// --- Pedidos (/admin/orders) ---
-export const getAdminOrders = async (): Promise<Order[]> => {
-  const response = await apiClient.get('/admin/orders');
-  return response.data;
-};
-
-export const updateAdminOrderStatus = async (id: string, status: OrderStatus): Promise<Order> => {
-  const response = await apiClient.put(`/admin/orders/${id}`, { status });
-  return response.data;
-};
-
-// --- Gráficos e Relatórios ---
-export interface ChartData {
-  salesByDay: { name: string; vendas: number }[];
-  incomeVsExpense: { name: string; value: number }[];
-}
-
-export const getDashboardCharts = async (): Promise<ChartData> => {
-  const response = await apiClient.get('/admin/dashboard-charts');
-  return response.data;
-};
-
-export const getCoupons = async (): Promise<Coupon[]> => {
-  const response = await apiClient.get('/admin/coupons');
-  return response.data;
-};
-
-export const createCoupon = async (data: { code: string; discountPercent: number }): Promise<Coupon> => {
-  const response = await apiClient.post('/admin/coupons', data);
-  return response.data;
-};
-
-export const deleteCoupon = async (id: string): Promise<void> => {
-  await apiClient.delete(`/admin/coupons/${id}`);
-};
-
-export const getABCReport = async (): Promise<ABCProduct[]> => {
-  const response = await apiClient.get('/admin/reports/abc');
-  return response.data;
-};
+// --- DASHBOARD & CONFIG ---
+export const getDashboardStats = async (): Promise<DashboardStats> => (await apiClient.get('/admin/dashboard-stats')).data;
+export const getDashboardCharts = async (): Promise<ChartData> => (await apiClient.get('/admin/dashboard-charts')).data;
+export const getABCReport = async (): Promise<ABCProduct[]> => (await apiClient.get('/admin/reports/abc')).data;
+export const getConfig = async (): Promise<any> => (await apiClient.get('/admin/config')).data;
+export const saveConfig = async (data: ConfigFormData): Promise<any> => (await apiClient.post('/admin/config', data)).data;

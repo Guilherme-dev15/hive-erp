@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Arquivos Locais e de Ambiente
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Chaves de Segurança
+api/serviceAccountKey.json
+serviceAccountKey.json
+
+# Pastas de Dependências e Build
+node_modules/
+dist/
+build/
+.vercel/

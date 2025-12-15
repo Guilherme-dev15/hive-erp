@@ -1,211 +1,232 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Fornecedor } from '../types/index.ts';
-// 1. Importar 'deleteFornecedor' (necessário para apagar)
-import { getFornecedores, deleteFornecedor } from '../services/apiService.tsx';
-import { toast, Toaster } from 'react-hot-toast'; 
-import { Trash2, Edit, Link as LinkIcon } from 'lucide-react'; 
-// 2. Importar o Modal de Fornecedor (e não o de Produto)
-import { FornecedorFormModal } from '../components/FornecedorFormModal.tsx';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Search, Edit, Trash2, Phone, Link as LinkIcon, Truck, Loader2, X } from 'lucide-react';
+import { toast, Toaster } from 'react-hot-toast';
 
-// Componente Card
-const Card = ({ children, delay = 0 }: { children: React.ReactNode, delay?: number }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
-    className="bg-white shadow-lg rounded-lg p-4 sm:p-6 border border-transparent hover:border-prata transition-colors"
-  >
-    {children}
-  </motion.div>
+// Imports Padronizados em Inglês
+import { getFornecedores, createFornecedor, updateFornecedor, deleteFornecedor } from '../services/apiService';
+import type { Fornecedor } from '../types';
+import { fornecedorSchema, type FornecedorFormData } from '../types/schemas';
+
+// --- COMPONENTES AUXILIARES ---
+const Input = ({ label, name, register, error, placeholder }: any) => (
+  <div className="mb-3">
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <input 
+      {...register(name)} 
+      placeholder={placeholder}
+      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-dourado outline-none transition-all ${error ? 'border-red-500' : 'border-gray-300'}`}
+    />
+    {error && <span className="text-xs text-red-500">{error.message}</span>}
+  </div>
 );
 
+// --- PÁGINA PRINCIPAL ---
 export function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
+  // Controle do Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [fornecedorSelecionado, setFornecedorSelecionado] = useState<Fornecedor | null>(null);
+  const [editingProvider, setEditingProvider] = useState<Fornecedor | null>(null);
 
+  // Carregar Dados
   useEffect(() => {
-    async function carregarFornecedores() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getFornecedores();
-        setFornecedores(data);
-      } catch (err) {
-        setError("Falha ao carregar fornecedores.");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     carregarFornecedores();
   }, []);
 
-  // Lógica de Apagar
-  const handleApagarFornecedor = (id: string, nome: string) => {
-    toast((t) => (
-      <div className="flex flex-col p-2">
-        <p className="font-semibold text-carvao">Tem a certeza?</p>
-        <p className="text-sm text-gray-600 mb-3">Quer mesmo apagar "{nome}"?</p>
-        <div className="flex justify-end gap-2">
-          <button
-            className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
-            onClick={() => toast.dismiss(t.id)}
-          >
-            Cancelar
-          </button>
-          <button
-            className="px-3 py-1 text-sm rounded bg-red-600 text-white hover:bg-red-700"
-            onClick={() => {
-              toast.dismiss(t.id);
-              executarApagar(id);
-            }}
-          >
-            Apagar
-          </button>
-        </div>
-      </div>
-    ), { duration: 6000 });
-  };
-
-  const executarApagar = async (id: string) => {
-    const promise = deleteFornecedor(id);
-    toast.promise(promise, {
-      loading: 'A apagar fornecedor...',
-      success: () => {
-        setFornecedores(prev => prev.filter(f => f.id !== id));
-        return 'Fornecedor apagado com sucesso!';
-      },
-      error: 'Erro ao apagar o fornecedor.',
-    });
-  };
-
-  
-  // --- A LÓGICA DE ADICIONAR/EDITAR ---
-  
-  // Abre o modal para CRIAR
-  const handleAdicionar = () => {
-    setFornecedorSelecionado(null); 
-    setIsModalOpen(true);
-  };
-
-  // Abre o modal para EDITAR
-  const handleEditar = (fornecedor: Fornecedor) => {
-    setFornecedorSelecionado(fornecedor);
-    setIsModalOpen(true);
-  };
-  
-  // 3. ESTA É A FUNÇÃO QUE O MODAL VAI CHAMAR
-  // O nome (handleFornecedorSalvo) deve corresponder ao que passamos na prop
-  const handleFornecedorSalvo = (fornecedorSalvo: Fornecedor) => {
-    const fornecedorExiste = fornecedores.find(f => f.id === fornecedorSalvo.id);
-    
-    if (fornecedorExiste) {
-      // Atualiza o item na lista
-      setFornecedores(prev => 
-        prev.map(f => 
-          f.id === fornecedorSalvo.id ? fornecedorSalvo : f
-        )
-      );
-    } else {
-      // Adiciona o novo item à lista
-      setFornecedores(prev => [fornecedorSalvo, ...prev]);
+  const carregarFornecedores = async () => {
+    try {
+      setLoading(true);
+      const data = await getFornecedores();
+      setFornecedores(data);
+    } catch (error) {
+      toast.error("Erro ao carregar fornecedores.");
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Filtragem (Usando nomes em Inglês)
+  const filtered = fornecedores.filter(f => 
+    f.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  if (loading) return <div>A carregar fornecedores...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  // Deletar
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir?")) return;
+    try {
+      await deleteFornecedor(id);
+      setFornecedores(prev => prev.filter(f => f.id !== id));
+      toast.success("Fornecedor removido.");
+    } catch (e) {
+      toast.error("Erro ao excluir.");
+    }
+  };
+
+  // Abrir Modal
+  const openModal = (provider?: Fornecedor) => {
+    setEditingProvider(provider || null);
+    setIsModalOpen(true);
+  };
 
   return (
-    <>
+    <div className="space-y-6">
       <Toaster position="top-right" />
-      <div className="space-y-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex justify-between items-center"
-        >
-          <h1 className="text-3xl font-bold text-carvao">Gestão de Fornecedores</h1>
-          
-          <button 
-            onClick={handleAdicionar} // Chama a função de adicionar
-            className="bg-carvao text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 transform hover:scale-105"
-          >
-            + Adicionar Fornecedor
-          </button>
-        </motion.div>
 
-        <Card delay={0.1}>
-          <h2 className="text-xl font-semibold mb-4 text-carvao">Meus Fornecedores</h2>
-          
-          {fornecedores.length === 0 ? (
-            <p className="text-gray-500">Nenhum fornecedor encontrado.</p>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {fornecedores.map(f => (
-                <motion.li 
-                  key={f.id} 
-                  className="py-4 flex justify-between items-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  layout
-                >
-                  <div className="flex-1">
-                    <a 
-                      href={f.url || '#'} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className={`font-medium text-lg ${f.url ? 'text-indigo-600 hover:underline' : 'text-gray-900'}`}
-                    >
-                      {f.name}
-                    </a>
-                    <p className="text-sm text-dourado font-semibold">{f.contactPhone || 'Sem telefone'}</p>
-                    {f.url && (
-                      <span className="text-sm text-indigo-600 flex items-center">
-                        <LinkIcon size={14} className="mr-1" />
-                        {f.url}
-                      </span>
-                    )}
-                    <p className="text-sm text-gray-500 mt-1">{f.paymentTerms || 'Sem condições de pagamento'}</p>
-                  </div>
-                  
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEditar(f)} // Chama a função de editar
-                      className="p-2 rounded-full text-gray-400 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-                      title="Editar Fornecedor"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleApagarFornecedor(f.id, f.name)}
-                      className="p-2 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors"
-                      title="Apagar Fornecedor"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </motion.li>
-              ))}
-            </ul>
-          )}
-        </Card>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div>
+          <h1 className="text-2xl font-bold text-carvao">Fornecedores</h1>
+          <p className="text-gray-500 text-sm">Parceiros e fabricantes.</p>
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              placeholder="Buscar fornecedor..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-dourado w-full"
+            />
+          </div>
+          <button onClick={() => openModal()} className="bg-carvao text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-md">
+            <Plus size={20} /> Novo
+          </button>
+        </div>
       </div>
-      
-      {/* --- A CORREÇÃO ESTÁ AQUI --- */}
-      {/* 4. Garantir que a prop 'onFornecedorSalvo' está a ser passada CORRETAMENTE */}
-      <FornecedorFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        fornecedorParaEditar={fornecedorSelecionado}
-        onFornecedorSalvo={handleFornecedorSalvo} 
+
+      {/* Lista / Grid */}
+      {loading ? (
+        <div className="flex justify-center p-10"><Loader2 className="animate-spin text-gray-400"/></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center p-10 text-gray-400 bg-white rounded-xl border border-gray-100">Nenhum fornecedor encontrado.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(f => (
+            <div key={f.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group relative">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-lg text-gray-800">{f.name}</h3>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openModal(f)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16}/></button>
+                  <button onClick={() => handleDelete(f.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-sm text-gray-600">
+                {f.contactPhone && (
+                  <div className="flex items-center gap-2">
+                    <Phone size={14} className="text-dourado"/> <span>{f.contactPhone}</span>
+                  </div>
+                )}
+                {f.url && (
+                  <div className="flex items-center gap-2">
+                    <LinkIcon size={14} className="text-dourado"/> 
+                    <a href={f.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-[200px]">{f.url}</a>
+                  </div>
+                )}
+                {f.paymentTerms && (
+                  <div className="flex items-center gap-2">
+                    <Truck size={14} className="text-dourado"/> <span>{f.paymentTerms}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal Interno */}
+      <FornecedorModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        provider={editingProvider} 
+        onSuccess={(p: Fornecedor) => {
+          if (editingProvider) {
+            setFornecedores(prev => prev.map(f => f.id === p.id ? p : f));
+          } else {
+            setFornecedores(prev => [...prev, p]);
+          }
+          setIsModalOpen(false);
+        }}
       />
-    </>
+    </div>
+  );
+}
+
+// --- COMPONENTE DO FORMULÁRIO (MODAL) ---
+function FornecedorModal({ isOpen, onClose, provider, onSuccess }: any) {
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FornecedorFormData>({
+    resolver: zodResolver(fornecedorSchema)
+  });
+
+  // Preencher form ao editar
+  React.useEffect(() => {
+    if (isOpen) {
+      reset({
+        name: provider?.name || '',
+        contactPhone: provider?.contactPhone || '',
+        url: provider?.url || '',
+        paymentTerms: provider?.paymentTerms || '',
+        email: provider?.email || '',
+        pixKey: provider?.pixKey || ''
+      });
+    }
+  }, [isOpen, provider, reset]);
+
+  const onSubmit = async (data: FornecedorFormData) => {
+    try {
+      let result;
+      if (provider) {
+        result = await updateFornecedor(provider.id, data);
+        toast.success("Atualizado!");
+      } else {
+        result = await createFornecedor(data);
+        toast.success("Criado!");
+      }
+      onSuccess(result);
+    } catch (e) {
+      toast.error("Erro ao salvar.");
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <motion.div 
+            initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+            className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+              <h3 className="font-bold text-gray-800">{provider ? 'Editar Fornecedor' : 'Novo Fornecedor'}</h3>
+              <button onClick={onClose}><X size={20} className="text-gray-500 hover:text-gray-700"/></button>
+            </div>
+            
+            <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-4">
+              <Input label="Nome da Empresa *" name="name" register={register} error={errors.name} placeholder="Ex: Pratas Matriz" />
+              <Input label="Telefone / WhatsApp" name="contactPhone" register={register} error={errors.contactPhone} placeholder="Ex: 1199999..." />
+              <Input label="Site ou Catálogo (URL)" name="url" register={register} error={errors.url} placeholder="https://..." />
+              <Input label="Prazo de Pagamento" name="paymentTerms" register={register} error={errors.paymentTerms} placeholder="Ex: 30/60 dias" />
+              
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button type="submit" disabled={isSubmitting} className="bg-carvao text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 flex items-center gap-2">
+                  {isSubmitting && <Loader2 className="animate-spin" size={16} />} Salvar
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

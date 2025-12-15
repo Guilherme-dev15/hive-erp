@@ -1,129 +1,156 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, AlertCircle, Package, Award } from 'lucide-react';
-import { getABCReport } from '../services/apiService';
-import { type ABCProduct } from '../types';
+import { Download, TrendingUp, AlertTriangle, Package, Loader2 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 
-const formatMoney = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { getAdminProdutos } from '../services/apiService';
+import type { ProdutoAdmin } from '../types';
 
-// Componente de Badge para a Classe
-const ClassBadge = ({ classification }: { classification: string }) => {
-  const colors = {
-    'A': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'B': 'bg-gray-100 text-gray-700 border-gray-200',
-    'C': 'bg-red-50 text-red-700 border-red-100'
-  };
-  const labels = {
-    'A': 'Classe A (Ouro)',
-    'B': 'Classe B (Prata)',
-    'C': 'Classe C (Atenção)'
-  };
-
-  return (
-    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[classification as keyof typeof colors]}`}>
-      {labels[classification as keyof typeof labels]}
-    </span>
-  );
-};
+// Utilitário
+const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function RelatoriosPage() {
-  const [data, setData] = useState<ABCProduct[]>([]);
+  const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    async function carregarDados() {
       try {
-        const report = await getABCReport();
-        setData(report);
-      } catch (error) {
-        toast.error("Erro ao carregar relatório.");
+        setLoading(true);
+        const data = await getAdminProdutos();
+        setProdutos(data);
+      } catch (e) {
+        toast.error("Erro ao carregar dados.");
       } finally {
         setLoading(false);
       }
     }
-    load();
+    carregarDados();
   }, []);
 
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-dourado" size={40} /></div>;
+  // --- CÁLCULOS (Engine de Relatórios) ---
+  const { curvaABC, resumoEstoque } = useMemo(() => {
+    if (produtos.length === 0) return { curvaABC: [], resumoEstoque: { totalItens: 0, valorTotal: 0, produtosZerados: 0 } };
+
+    // 1. Resumo de Estoque
+    const resumo = produtos.reduce((acc, p) => {
+      const qtd = Number(p.quantity) || 0;
+      const preco = Number(p.salePrice) || 0;
+      
+      acc.totalItens += qtd;
+      acc.valorTotal += (qtd * preco);
+      if (qtd === 0) acc.produtosZerados++;
+      
+      return acc;
+    }, { totalItens: 0, valorTotal: 0, produtosZerados: 0 });
+
+    // 2. Curva ABC (Simulada baseada em Estoque x Preço, idealmente seria Vendas)
+    // Ordena por valor total em estoque (Potencial de Venda)
+    const sorted = [...produtos].sort((a, b) => {
+        const valA = (a.salePrice || 0) * (a.quantity || 0);
+        const valB = (b.salePrice || 0) * (b.quantity || 0);
+        return valB - valA;
+    });
+
+    const totalValor = resumo.valorTotal || 1; // Evita divisão por zero
+    let acumulado = 0;
+
+    const abc = sorted.map(p => {
+       const valorEstoque = (p.salePrice || 0) * (p.quantity || 0);
+       acumulado += valorEstoque;
+       const percentual = (acumulado / totalValor) * 100;
+       
+       let classif = 'C';
+       if (percentual <= 80) classif = 'A';
+       else if (percentual <= 95) classif = 'B';
+       
+       return {
+         ...p,
+         valorEstoque,
+         classificacao: classif
+       };
+    });
+
+    return { curvaABC: abc, resumoEstoque: resumo };
+  }, [produtos]);
+
+  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-dourado"/></div>;
 
   return (
-    <div className="space-y-8 pb-10">
-      <Toaster position="top-right" />
+    <div className="space-y-6 pb-10">
+      <Toaster position="top-right"/>
       
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-3xl font-bold text-carvao">Inteligência de Vendas</h1>
-        <p className="text-gray-500 mt-1">Descubra quais produtos pagam as suas contas (Curva ABC).</p>
-      </motion.div>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-carvao">Relatórios & Inteligência</h1>
+          <p className="text-gray-500 text-sm">Análise de estoque e curva ABC.</p>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
+           <Download size={18}/> Exportar CSV
+        </button>
+      </div>
 
-      {/* Resumo Rápido */}
+      {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400 flex items-center gap-4">
-           <div className="p-3 bg-yellow-50 rounded-full text-yellow-600"><Award /></div>
+        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
            <div>
-             <p className="text-xs text-gray-500 uppercase font-bold">Campeões de Venda (A)</p>
-             <p className="text-xl font-bold text-carvao">{data.filter(i => i.classification === 'A').length} produtos</p>
+              <p className="text-gray-500 text-xs font-bold uppercase">Valor em Estoque</p>
+              <p className="text-2xl font-bold text-carvao">{formatCurrency(resumoEstoque.valorTotal)}</p>
            </div>
+           <div className="p-3 bg-green-50 text-green-600 rounded-lg"><DollarSignIcon/></div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-gray-400 flex items-center gap-4">
-           <div className="p-3 bg-gray-50 rounded-full text-gray-600"><Package /></div>
+
+        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
            <div>
-             <p className="text-xs text-gray-500 uppercase font-bold">Regulares (B)</p>
-             <p className="text-xl font-bold text-carvao">{data.filter(i => i.classification === 'B').length} produtos</p>
+              <p className="text-gray-500 text-xs font-bold uppercase">Total de Peças</p>
+              <p className="text-2xl font-bold text-carvao">{resumoEstoque.totalItens}</p>
            </div>
+           <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Package size={24}/></div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-400 flex items-center gap-4">
-           <div className="p-3 bg-red-50 rounded-full text-red-600"><AlertCircle /></div>
+
+        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
            <div>
-             <p className="text-xs text-gray-500 uppercase font-bold">Parados / Encalhe (C)</p>
-             <p className="text-xl font-bold text-carvao">{data.filter(i => i.classification === 'C').length} produtos</p>
+              <p className="text-gray-500 text-xs font-bold uppercase">Produtos Esgotados</p>
+              <p className="text-2xl font-bold text-red-600">{resumoEstoque.produtosZerados}</p>
            </div>
+           <div className="p-3 bg-red-50 text-red-600 rounded-lg"><AlertTriangle size={24}/></div>
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+      {/* Tabela Curva ABC */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-4 border-b">
+           <h3 className="font-bold text-gray-800 flex items-center gap-2"><TrendingUp size={18} className="text-dourado"/> Curva ABC (Potencial de Venda)</h3>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-xs border-b">
+            <thead className="bg-gray-50 text-gray-600 font-medium border-b">
               <tr>
-                <th className="px-6 py-4">Classificação</th>
-                <th className="px-6 py-4">Produto</th>
-                <th className="px-6 py-4 text-center">Un. Vendidas</th>
-                <th className="px-6 py-4 text-right">Faturação Total</th>
-                <th className="px-6 py-4 text-center">Stock Atual</th>
+                <th className="px-4 py-3">Produto</th>
+                <th className="px-4 py-3 text-center">Classificação</th>
+                <th className="px-4 py-3 text-right">Preço</th>
+                <th className="px-4 py-3 text-center">Qtd</th>
+                <th className="px-4 py-3 text-right">Valor em Estoque</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <ClassBadge classification={item.classification} />
+              {curvaABC.map(p => (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                      p.classificacao === 'A' ? 'bg-green-100 text-green-800' :
+                      p.classificacao === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      Classe {p.classificacao}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-carvao flex items-center gap-3">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="w-10 h-10 rounded object-cover border" />
-                    ) : (
-                      <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-300"><Package size={16} /></div>
-                    )}
-                    {item.name}
-                  </td>
-                  <td className="px-6 py-4 text-center font-mono text-gray-600">{item.unitsSold}</td>
-                  <td className="px-6 py-4 text-right font-bold text-carvao">{formatMoney(item.revenue)}</td>
-                  <td className="px-6 py-4 text-center">
-                    {item.stock === 0 ? (
-                      <span className="text-red-600 font-bold text-xs bg-red-50 px-2 py-1 rounded">ESGOTADO</span>
-                    ) : (
-                      <span className="text-gray-600 font-mono">{item.stock}</span>
-                    )}
-                  </td>
+                  <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(p.salePrice)}</td>
+                  <td className="px-4 py-3 text-center">{p.quantity}</td>
+                  <td className="px-4 py-3 text-right font-bold text-carvao">{formatCurrency(p.valorEstoque)}</td>
                 </tr>
               ))}
-              {data.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center py-10 text-gray-500">Sem dados de vendas suficientes.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -131,3 +158,8 @@ export function RelatoriosPage() {
     </div>
   );
 }
+
+// Icon Helper
+const DollarSignIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+);

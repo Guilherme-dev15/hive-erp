@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
-import { type Order, type OrderStatus } from '../types';
-import { getAdminOrders, updateAdminOrderStatus, getConfig } from '../services/apiService';
+import { type Order, type OrderStatus, type FirestoreDate } from '../types';
+import { getAdminOrders, updateAdminOrderStatus, getConfig, deleteAdminOrder } from '../services/apiService';
 import { type ConfigFormData } from '../types/schemas';
 
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
 import { 
-  Package, Truck, XCircle, Clock, Loader2, ScrollText, 
-  Search, Calendar, LayoutGrid, List as ListIcon 
+  Package, Truck, Clock, Loader2, ScrollText, 
+  Search, Calendar, LayoutGrid, List as ListIcon, XCircle, Trash2
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { CertificadoImpressao } from '../components/CertificadoImpressao';
@@ -19,7 +19,8 @@ const statusConfig: Record<OrderStatus, { icon: React.ReactNode; color: string; 
   'Em Produção': { icon: <Package size={16} />, color: 'text-blue-700', bg: 'bg-blue-50' },
   'Em Separação': { icon: <Package size={16} />, color: 'text-purple-700', bg: 'bg-purple-50' },
   'Enviado': { icon: <Truck size={16} />, color: 'text-green-700', bg: 'bg-green-50' },
-  'Cancelado': { icon: <XCircle size={16} />, color: 'text-red-700', bg: 'bg-red-50' }
+  'Cancelado': { icon: <XCircle size={16} />, color: 'text-red-700', bg: 'bg-red-50' },
+  'Concluído': { icon: <Package size={16} />, color: 'text-emerald-700', bg: 'bg-emerald-50' }
 };
 
 const statusOrdem: OrderStatus[] = [
@@ -30,25 +31,43 @@ const statusOrdem: OrderStatus[] = [
   'Cancelado'
 ];
 
-// --- 🛡️ FUNÇÕES BLINDADAS (Anti-Erro) ---
+// --- FUNÇÕES AUXILIARES SEGURAS (CORREÇÃO DOS ERROS DE TIPO) ---
 
-// Formata Dinheiro com Segurança
+// 1. Extrai segundos independente do formato (Timestamp, Date ou String)
+const getDateSeconds = (date: FirestoreDate | undefined): number => {
+  if (!date) return 0;
+  // Se for objeto do Firestore { seconds: ... }
+  if (typeof date === 'object' && 'seconds' in date) {
+    return date.seconds;
+  }
+  // Se for Date do JS
+  if (date instanceof Date) {
+    return Math.floor(date.getTime() / 1000);
+  }
+  // Se for String ISO
+  if (typeof date === 'string') {
+    return Math.floor(new Date(date).getTime() / 1000);
+  }
+  return 0;
+};
+
+// 2. Formata para exibir na tela
+const formatDate = (date: FirestoreDate | undefined): string => {
+  if (!date) return '-';
+  try {
+    const seconds = getDateSeconds(date);
+    if (seconds === 0) return '-';
+    return new Date(seconds * 1000).toLocaleDateString('pt-BR');
+  } catch (e) {
+    return '-';
+  }
+};
+
 const formatCurrency = (value: any): string => {
-  // Se for nulo, indefinido ou não for número
   if (value === undefined || value === null || isNaN(Number(value))) {
     return 'R$ 0,00';
   }
   return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
-
-// Formata Data com Segurança
-const formatDate = (timestamp: any): string => {
-  if (!timestamp || !timestamp.seconds) return '-';
-  try {
-    return new Date(timestamp.seconds * 1000).toLocaleDateString('pt-BR');
-  } catch (e) {
-    return '-';
-  }
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -57,17 +76,14 @@ export function PedidosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados de Controle e UI
   const [modalOpen, setModalOpen] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Order | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   
-  // Filtros e Visualização
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [dateFilter, setDateFilter] = useState<'all' | '7days' | '30days'>('all');
 
-  // Impressão
   const [config, setConfig] = useState<ConfigFormData | null>(null);
   const [pedidoParaCertificado, setPedidoParaCertificado] = useState<Order | null>(null);
   const certificadoRef = useRef<HTMLDivElement>(null);
@@ -78,12 +94,11 @@ export function PedidosPage() {
   });
 
   const prepararEImprimirCertificado = (pedido: Order) => {
-    // Só imprime se o pedido for válido
     if (!pedido) return;
     setPedidoParaCertificado(pedido);
     setTimeout(() => {
       handlePrintCertificado();
-    }, 200); // Aumentei o timeout para garantir renderização
+    }, 200);
   };
 
   useEffect(() => {
@@ -96,17 +111,25 @@ export function PedidosPage() {
            getConfig()
         ]);
 
-        // Sanitização: Remover pedidos nulos ou corrompidos da lista
         const pedidosLimpos = pedidosData.filter((p: any) => p && p.id);
-
-        const sortedPedidos = pedidosLimpos.sort((a: any, b: any) => {
-            const dateA = a.createdAt?.seconds || 0;
-            const dateB = b.createdAt?.seconds || 0;
+        
+        // CORREÇÃO: Usando a função auxiliar getDateSeconds para ordenar
+        const sortedPedidos = pedidosLimpos.sort((a: Order, b: Order) => {
+            const dateA = getDateSeconds(a.createdAt);
+            const dateB = getDateSeconds(b.createdAt);
             return dateB - dateA;
         });
 
         setPedidos(sortedPedidos);
-        setConfig(configData);
+
+        if (configData) {
+            setConfig({
+                ...configData,
+                warrantyText: configData.warrantyText || '',
+                lowStockThreshold: configData.lowStockThreshold || 5
+            });
+        }
+
       } catch (err) {
         setError("Falha ao carregar dados.");
         console.error(err);
@@ -117,21 +140,35 @@ export function PedidosPage() {
     carregarDados();
   }, []);
 
-  // --- LÓGICA DE FILTRAGEM ---
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este pedido permanentemente?")) return;
+    
+    try {
+        setPedidos(prev => prev.filter(p => p.id !== id)); // Otimista
+        await deleteAdminOrder(id);
+        toast.success("Pedido excluído!");
+    } catch (error) {
+        toast.error("Erro ao excluir. Tente novamente.");
+        const dados = await getAdminOrders();
+        setPedidos(dados);
+    }
+  };
+
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(pedido => {
       const termo = searchTerm.toLowerCase();
-      // Verificações seguras com "|| ''"
+      
       const id = pedido.id ? pedido.id.toLowerCase() : '';
-      const nome = pedido.clienteNome ? pedido.clienteNome.toLowerCase() : '';
-      const tel = pedido.clienteTelefone || '';
+      const nome = pedido.customerName ? pedido.customerName.toLowerCase() : '';
+      const tel = pedido.customerPhone || '';
 
       const matchText = id.includes(termo) || nome.includes(termo) || tel.includes(termo);
 
       if (!matchText) return false;
 
       if (dateFilter !== 'all') {
-        const segundos = pedido.createdAt?.seconds;
+        // CORREÇÃO: Usando a função auxiliar getDateSeconds para filtrar
+        const segundos = getDateSeconds(pedido.createdAt);
         if (!segundos) return false;
         
         const dataPedido = new Date(segundos * 1000);
@@ -145,7 +182,6 @@ export function PedidosPage() {
     });
   }, [pedidos, searchTerm, dateFilter]);
 
-  // Agrupamento para Kanban
   const pedidosAgrupados = useMemo(() => {
     const grupos: Record<string, Order[]> = {};
     statusOrdem.forEach(status => { grupos[status] = []; });
@@ -155,7 +191,6 @@ export function PedidosPage() {
       if (grupos[statusSeguro]) {
         grupos[statusSeguro].push(pedido);
       } else {
-        // Se o status for desconhecido, joga para Cancelado por segurança
         if (!grupos['Cancelado']) grupos['Cancelado'] = [];
         grupos['Cancelado'].push(pedido);
       }
@@ -211,6 +246,7 @@ export function PedidosPage() {
             <div className="relative">
                <select 
                  value={dateFilter}
+                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                  onChange={(e) => setDateFilter(e.target.value as any)}
                  className="appearance-none w-full sm:w-auto pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm bg-white cursor-pointer"
                >
@@ -269,47 +305,57 @@ export function PedidosPage() {
                       </div>
                       
                       <div className="text-xs text-gray-600 mb-2 truncate">
-                        {pedido.clienteNome || 'Cliente s/ nome'}
+                        {pedido.customerName || 'Cliente s/ nome'}
                       </div>
 
                       <div className="flex justify-between items-end mb-3">
                         <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
                           {pedido.items ? pedido.items.length : 0} itens
                         </span>
-                        {/* USO BLINDADO DO FORMATCURRENCY */}
                         <span className="font-bold text-dourado text-sm">
                           {formatCurrency(pedido.total)}
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-2">
+                      {/* BOTÕES DE AÇÃO (KANBAN) */}
+                      <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => prepararEImprimirCertificado(pedido)}
-                          className="flex items-center justify-center gap-1 py-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 rounded hover:bg-emerald-100 border border-emerald-200"
+                          title="Imprimir Certificado"
+                          className="flex items-center justify-center py-1 text-emerald-700 bg-emerald-50 rounded hover:bg-emerald-100 border border-emerald-200"
                         >
-                          <ScrollText size={12} /> Certificado
+                          <ScrollText size={14} />
                         </button>
 
                         <button
                           onClick={() => handleVerDetalhes(pedido)}
-                          className="py-1 text-[10px] font-bold text-blue-700 bg-blue-50 rounded hover:bg-blue-100 border border-blue-200 text-center"
+                          title="Ver Detalhes"
+                          className="flex items-center justify-center py-1 text-blue-700 bg-blue-50 rounded hover:bg-blue-100 border border-blue-200"
                         >
-                          Ver +
+                          <Search size={14} />
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(pedido.id)}
+                          title="Excluir Pedido"
+                          className="flex items-center justify-center py-1 text-red-700 bg-red-50 rounded hover:bg-red-100 border border-red-200"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                       
                       <div className="mt-2 pt-2 border-t border-gray-100">
-                         {updatingId === pedido.id ? (
-                            <div className="flex justify-center"><Loader2 className="animate-spin text-gray-400" size={14}/></div>
-                         ) : (
-                            <select
-                              value={pedido.status || 'Aguardando Pagamento'}
-                              onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
-                              className="w-full text-[10px] font-medium border-none bg-transparent text-gray-500 focus:ring-0 cursor-pointer text-center hover:text-carvao"
-                            >
-                              {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                         )}
+                          {updatingId === pedido.id ? (
+                             <div className="flex justify-center"><Loader2 className="animate-spin text-gray-400" size={14}/></div>
+                          ) : (
+                             <select
+                               value={pedido.status || 'Aguardando Pagamento'}
+                               onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
+                               className="w-full text-[10px] font-medium border-none bg-transparent text-gray-500 focus:ring-0 cursor-pointer text-center hover:text-carvao"
+                             >
+                               {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
+                             </select>
+                          )}
                       </div>
                     </motion.div>
                   ))}
@@ -343,8 +389,8 @@ export function PedidosPage() {
                         {formatDate(pedido.createdAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{pedido.clienteNome || 'S/ Nome'}</p>
-                        <p className="text-xs text-gray-400">{pedido.clienteTelefone || '-'}</p>
+                        <p className="font-medium text-gray-900">{pedido.customerName || 'S/ Nome'}</p>
+                        <p className="text-xs text-gray-400">{pedido.customerPhone || '-'}</p>
                       </td>
                       <td className="px-4 py-3 text-center text-gray-500">{pedido.items ? pedido.items.length : 0}</td>
                       <td className="px-4 py-3 text-right font-bold text-dourado">{formatCurrency(pedido.total)}</td>
@@ -357,12 +403,17 @@ export function PedidosPage() {
                           {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
+                      
+                      {/* AÇÕES DA LISTA */}
                       <td className="px-4 py-3 flex justify-center gap-2">
                         <button onClick={() => prepararEImprimirCertificado(pedido)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded" title="Certificado">
                           <ScrollText size={16} />
                         </button>
                         <button onClick={() => handleVerDetalhes(pedido)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Ver Detalhes">
                           <Search size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(pedido.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Excluir">
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>
@@ -380,7 +431,6 @@ export function PedidosPage() {
 
       </div>
 
-      {/* MODAL (Onde o erro também pode estar) */}
       <DetalhePedidoModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

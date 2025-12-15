@@ -1,84 +1,127 @@
-// Este ficheiro define a "forma" dos seus dados em toda a aplicação.
+// ============================================================================
+// TYPE DEFINITIONS (SINGLE SOURCE OF TRUTH)
+// ============================================================================
+
+// Tipo auxiliar para lidar com datas que podem vir como String (JSON), Date (JS) ou Timestamp (Firestore)
+export type FirestoreDate = string | Date | { seconds: number; nanoseconds: number };
+
+// ============================================================================
+// 1. DASHBOARD & GRÁFICOS (Essencial para a DashboardPage)
+// ============================================================================
+
+export interface DashboardStats {
+  totalVendas: number;
+  totalDespesas: number;
+  lucroLiquido: number;
+  saldoTotal: number;
+  activeProducts: number;
+}
+
+export interface ChartData {
+  salesByDay: { name: string; vendas: number }[];
+  incomeVsExpense: { name: string; value: number }[];
+}
+
+// ============================================================================
+// 2. PRODUTOS (Inventory)
+// ============================================================================
 
 export interface ProdutoAdmin {
   id: string;
   name: string;
   code?: string;
-  category?: string;
+  category: string;
   description?: string;
   imageUrl?: string;
-  costPrice: number;    
-  supplierId: string; 
-  // --- NOVO CAMPO ---
-  quantity: number; // Stock atual
-  salePrice?: number;   
-  marginPercent?: number; 
-  status?: 'ativo' | 'inativo';
-  supplierProductUrl?: string;
-}
-
-export interface Fornecedor {
-  id: string;
-  name: string;
-  contactPhone?: string; // Telefone (opcional)
-  url?: string; // Link do site (opcional)
-  paymentTerms?: string; // Condições de pagamento (opcional)
-}
-
-export interface Transacao {
-  id: string;
-  type: 'venda' | 'despesa' | 'capital'; 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  date: any; // Vamos tratar a data como string (ex: "2025-10-31")
-  amount: number; // Positivo para entradas (venda), negativo para saídas (despesa)
-  description: string;
   
-  productId?: string; // Opcional, para associar a um produto
+  // Financeiro
+  costPrice: number;
+  salePrice: number;
+  marginPercent?: number;
+  
+  // Estoque e Status
+  quantity: number;
+  status: 'ativo' | 'inativo';
+  
+  // Fornecedor
+  supplierId?: string;
+  supplierProductUrl?: string;
+  
+  // Metadados
+  createdAt?: FirestoreDate;
 }
 
-export interface DashboardStats {
-  totalVendas: number;
-  totalDespesas: number; // (Será um valor negativo)
-  lucroLiquido: number;
-  saldoTotal: number;
-}
+// ============================================================================
+// 3. PEDIDOS (Orders)
+// ============================================================================
 
-export interface Category {
-  id: string;
-  name: string;
-}
-
-// O Status que um pedido pode ter
 export type OrderStatus = 
   | 'Aguardando Pagamento' 
   | 'Em Produção' 
   | 'Em Separação' 
   | 'Enviado' 
+  | 'Concluído'
   | 'Cancelado';
 
-// Um item dentro de um pedido
 export interface OrderLineItem {
-  id: string; // O ID do produto
+  id: string;
   name: string;
   code?: string;
   salePrice: number;
-  quantidade: number;
+  quantity: number; // Padronizado para Inglês (era quantidade)
+  imageUrl?: string;
 }
 
-// A estrutura do Pedido como salva no Firebase
 export interface Order {
   id: string;
-  createdAt: any; // Firestore Timestamp
+  createdAt: FirestoreDate;
+  status: OrderStatus;
+  
+  // Cliente
+  customerName: string;
+  customerPhone: string;
+  
+  // Carrinho e Totais
   items: OrderLineItem[];
   subtotal: number;
-  desconto: number;
+  discount: number;
   total: number;
-  observacoes?: string;
-  status: OrderStatus;
-  financeiroRegistrado?: boolean;
-  // --- NOVOS CAMPOS ---
-  clienteNome?: string;
-  clienteTelefone?: string;
+  
+  // Detalhes
+  notes?: string;
+  financialRegistered?: boolean;
+}
+
+// ============================================================================
+// 4. FINANCEIRO (Transactions)
+// ============================================================================
+
+export interface Transacao {
+  id: string;
+  type: 'venda' | 'despesa' | 'capital'; 
+  date: FirestoreDate;
+  amount: number;
+  description: string;
+  category?: string; // Adicionado para categorizar despesas no Gráfico
+  productId?: string;
+  orderId?: string;
+}
+
+// ============================================================================
+// 5. CADASTROS AUXILIARES (Suppliers, Categories, Coupons)
+// ============================================================================
+
+export interface Fornecedor {
+  id: string;
+  name: string;
+  contactPhone?: string;
+  url?: string;
+  paymentTerms?: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
 }
 
 export interface Coupon {
@@ -88,12 +131,12 @@ export interface Coupon {
   status: 'ativo' | 'inativo';
 }
 
-export interface ABCProduct {
-  id: string;
-  name: string;
-  imageUrl?: string;
-  stock: number;
-  revenue: number;
-  unitsSold: number;
+// ============================================================================
+// 6. RELATÓRIOS
+// ============================================================================
+
+export interface ABCProduct extends ProdutoAdmin {
+  revenue: number;      // Faturamento total deste produto
+  unitsSold: number;    // Unidades vendidas
   classification: 'A' | 'B' | 'C';
 }
