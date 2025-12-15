@@ -13,6 +13,10 @@ export default defineConfig({
       devOptions: {
         enabled: true // Permite testar o PWA em localhost
       },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000, // 5 MB
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+      },
       manifest: {
         name: 'HivePratas Admin',
         short_name: 'HiveAdmin',
