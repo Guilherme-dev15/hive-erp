@@ -1,78 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
-import { Save, Loader2, Palette, Store, Calculator, Percent, Package, ScrollText, AlertTriangle } from 'lucide-react';
+import { 
+  Save, Loader2, Palette, Store, Calculator, Percent, 
+  Package, ScrollText, BellRing, Smartphone, Target, CreditCard 
+} from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 
-// --- COMPONENTES AUXILIARES ---
+// --- VARIANTES DE ANIMAÇÃO ---
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
 
-const Card = ({ children, borderColor = "border-gray-200" }: { children: React.ReactNode, borderColor?: string }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay: 0.1 }}
-    className={`bg-white shadow-lg rounded-lg p-6 border-l-4 ${borderColor} border-t border-r border-b border-gray-100`}
-  >
-    {children}
-  </motion.div>
-);
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100 } }
+};
 
-interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-  name: string;
-  description?: string;
-  icon?: React.ReactNode;
-}
+// --- COMPONENTES VISUAIS ---
 
-const FormInput = ({ label, description, icon, ...props }: FormInputProps) => (
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-    <div className="relative">
-      {icon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-          {icon}
-        </div>
-      )}
-      <input
-        {...props}
-        className={`w-full py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado transition-all ${icon ? 'pl-10 pr-3' : 'px-3'}`}
-      />
+const SectionHeader = ({ icon: Icon, title, description }: any) => (
+  <div className="flex items-start gap-4 mb-6">
+    <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+      <Icon size={24} />
     </div>
-    {description && <p className="mt-1 text-xs text-gray-500">{description}</p>}
+    <div>
+      <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+      <p className="text-sm text-gray-500">{description}</p>
+    </div>
   </div>
 );
 
-// --- PÁGINA PRINCIPAL ---
+const InputGroup = ({ label, children, description }: any) => (
+  <div className="space-y-1.5">
+    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1">{label}</label>
+    {children}
+    {description && <p className="text-[11px] text-gray-400 ml-1">{description}</p>}
+  </div>
+);
 
 export function ConfiguracoesPage() {
   const [formData, setFormData] = useState({
-    // Vendas
-    whatsappNumber: '',
-    monthlyGoal: '',
-
-    // White-Label (Visual)
-    storeName: 'HivePratas',
-    primaryColor: '#D4AF37',
-    secondaryColor: '#343434',
-
-    // Custos Operacionais
-    cardFee: '0',
-    packagingCost: '0',
-
-    // Garantia
-    warrantyText: '',
-
-    // NOVO: Gestão de Stock
-    lowStockThreshold: '5',
-    
-    // Banners (Mantido no estado para não perder se vier da API)
+    whatsappNumber: '', monthlyGoal: '',
+    storeName: 'HivePratas', primaryColor: '#D4AF37', secondaryColor: '#343434',
+    cardFee: '0', packagingCost: '0',
+    warrantyText: '', lowStockThreshold: '5',
     banners: [] as string[]
   });
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. Carregar Dados
   useEffect(() => {
     async function loadData() {
       try {
@@ -81,25 +63,18 @@ export function ConfiguracoesPage() {
           setFormData({
             whatsappNumber: data.whatsappNumber || '',
             monthlyGoal: data.monthlyGoal?.toString() || '',
-
             storeName: data.storeName || 'HivePratas',
             primaryColor: data.primaryColor || '#D4AF37',
             secondaryColor: data.secondaryColor || '#343434',
-
-            // Mapeando da API (cardFeePercent -> cardFee)
             cardFee: (data.cardFeePercent ?? data.cardFee ?? 0).toString(),
-            // Mapeando da API (packingCost -> packagingCost)
             packagingCost: (data.packingCost ?? data.packagingCost ?? 0).toString(),
-
-            warrantyText: data.warrantyText || '', // Garante string vazia se undefined
-            
+            warrantyText: data.warrantyText || '',
             lowStockThreshold: data.lowStockThreshold?.toString() || '5',
             banners: data.banners || []
           });
         }
       } catch (error) {
         toast.error("Erro ao carregar configurações.");
-        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -107,18 +82,15 @@ export function ConfiguracoesPage() {
     loadData();
   }, []);
 
-  // 2. Manipular Mudanças (Input)
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // 3. Salvar Dados
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Prepara o objeto exatamente como a API espera (Convertendo números)
       const payload = {
         whatsappNumber: formData.whatsappNumber,
         storeName: formData.storeName,
@@ -126,217 +98,196 @@ export function ConfiguracoesPage() {
         secondaryColor: formData.secondaryColor,
         warrantyText: formData.warrantyText,
         banners: formData.banners, 
-        
-        // Conversões Numéricas e Mapeamento de Nomes
         monthlyGoal: Number(formData.monthlyGoal) || 0,
-        
-        // A API pode esperar cardFeePercent ou cardFee (enviamos os dois por segurança ou conforme o tipo)
         cardFee: Number(formData.cardFee) || 0, 
         cardFeePercent: Number(formData.cardFee) || 0,
-        
         packagingCost: Number(formData.packagingCost) || 0,
         packingCost: Number(formData.packagingCost) || 0,
-        
         lowStockThreshold: Number(formData.lowStockThreshold) || 5,
-        productCounter: 0 // Campo obrigatório em alguns schemas, enviamos 0 se não usado
+        productCounter: 0
       };
 
       await saveConfig(payload);
-      
-      toast.success("Configurações salvas com sucesso!");
+      toast.success("Sistema atualizado com sucesso!");
     } catch (error) {
       toast.error("Erro ao salvar.");
-      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (loading) return (
-    <div className="flex justify-center items-center h-64">
-      <Loader2 className="animate-spin text-dourado" size={40} />
+    <div className="flex h-[80vh] items-center justify-center">
+      <Loader2 className="animate-spin text-indigo-600" size={40} />
     </div>
   );
 
   return (
-    <>
+    <motion.div 
+      className="pb-24 max-w-6xl mx-auto"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       <Toaster position="top-right" />
-      <div className="space-y-8 pb-10">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold text-carvao">Configurações da Loja</h1>
-          <p className="text-gray-500 mt-1">Personalize o visual, taxas e regras do seu negócio.</p>
-        </motion.div>
+      
+      {/* HEADER */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Configurações da Loja</h1>
+        <p className="text-gray-500 mt-2 text-lg">Personalize a identidade visual e as regras de negócio do seu sistema.</p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-
+      <form onSubmit={handleSubmit} className="space-y-6">
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
           {/* --- 1. IDENTIDADE VISUAL --- */}
-          <Card borderColor="border-blue-500">
-            <div className="flex items-center gap-2 mb-6 border-b pb-4">
-              <Palette className="text-blue-600" size={24} />
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">Identidade Visual</h2>
-                <p className="text-xs text-gray-500">Como a sua loja aparece para o cliente.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormInput
-                label="Nome da Loja"
-                name="storeName"
-                value={formData.storeName}
-                onChange={handleChange}
-                placeholder="Ex: Joias da Ana"
-                description="Aparece no topo do catálogo e na aba do navegador."
-              />
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cor Principal</label>
-                  <div className="flex items-center gap-2">
-                    <input type="color" name="primaryColor" value={formData.primaryColor} onChange={handleChange} className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm" />
-                    <input type="text" name="primaryColor" value={formData.primaryColor} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono" />
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cor Secundária</label>
-                  <div className="flex items-center gap-2">
-                    <input type="color" name="secondaryColor" value={formData.secondaryColor} onChange={handleChange} className="h-10 w-10 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm" />
-                    <input type="text" name="secondaryColor" value={formData.secondaryColor} onChange={handleChange} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* --- 2. CUSTOS OPERACIONAIS --- */}
-          <Card borderColor="border-green-500">
-            <div className="flex items-center gap-2 mb-6 border-b pb-4">
-              <Calculator className="text-green-600" size={24} />
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">Custos Operacionais</h2>
-                <p className="text-xs text-gray-500">Usado para calcular o lucro líquido.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormInput
-                label="Taxa de Cartão / Gateway (%)"
-                name="cardFee"
-                type="number"
-                step="0.01"
-                value={formData.cardFee}
-                onChange={handleChange}
-                placeholder="4.99"
-                icon={<Percent size={16} />}
-                description="Média da taxa cobrada pela maquininha."
-              />
-
-              <FormInput
-                label="Custo de Embalagem (R$)"
-                name="packagingCost"
-                type="number"
-                step="0.01"
-                value={formData.packagingCost}
-                onChange={handleChange}
-                placeholder="1.50"
-                icon={<Package size={16} />}
-                description="Custo médio por pedido (saquinho, caixa, etc.)."
-              />
-            </div>
-          </Card>
-
-          {/* --- 3. CONTROLE DE STOCK --- */}
-          <Card borderColor="border-yellow-500">
-            <div className="flex items-center gap-2 mb-6 border-b pb-4">
-              <AlertTriangle className="text-yellow-600" size={24} />
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">Alertas de Stock</h2>
-                <p className="text-xs text-gray-500">Defina quando o sistema deve avisar que o produto está a acabar.</p>
-              </div>
-            </div>
-
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 flex items-center gap-4">
-               <div className="flex-1">
-                 <FormInput
-                    label="Stock Mínimo para Alerta"
-                    name="lowStockThreshold"
-                    type="number"
-                    value={formData.lowStockThreshold}
+          <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <SectionHeader icon={Palette} title="Identidade Visual" description="Defina como sua marca aparece para o cliente." />
+            
+            <div className="space-y-5">
+              <InputGroup label="Nome da Loja" description="Nome exibido no cabeçalho do catálogo.">
+                <div className="relative">
+                  <Store className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    name="storeName"
+                    value={formData.storeName}
                     onChange={handleChange}
-                    placeholder="5"
-                    description="Produtos com quantidade igual ou menor a este valor ficarão destacados."
-                 />
-               </div>
-               <div className="hidden sm:block text-sm text-yellow-800 max-w-xs">
-                  Isto ajuda a gerar a lista de reposição antes que os produtos esgotem.
-               </div>
-            </div>
-          </Card>
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-medium"
+                    placeholder="Ex: Hive Pratas"
+                  />
+                </div>
+              </InputGroup>
 
-          {/* --- 4. CANAIS DE VENDA --- */}
-          <Card borderColor="border-dourado">
-            <div className="flex items-center gap-2 mb-6 border-b pb-4">
-              <Store className="text-dourado" size={24} />
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">Canais & Garantia</h2>
-                <p className="text-xs text-gray-500">Configurações de atendimento.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <InputGroup label="Cor Principal">
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-xl">
+                    <input type="color" name="primaryColor" value={formData.primaryColor} onChange={handleChange} className="h-8 w-8 rounded-lg cursor-pointer border-0 p-0" />
+                    <input type="text" name="primaryColor" value={formData.primaryColor} onChange={handleChange} className="w-full bg-transparent border-none text-xs font-mono uppercase focus:ring-0" />
+                  </div>
+                </InputGroup>
+                
+                <InputGroup label="Cor Secundária">
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-xl">
+                    <input type="color" name="secondaryColor" value={formData.secondaryColor} onChange={handleChange} className="h-8 w-8 rounded-lg cursor-pointer border-0 p-0" />
+                    <input type="text" name="secondaryColor" value={formData.secondaryColor} onChange={handleChange} className="w-full bg-transparent border-none text-xs font-mono uppercase focus:ring-0" />
+                  </div>
+                </InputGroup>
               </div>
             </div>
+          </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormInput
-                label="WhatsApp para Pedidos"
-                name="whatsappNumber"
-                value={formData.whatsappNumber}
-                onChange={handleChange}
-                placeholder="5511999998888"
-                description="Formato: 55 + DDD + Número (apenas dígitos)."
-              />
-              <FormInput
-                label="Meta de Lucro Mensal (R$)"
-                name="monthlyGoal"
-                type="number"
-                value={formData.monthlyGoal}
-                onChange={handleChange}
-                placeholder="1000"
-              />
-            </div>
+          {/* --- 2. OPERACIONAL & CUSTOS --- */}
+          <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <SectionHeader icon={Calculator} title="Custos & Metas" description="Dados para cálculo automático de lucro." />
 
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <ScrollText size={18} className="text-gray-400" />
-                <label className="block text-sm font-medium text-gray-700">Texto da Garantia (PDF)</label>
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                 <InputGroup label="Taxa Cartão (%)">
+                   <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                      <input
+                        type="number" step="0.01"
+                        name="cardFee"
+                        value={formData.cardFee}
+                        onChange={handleChange}
+                        className="w-full pl-9 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                      />
+                   </div>
+                 </InputGroup>
+
+                 <InputGroup label="Custo Embalagem (R$)">
+                   <div className="relative">
+                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                      <input
+                        type="number" step="0.01"
+                        name="packagingCost"
+                        value={formData.packagingCost}
+                        onChange={handleChange}
+                        className="w-full pl-9 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                      />
+                   </div>
+                 </InputGroup>
               </div>
-              <textarea
+
+              <InputGroup label="Meta Mensal de Lucro (R$)" description="Valor alvo para o Dashboard.">
+                <div className="relative">
+                   <Target className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                   <input
+                     type="number"
+                     name="monthlyGoal"
+                     value={formData.monthlyGoal}
+                     onChange={handleChange}
+                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700"
+                     placeholder="Ex: 5000"
+                   />
+                </div>
+              </InputGroup>
+            </div>
+          </motion.div>
+
+          {/* --- 3. ATENDIMENTO --- */}
+          <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <SectionHeader icon={Smartphone} title="Atendimento" description="Canais de contato e stock." />
+            
+            <div className="space-y-5">
+               <InputGroup label="WhatsApp (Com DDD)" description="Para onde os pedidos serão enviados.">
+                  <div className="relative">
+                     <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500" size={18} />
+                     <input
+                       name="whatsappNumber"
+                       value={formData.whatsappNumber}
+                       onChange={handleChange}
+                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                       placeholder="5511999998888"
+                     />
+                  </div>
+               </InputGroup>
+
+               <InputGroup label="Alerta de Stock Baixo" description="Quantidade mínima para avisar reposição.">
+                  <div className="relative">
+                     <BellRing className="absolute left-3 top-1/2 -translate-y-1/2 text-yellow-500" size={18} />
+                     <input
+                       type="number"
+                       name="lowStockThreshold"
+                       value={formData.lowStockThreshold}
+                       onChange={handleChange}
+                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
+                     />
+                  </div>
+               </InputGroup>
+            </div>
+          </motion.div>
+
+          {/* --- 4. GARANTIA --- */}
+          <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+             <SectionHeader icon={ScrollText} title="Termos de Garantia" description="Texto que sai no PDF de impressão." />
+             <textarea
                 name="warrantyText"
                 value={formData.warrantyText}
                 onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm"
-                placeholder="Ex: Garantia vitalícia na prata. 90 dias para defeitos de fabrico..."
-              />
-            </div>
-          </Card>
+                rows={5}
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm leading-relaxed"
+                placeholder="Ex: Garantia vitalícia na prata 925..."
+             />
+          </motion.div>
 
-          {/* Botão de Salvar */}
-          <div className="sticky bottom-6 flex justify-end z-10">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center bg-carvao text-white px-8 py-4 rounded-xl shadow-2xl hover:bg-gray-800 hover:scale-105 transition-all disabled:opacity-70 disabled:hover:scale-100 text-lg font-bold border-2 border-white/10"
-            >
-              {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-              Salvar Todas as Alterações
-            </button>
-          </div>
+        </div>
 
-        </form>
-      </div>
-    </>
+        {/* --- BARRA DE AÇÃO FLUTUANTE (VIDRO) --- */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-white/80 backdrop-blur-md border-t border-gray-200 flex justify-end z-40 md:pl-[280px]"> {/* Ajuste o padding-left se tiver sidebar fixa */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all disabled:opacity-70 disabled:hover:scale-100 font-bold text-sm md:text-base"
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+            Salvar Configurações
+          </button>
+        </div>
+
+      </form>
+    </motion.div>
   );
 }
 export default ConfiguracoesPage;
