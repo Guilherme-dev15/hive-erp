@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import { 
-  Save, Loader2, Palette, Store, Calculator, Percent, 
+  Save, Loader2, Palette, Store, Calculator, 
   Package, ScrollText, BellRing, Smartphone, Target, CreditCard 
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
