@@ -106,3 +106,22 @@ export const getDashboardCharts = async (): Promise<ChartData> => (await apiClie
 export const getABCReport = async (): Promise<ABCProduct[]> => (await apiClient.get('/admin/reports/abc')).data;
 export const getConfig = async (): Promise<any> => (await apiClient.get('/admin/config')).data;
 export const saveConfig = async (data: ConfigFormData): Promise<any> => (await apiClient.post('/admin/config', data)).data;
+
+// --- ESTOQUE ---
+
+export const adjustStock = async (data: { 
+  productId: string, 
+  type: 'entry' | 'exit' | 'loss', 
+  quantity: number, 
+  reason: string,
+  userName: string 
+}) => {
+  const response = await apiClient.post('/admin/inventory/adjust', data);
+  return response.data;
+};
+
+export const getProductLogs = async (productId: string) => {
+  // Atenção na crase (backtick) ` ` e na variável ${productId}
+  const response = await apiClient.get(`/admin/inventory/logs/${productId}`);
+  return response.data;
+};

@@ -463,4 +463,95 @@ if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => console.log(`🚀 API com Integração Financeira rodando na porta ${PORT}`));
 }
 
+
+// ============================================================================
+// GESTÃO DE ESTOQUE AVANÇADA (KARDEX)
+// ============================================================================
+
+// 1. Ajustar Estoque (Entrada/Saída Manual)
+app.post('/admin/inventory/adjust', authenticateUser, async (req, res) => {
+  const { productId, type, quantity, reason, userName } = req.body;
+
+  if (!productId || !quantity || !type) {
+    return res.status(400).json({ error: "Dados incompletos" });
+  }
+
+  try {
+    const productRef = db.collection(COLL.PRODUCTS).doc(productId);
+    const logsRef = db.collection('inventory_logs'); // Nova coleção
+
+    await db.runTransaction(async (t) => {
+      const doc = await t.get(productRef);
+      if (!doc.exists) throw new Error("Produto não encontrado");
+
+      const currentQty = doc.data().quantity || 0;
+      const adjustQty = parseInt(quantity);
+
+      // Define a nova quantidade baseada no tipo
+      let newQty = currentQty;
+      let change = 0;
+
+      if (type === 'entry') {
+        change = adjustQty;
+        newQty += adjustQty;
+      } else if (type === 'exit' || type === 'loss') {
+        change = -adjustQty;
+        newQty -= adjustQty;
+      }
+
+      // Atualiza o Produto
+      t.update(productRef, { quantity: newQty });
+
+      // Cria o Log (O Rastro)
+      const logData = {
+        productId,
+        productName: doc.data().name,
+        type, // entry, exit, loss
+        change, // +10 ou -5
+        oldQuantity: currentQty,
+        newQuantity: newQty,
+        reason: reason || 'Ajuste manual',
+        user: userName || 'Admin',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+
+      t.set(logsRef.doc(), logData);
+    });
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Erro no estoque:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 2. Ler Histórico de um Produto (TEM QUE TER ISSO AQUI)
+app.get('/admin/inventory/logs/:productId', authenticateUser, async (req, res) => {
+  try {
+    const s = await db.collection('inventory_logs')
+      .where('productId', '==', req.params.productId)
+      .orderBy('createdAt', 'desc') // <--- Isso exige o índice
+      .limit(20)
+      .get();
+
+    const logs = s.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        // Garante que a data não quebre o frontend
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+      };
+    });
+
+    res.json(logs);
+  }  catch (e) {
+    // ADICIONE ESTAS LINHAS PARA VER O LINK:
+    console.error("ERRO NO HISTÓRICO:", e);
+    console.error(e.details); // Às vezes o link está nos detalhes
+
+    res.status(500).json({ error: "Erro interno ao buscar logs" });
+  }
+});
+
 module.exports = app;
