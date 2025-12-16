@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Edit, Trash2, Package, Loader2, 
   RefreshCw, Filter, FolderTree, FileSpreadsheet, FileDown,
-  CheckSquare, Square, X
+  CheckSquare, Square, X, Tag
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { PDFDownloadLink } from '@react-pdf/renderer';
+import { useReactToPrint } from 'react-to-print'; // IMPORTANTE: Instale npm install react-to-print
 
 // --- SERVIÇOS ---
 import { 
@@ -22,6 +23,7 @@ import { ImportModal } from '../components/ImportModal';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 import { CategoryModal } from '../components/CategoryModal';
 import { CatalogPDF } from '../components/CatologPDF'; 
+import { EtiquetaImpressao } from '../components/EtiquetaImpressao'; // <--- IMPORT NOVO
 
 // --- TIPOS ---
 import type { ProdutoAdmin, Category, Fornecedor } from '../types';
@@ -42,7 +44,15 @@ export function ProdutosPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
-  // 4. MODAIS
+  // 4. REF E LÓGICA DE IMPRESSÃO (NOVO)
+  const etiquetaRef = useRef<HTMLDivElement>(null);
+  const handlePrintEtiquetas = useReactToPrint({
+    contentRef: etiquetaRef,
+    documentTitle: 'Etiquetas_Produtos',
+    onAfterPrint: () => toast.success("Impressão enviada!")
+  });
+
+  // 5. MODAIS
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -76,7 +86,7 @@ export function ProdutosPage() {
   useEffect(() => { carregarDados(); }, []);
 
   // ============================================================================
-  // LÓGICA DE FILTRAGEM (MOVIDO PARA CIMA PARA CORRIGIR O ERRO)
+  // LÓGICA DE FILTRAGEM
   // ============================================================================
   const produtosFiltrados = useMemo(() => {
     return produtos.filter(p => {
@@ -88,18 +98,22 @@ export function ProdutosPage() {
   }, [produtos, searchTerm, filterCategory]);
 
   // ============================================================================
-  // LÓGICA DE PDF (DEPENDE DO FILTRADO)
+  // LÓGICA DE SELEÇÃO (PDF E ETIQUETAS)
   // ============================================================================
-  const produtosParaPdf = useMemo(() => {
+  const produtosSelecionados = useMemo(() => {
     if (selectedIds.length > 0) {
       return produtos.filter(p => selectedIds.includes(p.id));
     }
-    return produtosFiltrados; 
-  }, [selectedIds, produtos, produtosFiltrados]);
+    // Se nada selecionado, retorna vazio (para etiquetas, não queremos imprimir tudo sem querer)
+    return []; 
+  }, [selectedIds, produtos]);
 
-  // ============================================================================
-  // LÓGICA DE SELEÇÃO
-  // ============================================================================
+  // Produtos para o PDF (Pode ser todos se nada selecionado, conforme lógica anterior)
+  const produtosParaPdf = useMemo(() => {
+    if (selectedIds.length > 0) return produtosSelecionados;
+    return produtosFiltrados; 
+  }, [selectedIds, produtosSelecionados, produtosFiltrados]);
+
   
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => 
@@ -122,6 +136,14 @@ export function ProdutosPage() {
       return;
     }
     setIsGeneratingPdf(true); 
+  };
+
+  // Wrapper para imprimir etiquetas com validação
+  const onPrintClick = () => {
+    if (selectedIds.length === 0) {
+      return toast.error("Selecione pelo menos um produto para imprimir a etiqueta.");
+    }
+    handlePrintEtiquetas();
   };
 
   // ============================================================================
@@ -173,14 +195,24 @@ export function ProdutosPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {selectedIds.length > 0 
-              ? <span className="text-blue-600 font-bold">{selectedIds.length} produtos selecionados para o catálogo</span>
-              : "Selecione produtos para gerar um catálogo personalizado."
+              ? <span className="text-blue-600 font-bold">{selectedIds.length} produtos selecionados</span>
+              : "Gerencie, filtre e imprima seus produtos."
             }
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3 w-full lg:w-auto items-center">
-           {/* BOTÃO GERAR PDF INTELIGENTE */}
+           
+           {/* BOTÃO ETIQUETAS (NOVO) */}
+           <button 
+             onClick={onPrintClick}
+             className={`p-2 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 flex items-center gap-2 transition-colors ${selectedIds.length > 0 ? 'border-blue-200 bg-blue-50 text-blue-700' : ''}`}
+             title="Imprimir Etiquetas Selecionadas"
+           >
+             <Tag size={18}/> <span className="hidden sm:inline font-medium">Etiquetas</span>
+           </button>
+
+           {/* BOTÃO PDF */}
            {isGeneratingPdf ? (
              <div className="flex items-center gap-2 bg-red-50 border border-red-100 px-4 py-2 rounded-xl animate-pulse">
                 <PDFDownloadLink
@@ -194,19 +226,17 @@ export function ProdutosPage() {
                   className="flex items-center gap-2 text-red-600 font-bold text-sm"
                 >
                   {/* @ts-ignore */}
-                  {({ loading }) => (loading ? 'Gerando PDF...' : 'Baixar Arquivo PDF')}
+                  {({ loading }) => (loading ? 'Gerando...' : 'Baixar PDF')}
                 </PDFDownloadLink>
                 <button onClick={() => setIsGeneratingPdf(false)}><X size={14} className="text-red-400"/></button>
              </div>
            ) : (
              <button 
-                onClick={handlePreparePdf}
-                className={`px-4 py-2 border rounded-xl flex items-center gap-2 font-medium transition-colors shadow-sm ${selectedIds.length > 0 ? 'bg-red-600 text-white border-red-600 hover:bg-red-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+               onClick={handlePreparePdf}
+               className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50"
+               title="Gerar Catálogo PDF"
              >
-                <FileDown size={18} /> 
-                <span className="hidden sm:inline">
-                  {selectedIds.length > 0 ? `Gerar PDF (${selectedIds.length})` : 'Gerar PDF Completo'}
-                </span>
+                <FileDown size={18} />
              </button>
            )}
 
@@ -242,7 +272,7 @@ export function ProdutosPage() {
         <div className="flex-grow relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input 
-            type="text" placeholder="Buscar..." 
+            type="text" placeholder="Buscar nome ou código..." 
             value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-dourado outline-none"
           />
@@ -314,6 +344,13 @@ export function ProdutosPage() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* --- COMPONENTE OCULTO DE IMPRESSÃO DE ETIQUETAS --- */}
+      <EtiquetaImpressao 
+        ref={etiquetaRef} 
+        produtos={produtosSelecionados} 
+        config={{ storeName: storeConfig?.storeName }} 
+      />
 
       {/* MODAIS */}
       <ProdutoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} fornecedores={fornecedores} categories={categories} setCategories={setCategories} produtoParaEditar={produtoEditando} onProdutoSalvo={handleSaveSuccess} configGlobal={undefined} />
