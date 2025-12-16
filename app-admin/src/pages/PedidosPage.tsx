@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
@@ -28,45 +29,31 @@ const statusOrdem: OrderStatus[] = [
   'Em Produção',
   'Em Separação',
   'Enviado',
+  'Concluído', // Adicionado para garantir que apareça no filtro
   'Cancelado'
 ];
 
-// --- FUNÇÕES AUXILIARES SEGURAS (CORREÇÃO DOS ERROS DE TIPO) ---
+// --- FUNÇÕES AUXILIARES SEGURAS ---
 
-// 1. Extrai segundos independente do formato (Timestamp, Date ou String)
 const getDateSeconds = (date: FirestoreDate | undefined): number => {
   if (!date) return 0;
-  // Se for objeto do Firestore { seconds: ... }
-  if (typeof date === 'object' && 'seconds' in date) {
-    return date.seconds;
-  }
-  // Se for Date do JS
-  if (date instanceof Date) {
-    return Math.floor(date.getTime() / 1000);
-  }
-  // Se for String ISO
-  if (typeof date === 'string') {
-    return Math.floor(new Date(date).getTime() / 1000);
-  }
+  if (typeof date === 'object' && 'seconds' in date) return date.seconds;
+  if (date instanceof Date) return Math.floor(date.getTime() / 1000);
+  if (typeof date === 'string') return Math.floor(new Date(date).getTime() / 1000);
   return 0;
 };
 
-// 2. Formata para exibir na tela
 const formatDate = (date: FirestoreDate | undefined): string => {
   if (!date) return '-';
   try {
     const seconds = getDateSeconds(date);
     if (seconds === 0) return '-';
     return new Date(seconds * 1000).toLocaleDateString('pt-BR');
-  } catch (e) {
-    return '-';
-  }
+  } catch (e) { return '-'; }
 };
 
 const formatCurrency = (value: any): string => {
-  if (value === undefined || value === null || isNaN(Number(value))) {
-    return 'R$ 0,00';
-  }
+  if (value === undefined || value === null || isNaN(Number(value))) return 'R$ 0,00';
   return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
@@ -96,9 +83,7 @@ export function PedidosPage() {
   const prepararEImprimirCertificado = (pedido: Order) => {
     if (!pedido) return;
     setPedidoParaCertificado(pedido);
-    setTimeout(() => {
-      handlePrintCertificado();
-    }, 200);
+    setTimeout(() => { handlePrintCertificado(); }, 200);
   };
 
   useEffect(() => {
@@ -113,21 +98,20 @@ export function PedidosPage() {
 
         const pedidosLimpos = pedidosData.filter((p: any) => p && p.id);
         
-        // CORREÇÃO: Usando a função auxiliar getDateSeconds para ordenar
         const sortedPedidos = pedidosLimpos.sort((a: Order, b: Order) => {
-            const dateA = getDateSeconds(a.createdAt);
-            const dateB = getDateSeconds(b.createdAt);
-            return dateB - dateA;
+           const dateA = getDateSeconds(a.createdAt);
+           const dateB = getDateSeconds(b.createdAt);
+           return dateB - dateA;
         });
 
         setPedidos(sortedPedidos);
 
         if (configData) {
-            setConfig({
-                ...configData,
-                warrantyText: configData.warrantyText || '',
-                lowStockThreshold: configData.lowStockThreshold || 5
-            });
+           setConfig({
+               ...configData,
+               warrantyText: configData.warrantyText || '',
+               lowStockThreshold: configData.lowStockThreshold || 5
+           });
         }
 
       } catch (err) {
@@ -143,41 +127,38 @@ export function PedidosPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este pedido permanentemente?")) return;
     
+    // Otimista: Remove da tela antes
+    const backup = [...pedidos];
+    setPedidos(prev => prev.filter(p => p.id !== id)); 
+    
     try {
-        setPedidos(prev => prev.filter(p => p.id !== id)); // Otimista
         await deleteAdminOrder(id);
         toast.success("Pedido excluído!");
     } catch (error) {
+        setPedidos(backup); // Restaura se der erro
         toast.error("Erro ao excluir. Tente novamente.");
-        const dados = await getAdminOrders();
-        setPedidos(dados);
     }
   };
 
+  // --- LÓGICA DE FILTROS ---
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(pedido => {
       const termo = searchTerm.toLowerCase();
-      
       const id = pedido.id ? pedido.id.toLowerCase() : '';
       const nome = pedido.customerName ? pedido.customerName.toLowerCase() : '';
       const tel = pedido.customerPhone || '';
 
       const matchText = id.includes(termo) || nome.includes(termo) || tel.includes(termo);
-
       if (!matchText) return false;
 
       if (dateFilter !== 'all') {
-        // CORREÇÃO: Usando a função auxiliar getDateSeconds para filtrar
         const segundos = getDateSeconds(pedido.createdAt);
         if (!segundos) return false;
-        
         const dataPedido = new Date(segundos * 1000);
         const diasAtras = (new Date().getTime() - dataPedido.getTime()) / (1000 * 3600 * 24);
-        
         if (dateFilter === '7days' && diasAtras > 7) return false;
         if (dateFilter === '30days' && diasAtras > 30) return false;
       }
-
       return true;
     });
   }, [pedidos, searchTerm, dateFilter]);
@@ -191,6 +172,7 @@ export function PedidosPage() {
       if (grupos[statusSeguro]) {
         grupos[statusSeguro].push(pedido);
       } else {
+        // Se o status não existe na lista padrão, joga para Cancelado ou cria grupo
         if (!grupos['Cancelado']) grupos['Cancelado'] = [];
         grupos['Cancelado'].push(pedido);
       }
@@ -203,14 +185,29 @@ export function PedidosPage() {
     setModalOpen(true);
   };
   
+  // 🔥 LÓGICA PROFISSIONAL DE ATUALIZAÇÃO (SEM F5)
   const handleStatusChange = async (pedidoId: string, novoStatus: OrderStatus) => {
+    // 1. Snapshot para Rollback
+    const pedidosAnteriores = [...pedidos];
+
+    // 2. Atualização Otimista (Muda na hora na tela)
+    setPedidos(prev => prev.map(p => 
+      p.id === pedidoId ? { ...p, status: novoStatus } : p
+    ));
+
+    // 3. Feedback visual
+    const toastId = toast.loading("Processando...");
     setUpdatingId(pedidoId);
+
     try {
-      const pedidoAtualizado = await updateAdminOrderStatus(pedidoId, novoStatus);
-      setPedidos(prev => prev.map(p => p.id === pedidoId ? pedidoAtualizado : p));
-      toast.success(`Pedido atualizado!`);
+      // 4. Chamada API (O Backend cuida de gerar o financeiro)
+      await updateAdminOrderStatus(pedidoId, novoStatus);
+      toast.success(`Movido para ${novoStatus}`, { id: toastId });
     } catch (err) {
-      toast.error("Erro ao atualizar status.");
+      console.error(err);
+      // 5. Rollback se der erro
+      setPedidos(pedidosAnteriores);
+      toast.error("Erro ao atualizar status.", { id: toastId });
     } finally {
       setUpdatingId(null);
     }
@@ -224,7 +221,7 @@ export function PedidosPage() {
       <Toaster position="top-right" />
       <div className="space-y-6 pb-10">
         
-        {/* --- BARRA DE CONTROLE --- */}
+        {/* --- HEADER E FILTROS --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-bold text-carvao">Gestão de Pedidos</h1>
@@ -246,7 +243,6 @@ export function PedidosPage() {
             <div className="relative">
                <select 
                  value={dateFilter}
-                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                  onChange={(e) => setDateFilter(e.target.value as any)}
                  className="appearance-none w-full sm:w-auto pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dourado text-sm bg-white cursor-pointer"
                >
@@ -258,25 +254,19 @@ export function PedidosPage() {
             </div>
 
             <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button 
-                onClick={() => setViewMode('kanban')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}
-              >
+              <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}>
                 <LayoutGrid size={18} />
               </button>
-              <button 
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}
-              >
+              <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-carvao' : 'text-gray-400 hover:text-gray-600'}`}>
                 <ListIcon size={18} />
               </button>
             </div>
           </div>
         </div>
         
-        {/* --- MODO KANBAN --- */}
+        {/* --- VIEW KANBAN --- */}
         {viewMode === 'kanban' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 overflow-x-auto pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 overflow-x-auto pb-4 items-start">
             {statusOrdem.map(status => (
               <div key={status} className="bg-off-white rounded-lg shadow-inner h-fit max-h-[calc(100vh-220px)] flex flex-col min-w-[250px]">
                 <div className={`flex items-center gap-2 p-3 border-b-2 ${statusConfig[status].color} ${statusConfig[status].bg} rounded-t-lg sticky top-0 z-10`}>
@@ -286,30 +276,26 @@ export function PedidosPage() {
                   </h2>
                 </div>
                 
-                <div className="p-2 space-y-2 overflow-y-auto custom-scrollbar">
+                <div className="p-2 space-y-2 overflow-y-auto custom-scrollbar min-h-[100px]">
                   {pedidosAgrupados[status].map(pedido => (
                     <motion.div 
                       key={pedido.id}
-                      layout
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      layoutId={pedido.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
                       className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
                     >
                       <div className="flex justify-between items-center mb-1">
-                        <span className="font-bold text-carvao text-sm">
-                          #{pedido.id.substring(0, 5).toUpperCase()}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          {formatDate(pedido.createdAt)}
-                        </span>
+                        <span className="font-bold text-carvao text-sm">#{pedido.id.substring(0, 5).toUpperCase()}</span>
+                        <span className="text-[10px] text-gray-400">{formatDate(pedido.createdAt)}</span>
                       </div>
                       
-                      <div className="text-xs text-gray-600 mb-2 truncate">
+                      <div className="text-xs text-gray-600 mb-2 truncate font-medium">
                         {pedido.customerName || 'Cliente s/ nome'}
                       </div>
 
                       <div className="flex justify-between items-end mb-3">
-                        <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
+                        <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
                           {pedido.items ? pedido.items.length : 0} itens
                         </span>
                         <span className="font-bold text-dourado text-sm">
@@ -317,41 +303,26 @@ export function PedidosPage() {
                         </span>
                       </div>
                       
-                      {/* BOTÕES DE AÇÃO (KANBAN) */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          onClick={() => prepararEImprimirCertificado(pedido)}
-                          title="Imprimir Certificado"
-                          className="flex items-center justify-center py-1 text-emerald-700 bg-emerald-50 rounded hover:bg-emerald-100 border border-emerald-200"
-                        >
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <button onClick={() => prepararEImprimirCertificado(pedido)} title="Imprimir" className="flex items-center justify-center py-1 text-emerald-700 bg-emerald-50 rounded hover:bg-emerald-100 border border-emerald-200">
                           <ScrollText size={14} />
                         </button>
-
-                        <button
-                          onClick={() => handleVerDetalhes(pedido)}
-                          title="Ver Detalhes"
-                          className="flex items-center justify-center py-1 text-blue-700 bg-blue-50 rounded hover:bg-blue-100 border border-blue-200"
-                        >
+                        <button onClick={() => handleVerDetalhes(pedido)} title="Ver Detalhes" className="flex items-center justify-center py-1 text-blue-700 bg-blue-50 rounded hover:bg-blue-100 border border-blue-200">
                           <Search size={14} />
                         </button>
-
-                        <button
-                          onClick={() => handleDelete(pedido.id)}
-                          title="Excluir Pedido"
-                          className="flex items-center justify-center py-1 text-red-700 bg-red-50 rounded hover:bg-red-100 border border-red-200"
-                        >
+                        <button onClick={() => handleDelete(pedido.id)} title="Excluir" className="flex items-center justify-center py-1 text-red-700 bg-red-50 rounded hover:bg-red-100 border border-red-200">
                           <Trash2 size={14} />
                         </button>
                       </div>
                       
-                      <div className="mt-2 pt-2 border-t border-gray-100">
+                      <div className="pt-2 border-t border-gray-100">
                           {updatingId === pedido.id ? (
                              <div className="flex justify-center"><Loader2 className="animate-spin text-gray-400" size={14}/></div>
                           ) : (
                              <select
                                value={pedido.status || 'Aguardando Pagamento'}
                                onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
-                               className="w-full text-[10px] font-medium border-none bg-transparent text-gray-500 focus:ring-0 cursor-pointer text-center hover:text-carvao"
+                               className="w-full text-[10px] font-bold border-none bg-gray-50 rounded py-1 text-gray-500 focus:ring-0 cursor-pointer text-center hover:bg-gray-100 transition-colors uppercase tracking-wide"
                              >
                                {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
                              </select>
@@ -365,7 +336,7 @@ export function PedidosPage() {
           </div>
         )}
 
-        {/* --- MODO LISTA --- */}
+        {/* --- VIEW LISTA --- */}
         {viewMode === 'list' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -385,9 +356,7 @@ export function PedidosPage() {
                   {pedidosFiltrados.map(pedido => (
                     <tr key={pedido.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-mono font-bold text-gray-700">#{pedido.id.substring(0, 5).toUpperCase()}</td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {formatDate(pedido.createdAt)}
-                      </td>
+                      <td className="px-4 py-3 text-gray-500">{formatDate(pedido.createdAt)}</td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{pedido.customerName || 'S/ Nome'}</p>
                         <p className="text-xs text-gray-400">{pedido.customerPhone || '-'}</p>
@@ -403,8 +372,6 @@ export function PedidosPage() {
                           {statusOrdem.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
-                      
-                      {/* AÇÕES DA LISTA */}
                       <td className="px-4 py-3 flex justify-center gap-2">
                         <button onClick={() => prepararEImprimirCertificado(pedido)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded" title="Certificado">
                           <ScrollText size={16} />
@@ -419,9 +386,7 @@ export function PedidosPage() {
                     </tr>
                   ))}
                   {pedidosFiltrados.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center py-8 text-gray-400">Nenhum pedido encontrado com estes filtros.</td>
-                    </tr>
+                    <tr><td colSpan={7} className="text-center py-8 text-gray-400">Nenhum pedido encontrado.</td></tr>
                   )}
                 </tbody>
               </table>
