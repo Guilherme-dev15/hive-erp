@@ -1,6 +1,6 @@
-import { useState } from 'react';
+ 
 import { motion } from 'framer-motion';
-import { Package, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica } from '../types';
 import { formatCurrency } from '../utils/format';
 
@@ -14,18 +14,22 @@ interface CardProdutoProps {
 export function CardProduto({ produto, config, onAdicionar, onImageClick }: CardProdutoProps) {
   const stock = produto.quantity ?? 0;
   const temStock = stock > 0;
-  const [expandDesc, setExpandDesc] = useState(false);
-  const desc = produto.description || '';
-  const isLongDesc = desc.length > 60;
+  
+  // Lógica para descrição curta
+  const descResumida = produto.description 
+    ? (produto.description.length > 60 ? produto.description.substring(0, 60) + '...' : produto.description)
+    : '';
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "50px" }}
-      className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-50 flex flex-col h-full relative group transition-all duration-300"
+      className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-50 flex flex-col h-full relative group transition-all duration-300 cursor-pointer"
+      onClick={onImageClick}
     >
-      <div className="relative aspect-[1/1.1] bg-gray-100 cursor-pointer overflow-hidden" onClick={onImageClick}>
+      {/* Imagem */}
+      <div className="relative aspect-[1/1.1] bg-gray-100 overflow-hidden">
         {produto.imageUrl ? (
           <img 
             src={produto.imageUrl} 
@@ -45,37 +49,38 @@ export function CardProduto({ produto, config, onAdicionar, onImageClick }: Card
         )}
       </div>
 
+      {/* Conteúdo */}
       <div className="p-3.5 flex flex-col flex-grow justify-between">
         <div>
-          <h3 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-relaxed min-h-[2.5em] tracking-tight" title={produto.name}>{produto.name}</h3>
+          <h3 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-relaxed min-h-[2.5em] tracking-tight group-hover:text-black transition-colors" title={produto.name}>
+            {produto.name}
+          </h3>
           <p className="text-[10px] text-gray-400 mt-1 font-mono tracking-wide">{produto.code || ''}</p>
           
-          {desc && (
-            <div className="mt-2 text-xs text-gray-500 relative">
-              <motion.div animate={{ height: expandDesc ? 'auto' : '2.4em' }} className="overflow-hidden leading-relaxed">
-                {desc}
-              </motion.div>
-              {isLongDesc && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setExpandDesc(!expandDesc); }} 
-                  className="mt-1 text-[10px] font-bold flex items-center gap-1 hover:underline transition-all" 
-                  style={{ color: config.primaryColor }}
-                >
-                  {expandDesc ? <>Ver menos <ChevronUp size={10} /></> : <>Ver mais <ChevronDown size={10} /></>}
-                </button>
-              )}
-            </div>
+          {descResumida && (
+            <p className="mt-1 text-[11px] text-gray-400 leading-tight line-clamp-2">
+              {descResumida} 
+              {/* Opcional: Se quiser um "ver mais" colorido no card, descomente abaixo */}
+              {/* <span style={{ color: config.primaryColor }} className="font-bold ml-1 text-[10px]">Ver</span> */}
+            </p>
           )}
         </div>
         
         <div className="mt-3 flex items-end justify-between">
+          {/* COR DO PREÇO (SecondaryColor) */}
           <p className="text-lg font-extrabold tracking-tight" style={{ color: config.secondaryColor }}>
             {formatCurrency(produto.salePrice)}
           </p>
+          
+          {/* COR DO BOTÃO (PrimaryColor) */}
           <button 
-            onClick={(e) => { e.stopPropagation(); onAdicionar(); }} 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              onAdicionar(); 
+            }} 
             disabled={!temStock} 
             className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 hover:brightness-110 ${temStock ? 'text-white shadow-lg shadow-black/10' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+            // AQUI ESTÁ A MÁGICA DA COR:
             style={temStock ? { backgroundColor: config.primaryColor } : {}}
             title={temStock ? "Adicionar ao Carrinho" : "Sem Estoque"}
           >
