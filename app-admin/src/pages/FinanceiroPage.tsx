@@ -1,283 +1,381 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  TrendingUp, TrendingDown, Trash2, Plus, Search, 
+  Wallet, ArrowUpRight, ArrowDownRight, Filter, Download
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Trash2, TrendingUp, TrendingDown, DollarSign, Calendar, X, Loader2 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
+} from 'recharts';
 
-// Imports Padronizados (Inglês)
-import { getTransacoes, createTransacao, deleteTransacao } from '../services/apiService';
-import type { Transacao } from '../types';
-import { transacaoSchema, type TransacaoFormData } from '../types/schemas';
+import { apiClient } from '../services/apiService';
+import { formatCurrency } from '../utils/format';
 
-// --- UTILITÁRIOS ---
-const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-const formatDate = (date: any) => {
-  if (!date) return '-';
-  // Se vier do Firebase (Timestamp)
-  if (date.seconds) return new Date(date.seconds * 1000).toLocaleDateString('pt-BR');
-  // Se vier como string ISO
-  return new Date(date).toLocaleDateString('pt-BR');
-};
-
-// --- COMPONENTE DO MODAL (Nova Transação) ---
-function TransacaoModal({ isOpen, onClose, onSuccess }: any) {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<TransacaoFormData>({
-    resolver: zodResolver(transacaoSchema),
-    defaultValues: {
-      type: 'despesa',
-      amount: 0,
-      description: '',
-      date: new Date().toISOString().split('T')[0] // Data de hoje YYYY-MM-DD
-    }
-  });
-
-  const onSubmit = async (data: TransacaoFormData) => {
-    try {
-      await createTransacao(data);
-      toast.success("Lançamento salvo!");
-      reset();
-      onSuccess();
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro ao salvar.");
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div 
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <motion.div 
-            initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-4 border-b bg-gray-50">
-              <h3 className="font-bold text-gray-800">Novo Lançamento</h3>
-              <button onClick={onClose}><X size={20} className="text-gray-500 hover:text-gray-700"/></button>
-            </div>
-            
-            <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4">
-              
-              {/* Tipo */}
-              <div className="grid grid-cols-2 gap-4">
-                <label className="cursor-pointer">
-                  <input type="radio" value="venda" {...register("type")} className="peer sr-only" />
-                  <div className="p-3 rounded-lg border-2 border-gray-100 text-center peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-700 transition-all font-bold text-gray-500">
-                    Entrada
-                  </div>
-                </label>
-                <label className="cursor-pointer">
-                  <input type="radio" value="despesa" {...register("type")} className="peer sr-only" />
-                  <div className="p-3 rounded-lg border-2 border-gray-100 text-center peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-red-700 transition-all font-bold text-gray-500">
-                    Saída
-                  </div>
-                </label>
-              </div>
-
-              {/* Descrição */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição</label>
-                <input 
-                  {...register("description")} 
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado outline-none" 
-                  placeholder="Ex: Compra de Embalagens"
-                />
-                {errors.description && <span className="text-xs text-red-500">{errors.description.message}</span>}
-              </div>
-
-              {/* Valor e Data */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor (R$)</label>
-                  <input 
-                    type="number" step="0.01" {...register("amount")} 
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado outline-none" 
-                  />
-                  {errors.amount && <span className="text-xs text-red-500">{errors.amount.message}</span>}
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data</label>
-                  <input 
-                    type="date" {...register("date")} 
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado outline-none" 
-                  />
-                  {errors.date && <span className="text-xs text-red-500">{errors.date.message}</span>}
-                </div>
-              </div>
-
-              <button type="submit" disabled={isSubmitting} className="w-full py-3 bg-carvao text-white rounded-lg font-bold hover:bg-gray-800 transition-all flex justify-center items-center gap-2">
-                {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Plus size={20}/>}
-                Lançar
-              </button>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+interface Transaction {
+  id: string;
+  description: string;
+  amount: number;
+  type: 'receita' | 'despesa' | 'venda';
+  date: string;
+  category: string;
 }
 
-// --- PÁGINA PRINCIPAL ---
-export function FinanceiroPage() {
-  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+// Variantes de animação (Padrão Cascata)
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
 
-  const carregarDados = async () => {
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { y: 0, opacity: 1 }
+};
+
+export function FinanceiroPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estado do Formulário
+  const [newTrans, setNewTrans] = useState({ 
+    description: '', 
+    amount: '', 
+    type: 'despesa', 
+    category: 'Geral' 
+  });
+
+  // --- CARREGAMENTO ---
+  const carregar = async () => {
     try {
       setLoading(true);
-      const data = await getTransacoes();
-      setTransacoes(data);
-    } catch (error) {
-      toast.error("Erro ao carregar financeiro.");
+      const res = await apiClient.get('/admin/transactions');
+      setTransactions(res.data);
+    } catch (e) {
+      toast.error("Erro ao carregar finanças");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { carregarDados(); }, []);
+  useEffect(() => { carregar(); }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Confirmar exclusão?")) return;
-    try {
-      await deleteTransacao(id);
-      setTransacoes(prev => prev.filter(t => t.id !== id));
-      toast.success("Excluído.");
-    } catch { toast.error("Erro ao excluir."); }
-  };
-
-  // Cálculos de Resumo
-  const resumo = useMemo(() => {
-    return transacoes.reduce((acc, t) => {
-      const val = Number(t.amount) || 0;
-      if (t.type === 'venda') {
+  // --- CÁLCULOS EM TEMPO REAL ---
+  const stats = useMemo(() => {
+    return transactions.reduce((acc, t) => {
+      const val = Number(t.amount);
+      const isEntrada = t.type === 'receita' || t.type === 'venda';
+      
+      if (isEntrada) {
         acc.entradas += val;
-        acc.saldo += val;
       } else {
-        acc.saidas += Math.abs(val); 
-        acc.saldo -= Math.abs(val);  
+        acc.saidas += Math.abs(val);
       }
+      acc.saldo = acc.entradas - acc.saidas;
       return acc;
     }, { entradas: 0, saidas: 0, saldo: 0 });
-  }, [transacoes]);
+  }, [transactions]);
 
-  const listaFiltrada = transacoes.filter(t => 
-    t.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // --- DADOS PARA O GRÁFICO (Top 5 Categorias ou Simplificado) ---
+  const chartData = useMemo(() => {
+    return [
+      { name: 'Entradas', value: stats.entradas, color: '#10b981' },
+      { name: 'Saídas', value: stats.saidas, color: '#f43f5e' },
+      { name: 'Saldo', value: stats.saldo, color: '#6366f1' },
+    ];
+  }, [stats]);
+
+  // --- FILTRO DE BUSCA ---
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => 
+      t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [transactions, searchTerm]);
+
+  // --- AÇÕES ---
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!newTrans.description || !newTrans.amount) {
+      toast.error("Preencha descrição e valor");
+      return;
+    }
+
+    try {
+      const payload = {
+        ...newTrans,
+        amount: parseFloat(newTrans.amount.replace(',', '.')), // Garante formato number
+        date: new Date().toISOString()
+      };
+      
+      const res = await apiClient.post('/admin/transactions', payload);
+      
+      // Atualização Otimista
+      setTransactions(prev => [{ id: res.data.id, ...payload } as Transaction, ...prev]);
+      setNewTrans({ description: '', amount: '', type: 'despesa', category: 'Geral' });
+      toast.success("Lançamento registrado!");
+    } catch(e) { 
+      toast.error("Erro ao salvar"); 
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Excluir este lançamento?")) return;
+    try {
+      await apiClient.delete(`/admin/transactions/${id}`);
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      toast.success("Excluído com sucesso");
+    } catch(e) { toast.error("Erro ao excluir"); }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-indigo-600 border-t-transparent"></div>
+          <p className="text-gray-400 font-medium text-sm animate-pulse">Carregando financeiro...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6 pb-20"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       <Toaster position="top-right"/>
-      
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-carvao">Financeiro</h1>
-          <p className="text-gray-500 text-sm">Controle de caixa.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Fluxo de Caixa</h1>
+          <p className="text-gray-500 text-sm mt-1">Gerencie entradas e saídas manualmente.</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-carvao text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-800 shadow-md">
-          <Plus size={20}/> Novo Lançamento
+        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+           <Download size={16} /> Exportar Extrato
         </button>
       </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-500 font-bold uppercase">Entradas</span>
-            <div className="p-2 bg-green-50 text-green-600 rounded-lg"><TrendingUp size={20}/></div>
-          </div>
-          <span className="text-2xl font-bold text-green-600">{formatCurrency(resumo.entradas)}</span>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-500 font-bold uppercase">Saídas</span>
-            <div className="p-2 bg-red-50 text-red-600 rounded-lg"><TrendingDown size={20}/></div>
-          </div>
-          <span className="text-2xl font-bold text-red-600">{formatCurrency(resumo.saidas)}</span>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-500 font-bold uppercase">Saldo Atual</span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><DollarSign size={20}/></div>
-          </div>
-          <span className={`text-2xl font-bold ${resumo.saldo >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-            {formatCurrency(resumo.saldo)}
-          </span>
-        </div>
+      {/* CARDS DE KPI */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <StatsCard 
+          title="Saldo Atual" 
+          value={stats.saldo} 
+          icon={<Wallet size={24} className="text-white"/>}
+          bgClass="bg-indigo-600"
+          textClass="text-white"
+          subTextClass="text-indigo-200"
+        />
+        <StatsCard 
+          title="Total Receitas" 
+          value={stats.entradas} 
+          icon={<ArrowUpRight size={24} className="text-emerald-600"/>}
+          bgClass="bg-white"
+          textClass="text-gray-900"
+          subTextClass="text-gray-400"
+          borderClass="border-emerald-100"
+          iconBg="bg-emerald-50"
+        />
+        <StatsCard 
+          title="Total Despesas" 
+          value={stats.saidas} 
+          icon={<ArrowDownRight size={24} className="text-rose-600"/>}
+          bgClass="bg-white"
+          textClass="text-gray-900"
+          subTextClass="text-gray-400"
+          borderClass="border-rose-100"
+          iconBg="bg-rose-50"
+        />
       </div>
 
-      {/* Tabela de Lançamentos */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b flex gap-3">
-           <Search className="text-gray-400" size={20}/>
-           <input 
-             placeholder="Filtrar lançamentos..." 
-             value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-             className="outline-none w-full text-sm"
-           />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* COLUNA ESQUERDA: FORMULÁRIO + GRÁFICO */}
+        <div className="space-y-6">
+          {/* FORMULÁRIO "QUICK ADD" */}
+          <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Plus size={18} className="text-indigo-600" /> Novo Lançamento
+            </h3>
+            
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Descrição</label>
+                <input 
+                  value={newTrans.description} 
+                  onChange={e => setNewTrans({...newTrans, description: e.target.value})}
+                  className="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm font-medium"
+                  placeholder="Ex: Conta de Luz, Venda Balcão..."
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Valor (R$)</label>
+                  <input 
+                    type="number"
+                    value={newTrans.amount} 
+                    onChange={e => setNewTrans({...newTrans, amount: e.target.value})}
+                    className="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm font-medium"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tipo</label>
+                  <select 
+                    value={newTrans.type} 
+                    onChange={e => setNewTrans({...newTrans, type: e.target.value as any})}
+                    className="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
+                  >
+                    <option value="despesa">Saída (-)</option>
+                    <option value="receita">Entrada (+)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                  Confirmar Lançamento
+                </button>
+              </div>
+            </form>
+          </motion.div>
+
+          {/* MINI GRÁFICO DE BALANÇO */}
+          <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hidden lg:block">
+             <h3 className="text-sm font-bold text-gray-500 uppercase mb-4">Resumo Financeiro</h3>
+             <div className="h-40 w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f0f0f0"/>
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} width={60}/>
+                    <Tooltip cursor={{fill: 'transparent'}} formatter={(value: number) => formatCurrency(value)} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}}/>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                 </BarChart>
+               </ResponsiveContainer>
+             </div>
+          </motion.div>
         </div>
 
-        {loading ? (
-          <div className="p-10 text-center"><Loader2 className="animate-spin text-dourado mx-auto"/></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 font-medium border-b">
+        {/* COLUNA DIREITA: LISTA DE TRANSAÇÕES */}
+        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-fit min-h-[500px]">
+          {/* Barra de Filtro */}
+          <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex gap-3">
+             <div className="relative flex-grow">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+               <input 
+                 type="text" 
+                 placeholder="Buscar lançamentos..." 
+                 value={searchTerm}
+                 onChange={e => setSearchTerm(e.target.value)}
+                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+               />
+             </div>
+             <button className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">
+               <Filter size={18} />
+             </button>
+          </div>
+
+          {/* Tabela */}
+          <div className="overflow-x-auto flex-grow">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-white text-gray-400 text-[11px] uppercase tracking-wider font-semibold border-b border-gray-100 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3">Data</th>
-                  <th className="px-4 py-3">Descrição</th>
-                  <th className="px-4 py-3 text-center">Tipo</th>
-                  <th className="px-4 py-3 text-right">Valor</th>
-                  <th className="px-4 py-3 text-center">Ações</th>
+                  <th className="p-4 pl-6">Descrição</th>
+                  <th className="p-4">Data</th>
+                  <th className="p-4">Categoria</th>
+                  <th className="p-4 text-right">Valor</th>
+                  <th className="p-4 text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {listaFiltrada.map(t => (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-500 font-mono">{formatDate(t.date)}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{t.description}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${t.type === 'venda' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {t.type === 'venda' ? 'Entrada' : 'Saída'}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-3 text-right font-bold ${t.type === 'venda' ? 'text-green-600' : 'text-red-600'}`}>
-                      {t.type === 'despesa' ? '-' : ''}{formatCurrency(Number(t.amount))}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button onClick={() => handleDelete(t.id)} className="text-gray-400 hover:text-red-600 transition-colors">
-                        <Trash2 size={16}/>
-                      </button>
+              <tbody className="divide-y divide-gray-50">
+                <AnimatePresence>
+                  {filteredTransactions.map((t) => {
+                    const isEntrada = t.type === 'receita' || t.type === 'venda';
+                    return (
+                      <motion.tr 
+                        key={t.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="group hover:bg-gray-50/80 transition-colors"
+                      >
+                        <td className="p-4 pl-6">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${isEntrada ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                              {isEntrada ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}
+                            </div>
+                            <span className="font-semibold text-gray-700 text-sm">{t.description}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-sm text-gray-500">
+                           {new Date(t.date).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="p-4">
+                           <span className="px-2.5 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-600 border border-gray-200">
+                             {t.category}
+                           </span>
+                        </td>
+                        <td className={`p-4 text-right font-bold text-sm ${isEntrada ? 'text-emerald-600' : 'text-rose-500'}`}>
+                          {isEntrada ? '+' : '-'} {formatCurrency(Number(t.amount))}
+                        </td>
+                        <td className="p-4 text-center">
+                          <button 
+                            onClick={() => handleDelete(t.id)} 
+                            className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            title="Excluir lançamento"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </AnimatePresence>
+                {filteredTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-10 text-center text-gray-400">
+                      Nenhum lançamento encontrado.
                     </td>
                   </tr>
-                ))}
-                {listaFiltrada.length === 0 && (
-                  <tr><td colSpan={5} className="text-center py-8 text-gray-400">Nenhum lançamento encontrado.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
-        )}
+        </motion.div>
       </div>
-
-      <TransacaoModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={() => { setIsModalOpen(false); carregarDados(); }}
-      />
-    </div>
+    </motion.div>
   );
 }
 
-// GARANTE QUE O ARQUIVO FUNCIONE TANTO COMO "import { FinanceiroPage }" QUANTO "import FinanceiroPage"
-export default FinanceiroPage;
+// Componente de Card Reutilizável com Design System
+function StatsCard({ title, value, icon, bgClass, textClass, subTextClass, borderClass, iconBg }: any) {
+  return (
+    <motion.div 
+      variants={itemVariants} 
+      className={`p-6 rounded-2xl shadow-sm border ${borderClass || 'border-transparent'} ${bgClass}`}
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-3 rounded-xl ${iconBg || 'bg-white/20'}`}>
+          {icon}
+        </div>
+      </div>
+      <div>
+        <h3 className={`text-3xl font-bold tracking-tight ${textClass}`}>
+          {formatCurrency(value)}
+        </h3>
+        <p className={`text-sm font-medium mt-1 ${subTextClass}`}>
+          {title}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
