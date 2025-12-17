@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Loader2, Menu, X } from 'lucide-react';
+import { LogOut, Loader2, Menu, X, Shield } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
 // Imports de Autenticação
@@ -17,18 +17,32 @@ import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
 import { PedidosPage } from './pages/PedidosPage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
 import { CuponsPage } from './pages/CuponsPage';
+import { EquipePage } from './pages/EquipePage'; // <--- Nova Página
 
-// Importar a Proteção contra Tela Branca (Certifique-se que criou este arquivo)
+// Importar a Proteção contra Tela Branca
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'relatorios' | 'configuracoes';
+// Adicionei 'equipe' aqui
+type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'relatorios' | 'equipe' | 'configuracoes';
 
 // --- NAVBAR RESPONSIVA ---
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
-  const { user, logout } = useAuth();
+  const { user, userData, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const paginas: Pagina[] = ['dashboard', 'pedidos', 'produtos', 'fornecedores', 'financeiro', 'campanhas', 'relatorios', 'precificacao', 'configuracoes'];
+  // Lista de páginas na ordem do menu
+  const paginas: Pagina[] = [
+    'dashboard', 
+    'pedidos', 
+    'produtos', 
+    'fornecedores', 
+    'financeiro', 
+    'campanhas', 
+    'relatorios', 
+    'precificacao',
+    'equipe', // <--- Adicionado ao menu
+    'configuracoes'
+  ];
 
   // Função para navegar e fechar o menu mobile
   const handleMobileNavigate = (p: Pagina) => {
@@ -43,9 +57,10 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
           
           {/* LADO ESQUERDO: Logo e Menu Desktop */}
           <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-dourado hidden sm:block">HivePratas ERP</h1>
-              <h1 className="text-xl font-bold text-dourado sm:hidden">Hive</h1>
+            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('dashboard')}>
+              {/* Ícone simples ou Logo */}
+              <div className="w-8 h-8 bg-dourado rounded-lg flex items-center justify-center text-carvao font-bold">H</div>
+              <h1 className="text-xl font-bold text-dourado hidden sm:block">HivePratas</h1>
             </div>
             
             {/* Menu Desktop (Hidden em Mobile) */}
@@ -56,7 +71,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
                   onClick={() => onNavigate(p)}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 whitespace-nowrap capitalize
                     ${paginaAtual === p
-                      ? 'bg-gray-800 text-dourado'
+                      ? 'bg-gray-800 text-dourado border-b-2 border-dourado rounded-none h-full'
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                     }`}
                 >
@@ -70,7 +85,10 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
           <div className="flex items-center ml-4 gap-2">
             <div className="hidden md:flex flex-col items-end mr-2">
                <span className="text-xs text-gray-400">Logado como</span>
-               <span className="text-xs text-prata font-bold">{user?.email?.split('@')[0]}</span>
+               <div className="flex items-center gap-1">
+                 {userData?.role === 'owner' && <Shield size={12} className="text-dourado"/>}
+                 <span className="text-xs text-prata font-bold">{userData?.name || user?.email?.split('@')[0]}</span>
+               </div>
             </div>
             
             <button 
@@ -117,12 +135,15 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
               ))}
               {/* Info do Usuário no Mobile */}
               <div className="border-t border-gray-700 mt-4 pt-4 px-3 pb-2">
-                 <div className="flex items-center">
-                    <div className="ml-3">
-                      <div className="text-base font-medium leading-none text-white">Conta Ativa</div>
-                      <div className="text-sm font-medium leading-none text-gray-400 mt-1">{user?.email}</div>
-                    </div>
-                 </div>
+                  <div className="flex items-center">
+                     <div className="ml-3">
+                       <div className="text-base font-medium leading-none text-white flex items-center gap-2">
+                          {userData?.name || 'Usuário'}
+                          {userData?.role === 'owner' && <Shield size={14} className="text-dourado"/>}
+                       </div>
+                       <div className="text-sm font-medium leading-none text-gray-400 mt-1">{user?.email}</div>
+                     </div>
+                  </div>
               </div>
             </div>
           </motion.div>
@@ -132,7 +153,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
   );
 }
 
-// --- CONTEÚDO PROTEGIDO (Refatorado para Estabilidade) ---
+// --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
@@ -159,6 +180,7 @@ function ProtectedLayout() {
       case 'campanhas': return <CuponsPage />;
       case 'precificacao': return <PrecificacaoPage />;
       case 'relatorios': return <RelatoriosPage />;
+      case 'equipe': return <EquipePage />; // <--- Renderização da nova página
       case 'configuracoes': return <ConfiguracoesPage />;
       default: return <div className="text-center py-20 text-gray-500">Página não encontrada</div>;
     }
@@ -169,11 +191,7 @@ function ProtectedLayout() {
       <Navbar paginaAtual={pagina} onNavigate={setPagina} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         
-        {/* FIX CRÍTICO: 
-           1. Removemos AnimatePresence daqui para evitar conflitos de re-renderização.
-           2. Adicionamos ErrorBoundary com key={pagina} para resetar erros ao mudar de aba.
-           3. Usamos CSS simples (animate-in) para suavidade sem travamentos.
-        */}
+        {/* Usando ErrorBoundary para evitar que um erro numa página quebre o app todo */}
         <ErrorBoundary key={pagina}>
           <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
             {renderizarPagina()}
@@ -184,6 +202,7 @@ function ProtectedLayout() {
     </div>
   );
 }
+
 
 export default function App() {
   return (
