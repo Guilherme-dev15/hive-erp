@@ -60,7 +60,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
             <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('dashboard')}>
               {/* Ícone simples ou Logo */}
               <div className="w-8 h-8 bg-dourado rounded-lg flex items-center justify-center text-carvao font-bold">H</div>
-              <h1 className="text-xl font-bold text-dourado hidden sm:block">HivePratas</h1>
+              <h1 className="text-xl font-bold text-dourado hidden sm:block">HIVE ERP</h1>
             </div>
             
             {/* Menu Desktop (Hidden em Mobile) */}
