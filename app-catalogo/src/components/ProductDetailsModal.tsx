@@ -1,10 +1,9 @@
-import { useState } from 'react'; // Importe useState
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShoppingCart, MessageCircle, Package, Maximize2 } from 'lucide-react'; // Importe Maximize2
+import { X, ShoppingCart, MessageCircle, Package, Maximize2 } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica } from '../types';
 import { formatCurrency } from '../utils/format';
-// Importe o modal de zoom
-import { ImageZoomModal } from './ImageZoomModal'; 
+import { ImageZoomModal } from './ImageZoomModal';
 
 interface ProductDetailsModalProps {
   isOpen: boolean;
@@ -15,7 +14,6 @@ interface ProductDetailsModalProps {
 }
 
 export function ProductDetailsModal({ isOpen, onClose, product, onAddToCart, config }: ProductDetailsModalProps) {
-  // Estado local para controlar se o zoom está aberto
   const [isZoomed, setIsZoomed] = useState(false);
 
   if (!product) return null;
@@ -48,10 +46,9 @@ export function ProductDetailsModal({ isOpen, onClose, product, onAddToCart, con
                 <X size={24} />
               </button>
 
-              {/* COLUNA 1: Imagem (Agora clicável para zoom) */}
+              {/* COLUNA 1: Imagem */}
               <div className="w-full md:w-1/2 bg-gray-50 flex items-center justify-center p-6 sm:p-10 relative group/image">
                 {product.imageUrl ? (
-                  // Wrapper clicável para ativar o zoom
                   <div 
                     className="relative w-full h-full cursor-zoom-in"
                     onClick={() => setIsZoomed(true)}
@@ -61,8 +58,6 @@ export function ProductDetailsModal({ isOpen, onClose, product, onAddToCart, con
                       alt={product.name} 
                       className="w-full h-full object-contain max-h-[300px] md:max-h-[400px] drop-shadow-xl transition-transform duration-500 group-hover/image:scale-105" 
                     />
-                    
-                    {/* Ícone de lupa que aparece ao passar o mouse */}
                     <div className="absolute bottom-4 right-4 bg-white/90 p-2.5 rounded-full opacity-0 group-hover/image:opacity-100 transition-all duration-300 shadow-sm backdrop-blur-md text-gray-600 scale-90 group-hover/image:scale-100">
                        <Maximize2 size={18} />
                     </div>
@@ -78,9 +73,23 @@ export function ProductDetailsModal({ isOpen, onClose, product, onAddToCart, con
               {/* COLUNA 2: Detalhes */}
               <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto bg-white custom-scrollbar">
                 <div className="mb-6">
-                  <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md uppercase tracking-wider mb-3">
-                    {product.category || 'Geral'}
-                  </span>
+                  
+                  {/* --- ATUALIZADO: CATEGORIA > SUBCATEGORIA --- */}
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md uppercase tracking-wider">
+                      {product.category || 'Geral'}
+                    </span>
+                    {product.subcategory && (
+                      <>
+                        <span className="text-gray-300 text-[10px]">▶</span>
+                        <span className="inline-block px-2.5 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-md uppercase tracking-wider" style={{ color: config.primaryColor, backgroundColor: `${config.primaryColor}15` }}>
+                          {product.subcategory}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {/* ------------------------------------------- */}
+
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight mb-2">
                     {product.name}
                   </h2>
@@ -133,7 +142,6 @@ export function ProductDetailsModal({ isOpen, onClose, product, onAddToCart, con
         )}
       </AnimatePresence>
 
-      {/* O Modal de Zoom fica "fora" do card de detalhes, mas é controlado por ele */}
       <ImageZoomModal 
         imageUrl={isZoomed && product ? product.imageUrl || null : null} 
         onClose={() => setIsZoomed(false)} 

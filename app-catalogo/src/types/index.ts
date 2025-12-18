@@ -9,6 +9,7 @@ export interface ProdutoCatalogo {
   status?: 'ativo' | 'inativo';
   imageUrl?: string;
   quantity?: number;
+  subcategory?: string;
 }
 
 export interface ConfigPublica {

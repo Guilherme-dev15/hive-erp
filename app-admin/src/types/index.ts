@@ -34,6 +34,7 @@ export interface ProdutoAdmin {
   description?: string;
   imageUrl?: string;
   
+  
   // Financeiro
   costPrice: number;
   salePrice: number;

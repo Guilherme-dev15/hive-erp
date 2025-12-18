@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Edit, Trash2, Package, Loader2,
   RefreshCw, Filter, FolderTree, FileSpreadsheet, FileDown,
-  CheckSquare, Square, X, Tag, History // <--- Adicionei History
+  CheckSquare, Square, X, Tag, History, Sparkles // <--- Ícone do Neon
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -24,7 +24,8 @@ import { ProdutoFormModal } from '../components/ProdutoFormModal';
 import { CategoryModal } from '../components/CategoryModal';
 import { CatalogPDF } from '../components/CatologPDF';
 import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
-import { StockModal } from '../components/StockModal'; // <--- Seu modal novo
+import { StockModal } from '../components/StockModal';
+import { NeonStudio } from '../components/NeonStudio'; // <--- Importei o Neon Studio
 
 // --- TIPOS ---
 import type { ProdutoAdmin, Category, Fornecedor } from '../types';
@@ -48,7 +49,7 @@ export function ProdutosPage() {
   // 4. IMPRESSÃO
   const etiquetaRef = useRef<HTMLDivElement>(null);
   const handlePrintEtiquetas = useReactToPrint({
-    contentRef: etiquetaRef, // ✅ Passa a ref direto, sem função
+    contentRef: etiquetaRef,
     documentTitle: 'Etiquetas_Produtos',
     onAfterPrint: () => toast.success("Impressão enviada!")
   });
@@ -57,6 +58,7 @@ export function ProdutosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isNeonOpen, setIsNeonOpen] = useState(false); // <--- Estado do Neon Studio
   const [produtoEditando, setProdutoEditando] = useState<ProdutoAdmin | null>(null);
 
   // 6. MODAL ESTOQUE (KARDEX)
@@ -169,7 +171,6 @@ export function ProdutosPage() {
     setIsModalOpen(true);
   };
 
-  // 🔥 AÇÃO DE ESTOQUE (NOVO)
   const handleStock = (prod: ProdutoAdmin) => {
     setProdutoEstoque(prod);
     setIsStockModalOpen(true);
@@ -240,7 +241,21 @@ export function ProdutosPage() {
           <div className="h-6 w-px bg-gray-300 mx-1 hidden lg:block"></div>
 
           <button onClick={() => setIsCategoryModalOpen(true)} className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50" title="Categorias"><FolderTree size={18} /></button>
-          <button onClick={() => setIsImportModalOpen(true)} className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50" title="Importar Excel"><FileSpreadsheet size={18} className="text-green-600" /></button>
+          
+          {/* BOTÃO IMPORTAR EXCEL */}
+          <button onClick={() => setIsImportModalOpen(true)} className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50" title="Importar Excel">
+             <FileSpreadsheet size={18} className="text-green-600" />
+          </button>
+
+          {/* 🔥 NOVO BOTÃO NEON STUDIO (O Diferencial) */}
+          <button 
+            onClick={() => setIsNeonOpen(true)} 
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 text-cyan-400 rounded-xl hover:bg-slate-800 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all font-bold"
+            title="Importação Visual e Edição"
+          >
+             <Sparkles size={18} /> 
+             <span className="hidden sm:inline">Neon Studio</span>
+          </button>
 
           <button onClick={handleNew} className="px-5 py-2 bg-carvao text-white rounded-xl hover:bg-gray-800 flex items-center gap-2 font-bold shadow-lg">
             <Plus size={20} /> <span className="hidden sm:inline">Novo</span>
@@ -291,25 +306,31 @@ export function ProdutosPage() {
                   <div className="h-56 relative bg-gray-100">
                     {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300"><Package size={40} /></div>}
 
-                    {/* OVERLAY DE AÇÕES - AQUI ESTÁ O BOTÃO DE ESTOQUE */}
+                    {/* OVERLAY DE AÇÕES */}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                       <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="p-3 bg-white text-blue-600 rounded-full hover:scale-110 transition-all" title="Editar"><Edit size={20} /></button>
-
-                      {/* 🔥 BOTÃO DE ESTOQUE KARDEX */}
-                      <button onClick={(e) => { e.stopPropagation(); handleStock(p); }} className="p-3 bg-white text-amber-600 rounded-full hover:scale-110 transition-all" title="Gerir Estoque">
-                        <History size={20} />
-                      </button>
-
+                      <button onClick={(e) => { e.stopPropagation(); handleStock(p); }} className="p-3 bg-white text-amber-600 rounded-full hover:scale-110 transition-all" title="Gerir Estoque"><History size={20} /></button>
                       <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-3 bg-white text-red-600 rounded-full hover:scale-110 transition-all" title="Excluir"><Trash2 size={20} /></button>
                     </div>
                   </div>
 
                   <div className="p-4 flex-grow flex flex-col justify-between">
                     <div>
-                      <div className="flex justify-between items-start mb-1">
-                        <p className="text-xs font-bold text-gray-400 uppercase">{p.category || 'Geral'}</p>
-                        <p className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{p.code}</p>
+                      {/* --- VISUALIZAÇÃO DE SUBCATEGORIA --- */}
+                      <div className="flex flex-col mb-1.5">
+                        <div className="flex justify-between items-start">
+                           <p className="text-xs font-bold text-gray-400 uppercase">{p.category || 'Geral'}</p>
+                           <p className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{p.code}</p>
+                        </div>
+                        {/* Se tiver subcategoria, mostra aqui */}
+                        {p.category && (
+                          <span className="text-[10px] font-bold text-blue-500 uppercase flex items-center gap-1 mt-0.5">
+                            ▶ {p.category}
+                          </span>
+                        )}
                       </div>
+                      {/* -------------------------------------- */}
+                      
                       <h3 className="font-bold text-gray-800 text-lg leading-tight line-clamp-2 mb-2">{p.name}</h3>
                     </div>
                     <div className="flex justify-between items-end mt-4 pt-3 border-t border-gray-50">
@@ -331,8 +352,14 @@ export function ProdutosPage() {
       <ProdutoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} fornecedores={fornecedores} categories={categories} setCategories={setCategories} produtoParaEditar={produtoEditando} onProdutoSalvo={handleSaveSuccess} configGlobal={undefined} />
       <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} setCategories={setCategories} onCategoryCreated={(newCat) => setCategories(prev => [...prev, newCat])} />
       <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onSuccess={carregarDados} />
+      
+      {/* 🔥 AQUI ESTÁ A INTEGRAÇÃO FINAL DO NEON STUDIO */}
+      <NeonStudio 
+        isOpen={isNeonOpen} 
+        onClose={() => setIsNeonOpen(false)} 
+        onSuccess={carregarDados} // Recarrega o grid ao finalizar a importação visual
+      />
 
-      {/* 🔥 MODAL DE ESTOQUE ADICIONADO AQUI */}
       <StockModal
         isOpen={isStockModalOpen}
         onClose={() => setIsStockModalOpen(false)}

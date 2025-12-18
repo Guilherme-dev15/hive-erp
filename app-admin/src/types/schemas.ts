@@ -28,7 +28,7 @@ export const produtoSchema = z.object({
   
   // Estoque
   quantity: z.coerce.number().int().default(0),
-  
+  subcategory: z.string().optional(),
   // Detalhes Opcionais
   code: optionalString,
   category: z.string().min(1, "Categoria é obrigatória"), // Select retorna string

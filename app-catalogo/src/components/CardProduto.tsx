@@ -1,4 +1,3 @@
- 
 import { motion } from 'framer-motion';
 import { Package, Plus } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica } from '../types';
@@ -15,7 +14,6 @@ export function CardProduto({ produto, config, onAdicionar, onImageClick }: Card
   const stock = produto.quantity ?? 0;
   const temStock = stock > 0;
   
-  // Lógica para descrição curta
   const descResumida = produto.description 
     ? (produto.description.length > 60 ? produto.description.substring(0, 60) + '...' : produto.description)
     : '';
@@ -52,6 +50,22 @@ export function CardProduto({ produto, config, onAdicionar, onImageClick }: Card
       {/* Conteúdo */}
       <div className="p-3.5 flex flex-col flex-grow justify-between">
         <div>
+          {/* --- NOVO: CATEGORIA > SUBCATEGORIA --- */}
+          <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              {produto.category || 'GERAL'}
+            </span>
+            {produto.subcategory && (
+              <>
+                <span className="text-[8px] text-gray-300">▶</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: config.primaryColor }}>
+                  {produto.subcategory}
+                </span>
+              </>
+            )}
+          </div>
+          {/* -------------------------------------- */}
+
           <h3 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-relaxed min-h-[2.5em] tracking-tight group-hover:text-black transition-colors" title={produto.name}>
             {produto.name}
           </h3>
@@ -60,19 +74,15 @@ export function CardProduto({ produto, config, onAdicionar, onImageClick }: Card
           {descResumida && (
             <p className="mt-1 text-[11px] text-gray-400 leading-tight line-clamp-2">
               {descResumida} 
-              {/* Opcional: Se quiser um "ver mais" colorido no card, descomente abaixo */}
-              {/* <span style={{ color: config.primaryColor }} className="font-bold ml-1 text-[10px]">Ver</span> */}
             </p>
           )}
         </div>
         
         <div className="mt-3 flex items-end justify-between">
-          {/* COR DO PREÇO (SecondaryColor) */}
           <p className="text-lg font-extrabold tracking-tight" style={{ color: config.secondaryColor }}>
             {formatCurrency(produto.salePrice)}
           </p>
           
-          {/* COR DO BOTÃO (PrimaryColor) */}
           <button 
             onClick={(e) => { 
               e.stopPropagation(); 
@@ -80,7 +90,6 @@ export function CardProduto({ produto, config, onAdicionar, onImageClick }: Card
             }} 
             disabled={!temStock} 
             className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 hover:brightness-110 ${temStock ? 'text-white shadow-lg shadow-black/10' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
-            // AQUI ESTÁ A MÁGICA DA COR:
             style={temStock ? { backgroundColor: config.primaryColor } : {}}
             title={temStock ? "Adicionar ao Carrinho" : "Sem Estoque"}
           >

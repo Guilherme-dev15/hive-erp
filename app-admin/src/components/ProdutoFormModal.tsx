@@ -4,11 +4,27 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { X, DollarSign, Plus, Link, Box, Wand2, UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
+import { z } from 'zod'; // Import Zod directly to extend schema
 
 import { CategoryModal } from './CategoryModal';
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
-import { produtoSchema, type ProdutoFormData, type ConfigFormData } from '../types/schemas';
+import { produtoSchema, type ConfigFormData } from '../types/schemas'; // Removed ProdutoFormData import to redefine locally
 import { createAdminProduto, updateAdminProduto, uploadImage } from '../services/apiService';
+
+// --- EXTENDING TYPES AND SCHEMAS LOCALLY ---
+
+// 1. Extend the Zod Schema to include subcategory
+const extendedProdutoSchema = produtoSchema.extend({
+  subcategory: z.string().optional(),
+});
+
+// 2. Derive the new Form Data type from the extended schema
+type ExtendedProdutoFormData = z.infer<typeof extendedProdutoSchema>;
+
+// 3. Extend the ProdutoAdmin type for local usage
+interface ExtendedProdutoAdmin extends ProdutoAdmin {
+  subcategory?: string;
+}
 
 interface ProdutoFormModalProps {
   isOpen: boolean;
@@ -24,9 +40,9 @@ interface ProdutoFormModalProps {
 // Componente de Input Reutilizável
 type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
   label?: string;
-  name: keyof ProdutoFormData;
+  name: keyof ExtendedProdutoFormData; // Updated to use Extended Type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register: any; // Simplificado para evitar conflito de tipos profundos do RHF
+  register: any;
   error?: string;
   icon?: React.ReactNode;
 };
@@ -63,9 +79,9 @@ export function ProdutoFormModal({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Hook Form com Zod Schema em Inglês
-  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<ProdutoFormData>({
-    resolver: zodResolver(produtoSchema),
+  // Hook Form using Extended Schema and Type
+  const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<ExtendedProdutoFormData>({
+    resolver: zodResolver(extendedProdutoSchema),
     defaultValues: {
       name: '',
       costPrice: 0,
@@ -74,6 +90,7 @@ export function ProdutoFormModal({
       supplierId: '',
       supplierProductUrl: '',
       category: '',
+      subcategory: '',
       code: '',
       imageUrl: '',
       status: 'ativo',
@@ -81,20 +98,17 @@ export function ProdutoFormModal({
     }
   });
 
-  // Observadores para Reatividade (Calculadora e SKU)
   const custoObservado = watch('costPrice');
   const vendaObservada = watch('salePrice');
   const categoriaObservada = watch('category');
   const fornecedorObservado = watch('supplierId');
 
-  // --- MÓDULO: CALCULADORA DE LUCRO (RAIO-X) ---
   const indicadores = useMemo(() => {
     const custo = Number(custoObservado) || 0;
     const venda = Number(vendaObservada) || 0;
 
     if (venda === 0) return null;
 
-    // Pega taxas das configurações globais ou usa padrão
     const taxaCartao = configGlobal?.cardFee || 0;
     const custoEmbalagem = configGlobal?.packagingCost || 0;
 
@@ -111,31 +125,31 @@ export function ProdutoFormModal({
     };
   }, [custoObservado, vendaObservada, configGlobal]);
 
-  // --- EFEITOS ---
-
-  // 1. Inicializar Formulário ao Abrir
   useEffect(() => {
     if (isOpen) {
       if (isEditMode && produtoParaEditar) {
-        // Preenche com os dados em INGLÊS que já vêm da API/Tabela
+        // Cast produtoParaEditar to Extended Type to access subcategory safely
+        const produtoExt = produtoParaEditar as ExtendedProdutoAdmin;
+        
         reset({
-          name: produtoParaEditar.name,
-          costPrice: produtoParaEditar.costPrice || 0,
-          salePrice: produtoParaEditar.salePrice || 0,
-          quantity: produtoParaEditar.quantity || 0,
-          code: produtoParaEditar.code || '',
-          category: produtoParaEditar.category || '',
-          supplierId: produtoParaEditar.supplierId || '',
-          supplierProductUrl: produtoParaEditar.supplierProductUrl || '',
-          imageUrl: produtoParaEditar.imageUrl || '',
-          description: produtoParaEditar.description || '',
-          status: produtoParaEditar.status || 'ativo'
+          name: produtoExt.name,
+          costPrice: produtoExt.costPrice || 0,
+          salePrice: produtoExt.salePrice || 0,
+          quantity: produtoExt.quantity || 0,
+          code: produtoExt.code || '',
+          category: produtoExt.category || '',
+          subcategory: produtoExt.subcategory || '', 
+          supplierId: produtoExt.supplierId || '',
+          supplierProductUrl: produtoExt.supplierProductUrl || '',
+          imageUrl: produtoExt.imageUrl || '',
+          description: produtoExt.description || '',
+          status: produtoExt.status || 'ativo'
         });
-        setPreviewImage(produtoParaEditar.imageUrl || null);
+        setPreviewImage(produtoExt.imageUrl || null);
       } else {
         reset({
           name: '', costPrice: 0, salePrice: 0, quantity: 0,
-          supplierId: '', category: '', code: '', imageUrl: '',
+          supplierId: '', category: '', subcategory: '', code: '', imageUrl: '',
           status: 'ativo', description: ''
         });
         setPreviewImage(null);
@@ -143,20 +157,17 @@ export function ProdutoFormModal({
     }
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
-  // 2. Precificação Automática (Sugestão de Preço)
   useEffect(() => {
     if (isEditMode) return;
     const custo = Number(custoObservado);
-    // Só sugere se tiver custo e venda estiver vazia/zerada
     if (custo > 0 && !getValues('salePrice')) {
-      let markup = 2.0; // Padrão 100% de lucro bruto
+      let markup = 2.0;
       if (custo > 200) markup = 1.5;
-      const precoSugerido = Math.ceil(custo * markup) - 0.10; // Ex: 99.90
+      const precoSugerido = Math.ceil(custo * markup) - 0.10;
       setValue('salePrice', precoSugerido);
     }
   }, [custoObservado, setValue, isEditMode, getValues]);
 
-  // 3. Geração Automática de SKU
   useEffect(() => {
     if (isEditMode) return;
     if (categoriaObservada && fornecedorObservado && !getValues('code')) {
@@ -167,12 +178,10 @@ export function ProdutoFormModal({
         const nomeLimpo = fornecedor.name.replace(/[^a-zA-Z]/g, '');
         fornIniciais = nomeLimpo.substring(0, 2).toUpperCase();
       }
-      const randomNum = Math.floor(1000 + Math.random() * 9000); // 4 dígitos
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
       setValue('code', `${catInicial}${fornIniciais}${randomNum}`);
     }
   }, [categoriaObservada, fornecedorObservado, fornecedores, isEditMode, setValue, getValues]);
-
-  // --- HANDLERS ---
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,9 +192,9 @@ export function ProdutoFormModal({
     setIsUploading(true);
     try {
       const objectUrl = URL.createObjectURL(file);
-      setPreviewImage(objectUrl); // Preview imediato
+      setPreviewImage(objectUrl);
 
-      const url = await uploadImage(file, 'products'); // Pasta 'products' no storage
+      const url = await uploadImage(file, 'products');
       setValue('imageUrl', url, { shouldDirty: true });
       toast.success("Imagem carregada!");
     } catch (error) {
@@ -197,20 +206,21 @@ export function ProdutoFormModal({
     }
   };
 
-  const onSubmit: SubmitHandler<ProdutoFormData> = async (data) => {
+  const onSubmit: SubmitHandler<ExtendedProdutoFormData> = async (data) => {
     try {
-      // Garante que imageUrl está preenchido (pode vir do register hidden ou do estado)
       const payload = {
         ...data,
+        subcategory: data.subcategory?.toUpperCase() || '',
         imageUrl: data.imageUrl || getValues('imageUrl') || '',
       };
 
       let result;
       if (isEditMode && produtoParaEditar) {
-        result = await updateAdminProduto(produtoParaEditar.id, payload);
+        // Cast payload to any to bypass strict type checking until types are updated
+        result = await updateAdminProduto(produtoParaEditar.id, payload as any);
         toast.success("Produto atualizado!");
       } else {
-        result = await createAdminProduto(payload);
+        result = await createAdminProduto(payload as any);
         toast.success("Produto criado!");
       }
 
@@ -243,7 +253,6 @@ export function ProdutoFormModal({
             className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white/95 backdrop-blur z-10">
               <div>
                 <h2 className="text-xl font-bold text-gray-800">{isEditMode ? "Editar Produto" : "Novo Produto"}</h2>
@@ -253,14 +262,10 @@ export function ProdutoFormModal({
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
-
-              {/* CAMPO OCULTO PARA URL DA IMAGEM */}
               <input type="hidden" {...register('imageUrl')} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Lado Esquerdo: Imagem e Campos Básicos */}
                 <div className="space-y-4">
-                  {/* Upload Area */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Produto</label>
                     <div className="flex gap-4">
@@ -292,11 +297,19 @@ export function ProdutoFormModal({
                       </div>
                       {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
                     </div>
-                    <FormInput label="SKU (Auto)" name="code" register={register} placeholder="Auto" icon={<Wand2 size={14} />} />
+                    
+                    <FormInput 
+                      label="Subcategoria" 
+                      name="subcategory" 
+                      register={register} 
+                      placeholder="Ex: Argola" 
+                      error={errors.subcategory?.message}
+                    />
                   </div>
+                  
+                  <FormInput label="SKU (Auto)" name="code" register={register} placeholder="Auto" icon={<Wand2 size={14} />} />
                 </div>
 
-                {/* Lado Direito: Financeiro e Estoque */}
                 <div className="space-y-4">
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> Precificação</h3>
@@ -305,7 +318,6 @@ export function ProdutoFormModal({
                       <FormInput label="Venda (R$)" name="salePrice" type="number" step="0.01" register={register} error={errors.salePrice?.message} />
                     </div>
 
-                    {/* RAIO-X DO LUCRO */}
                     {indicadores && (
                       <div className="mt-3 pt-3 border-t border-gray-200 text-xs">
                         <div className="flex justify-between text-gray-500 mb-1">
@@ -352,7 +364,6 @@ export function ProdutoFormModal({
                 <textarea {...register("description")} rows={2} className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-dourado text-sm resize-none" placeholder="Ex: Prata 925 legítima..." />
               </div>
 
-              {/* Footer Actions */}
               <div className="pt-4 flex justify-end gap-3 border-t">
                 <button type="button" onClick={onClose} className="px-5 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
                 <button type="submit" disabled={isSubmitting || isUploading} className="bg-carvao text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2">

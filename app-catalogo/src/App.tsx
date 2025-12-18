@@ -10,11 +10,12 @@ import { BannerCarousel } from './components/BannerCarousel';
 import { CardProduto } from './components/CardProduto';
 import { ModalCarrinho } from './components/ModalCarrinho';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
+import { CategoryFilter } from './components/CategoryFilter'; // <--- IMPORTADO
 
 export default function App() {
   // --- ESTADOS DE DADOS ---
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  // const [categories, setCategories] = useState<string[]>([]); // Removido pois o CategoryFilter gerencia isso
   const [config, setConfig] = useState<ConfigPublica>({
     whatsappNumber: null, 
     storeName: 'Carregando...', 
@@ -32,8 +33,10 @@ export default function App() {
   // Produto selecionado para o Modal de Detalhes
   const [selectedProduct, setSelectedProduct] = useState<ProdutoCatalogo | null>(null);
   
-  // Filtros
-  const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
+  // FILTROS (ATUALIZADO)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // Agora pode ser null
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null); // Novo Estado
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<'default' | 'priceAsc' | 'priceDesc'>('default');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -52,7 +55,7 @@ export default function App() {
         }));
         
         setProdutos(safeProducts);
-        setCategories(["Todos", ...(data.categorias || [])]);
+        // setCategories(["Todos", ...(data.categorias || [])]); // Não precisa mais setar manual
         
         if (data.config) {
           setConfig({
@@ -74,11 +77,10 @@ export default function App() {
     init();
   }, []);
 
-  // --- LÓGICA DO CARRINHO (Com Fix de Duplicidade) ---
+  // --- LÓGICA DO CARRINHO ---
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
     const stock = produto.quantity ?? 0;
     
-    // ID único no toast impede mensagens duplicadas
     if (stock <= 0) return toast.error("Esgotado!", { id: `esgotado-${produto.id}` });
 
     setCarrinho((prev) => {
@@ -89,35 +91,45 @@ export default function App() {
         return prev; 
       }
       
-      // Sucesso com ID único para evitar flood visual
       toast.success("Adicionado ao carrinho!", { id: `add-${produto.id}` });
-      
       setIsCarrinhoAberto(true);
       return { ...prev, [produto.id]: { produto, quantidade: qtd + 1 } };
     });
   };
 
-  // --- CÁLCULOS E FILTROS ---
+  // --- CÁLCULOS E FILTROS (ATUALIZADO COM SUBCATEGORIA) ---
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((acc, item) => acc + item.quantidade, 0);
 
   const produtosFiltrados = useMemo(() => {
+    // 1. Filtra por status primeiro
     let lista = produtos.filter(p => p.status === 'ativo' || !p.status);
     
-    if (selectedCategory !== "Todos") {
-      lista = lista.filter(p => selectedCategory === "Outros" ? !p.category : p.category === selectedCategory);
-    }
-    
+    // 2. Filtro de Busca (Nome ou Código)
     if (searchTerm.trim()) {
       const t = searchTerm.toLowerCase();
-      lista = lista.filter(p => p.name.toLowerCase().includes(t) || p.code?.toLowerCase().includes(t));
+      lista = lista.filter(p => 
+        p.name.toLowerCase().includes(t) || 
+        p.code?.toLowerCase().includes(t)
+      );
+    }
+
+    // 3. Filtro de Categoria
+    if (selectedCategory) {
+       lista = lista.filter(p => p.category === selectedCategory);
+    }
+
+    // 4. Filtro de Subcategoria (NOVO)
+    if (selectedSubcategory) {
+       lista = lista.filter(p => p.subcategory === selectedSubcategory);
     }
     
+    // 5. Ordenação
     if (sortOrder === 'priceAsc') lista.sort((a, b) => a.salePrice - b.salePrice);
     if (sortOrder === 'priceDesc') lista.sort((a, b) => b.salePrice - a.salePrice);
     
     return lista;
-  }, [produtos, selectedCategory, searchTerm, sortOrder]);
+  }, [produtos, selectedCategory, selectedSubcategory, searchTerm, sortOrder]);
 
   // --- RENDERIZAÇÃO ---
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-gray-400" size={32} /></div>;
@@ -149,9 +161,11 @@ export default function App() {
         <div className="mt-20"></div>
       )}
 
-      {/* FILTROS */}
+      {/* ÁREA DE FILTROS E BUSCA */}
       <div className="sticky top-16 z-40 bg-gray-50/95 backdrop-blur-md border-b border-gray-100 shadow-sm pt-3 pb-1">
         <div className="max-w-7xl mx-auto">
+          
+          {/* BUSCA E BOTÃO DE ORDENAÇÃO */}
           <div className="px-4 mb-3 flex gap-2">
             <div className="relative flex-grow shadow-sm group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -169,6 +183,7 @@ export default function App() {
             </button>
           </div>
           
+          {/* PAINEL DE ORDENAÇÃO (EXPANDÍVEL) */}
           <AnimatePresence>
             {isFilterOpen && (
               <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden px-4 mb-2">
@@ -187,20 +202,16 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          <div className="flex gap-2 overflow-x-auto px-4 pb-3 pt-1 no-scrollbar items-center">
-            {categories.map(cat => (
-              <button 
-                key={cat} 
-                onClick={() => setSelectedCategory(cat)} 
-                className="relative px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap z-10 transition-colors" 
-                style={{ color: selectedCategory === cat ? '#fff' : '#666' }}
-              >
-                {selectedCategory === cat && (
-                  <motion.div layoutId="activeCat" className="absolute inset-0 rounded-full -z-10 shadow-md" style={{ backgroundColor: config.primaryColor }} />
-                )}
-                {cat}
-              </button>
-            ))}
+          {/* 🔥 NOVO FILTRO DE CATEGORIA E SUBCATEGORIA */}
+          <div className="px-4 pb-2">
+             <CategoryFilter 
+               products={produtos} // Passa todos os produtos para ele calcular as opções
+               selectedCategory={selectedCategory}
+               selectedSubcategory={selectedSubcategory}
+               onSelectCategory={setSelectedCategory}
+               onSelectSubcategory={setSelectedSubcategory}
+               config={config}
+             />
           </div>
         </div>
       </div>
@@ -208,8 +219,17 @@ export default function App() {
       {/* LISTAGEM DE PRODUTOS */}
       <main className="max-w-7xl mx-auto p-4 min-h-[60vh]">
         <div className="mb-5 px-1 flex items-end justify-between border-b border-gray-100 pb-2">
-           <h2 className="text-xl font-bold text-gray-800">{selectedCategory}</h2>
-           <span className="text-xs text-gray-400 font-medium mb-1">{produtosFiltrados.length} itens</span>
+            <div className="flex flex-col">
+               <h2 className="text-xl font-bold text-gray-800">
+                 {selectedCategory || 'Todos os Produtos'}
+               </h2>
+               {selectedSubcategory && (
+                 <span className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                   ▶ {selectedSubcategory}
+                 </span>
+               )}
+            </div>
+            <span className="text-xs text-gray-400 font-medium mb-1">{produtosFiltrados.length} itens</span>
         </div>
 
         {produtosFiltrados.length > 0 ? (
@@ -220,13 +240,23 @@ export default function App() {
                 produto={prod} 
                 config={config} 
                 onAdicionar={() => adicionarAoCarrinho(prod)} 
-                // Clicar no card abre o modal de detalhes
                 onImageClick={() => setSelectedProduct(prod)} 
               />
             ))}
           </div>
         ) : (
-          <div className="py-24 text-center text-gray-400">Nada encontrado.</div>
+          <div className="py-24 text-center flex flex-col items-center justify-center text-gray-400">
+             <Search size={48} className="mb-4 opacity-20" />
+             <p>Nenhum produto encontrado nesta categoria.</p>
+             {(selectedCategory || searchTerm) && (
+               <button 
+                 onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); setSearchTerm(''); }}
+                 className="mt-4 text-blue-500 text-sm font-bold hover:underline"
+               >
+                 Limpar Filtros
+               </button>
+             )}
+          </div>
         )}
       </main>
 
@@ -240,7 +270,7 @@ export default function App() {
         config={config} 
       />
       
-      {/* MODAL DETALHES DO PRODUTO (NOVO) */}
+      {/* MODAL DETALHES DO PRODUTO */}
       <ProductDetailsModal 
         isOpen={!!selectedProduct} 
         onClose={() => setSelectedProduct(null)} 
