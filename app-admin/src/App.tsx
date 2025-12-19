@@ -29,16 +29,16 @@ type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeir
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
   const { user, userData, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
   // Lista de páginas na ordem do menu
   const paginas: Pagina[] = [
-    'dashboard', 
-    'pedidos', 
-    'produtos', 
-    'fornecedores', 
-    'financeiro', 
-    'campanhas', 
-    'relatorios', 
+    'dashboard',
+    'pedidos',
+    'produtos',
+    'fornecedores',
+    'financeiro',
+    'campanhas',
+    'relatorios',
     'precificacao',
     'equipe', // <--- Adicionado ao menu
     'configuracoes'
@@ -54,7 +54,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
     <nav className="bg-carvao shadow-lg mb-8 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          
+
           {/* LADO ESQUERDO: Logo e Menu Desktop */}
           <div className="flex">
             <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('dashboard')}>
@@ -62,7 +62,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
               <div className="w-8 h-8 bg-dourado rounded-lg flex items-center justify-center text-carvao font-bold">H</div>
               <h1 className="text-xl font-bold text-dourado hidden sm:block">HIVE ERP</h1>
             </div>
-            
+
             {/* Menu Desktop (Hidden em Mobile) */}
             <div className="hidden lg:ml-6 lg:flex lg:space-x-1 overflow-x-auto no-scrollbar items-center">
               {paginas.map((p) => (
@@ -80,18 +80,18 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
               ))}
             </div>
           </div>
-          
+
           {/* LADO DIREITO: Usuário e Toggle Mobile */}
           <div className="flex items-center ml-4 gap-2">
             <div className="hidden md:flex flex-col items-end mr-2">
-               <span className="text-xs text-gray-400">Logado como</span>
-               <div className="flex items-center gap-1">
-                 {userData?.role === 'owner' && <Shield size={12} className="text-dourado"/>}
-                 <span className="text-xs text-prata font-bold">{userData?.name || user?.email?.split('@')[0]}</span>
-               </div>
+              <span className="text-xs text-gray-400">Logado como</span>
+              <div className="flex items-center gap-1">
+                {userData?.role === 'owner' && <Shield size={12} className="text-dourado" />}
+                <span className="text-xs text-prata font-bold">{userData?.name || user?.email?.split('@')[0]}</span>
+              </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={logout}
               className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-red-900/30 transition-colors"
               title="Sair"
@@ -135,15 +135,15 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
               ))}
               {/* Info do Usuário no Mobile */}
               <div className="border-t border-gray-700 mt-4 pt-4 px-3 pb-2">
-                  <div className="flex items-center">
-                     <div className="ml-3">
-                       <div className="text-base font-medium leading-none text-white flex items-center gap-2">
-                          {userData?.name || 'Usuário'}
-                          {userData?.role === 'owner' && <Shield size={14} className="text-dourado"/>}
-                       </div>
-                       <div className="text-sm font-medium leading-none text-gray-400 mt-1">{user?.email}</div>
-                     </div>
+                <div className="flex items-center">
+                  <div className="ml-3">
+                    <div className="text-base font-medium leading-none text-white flex items-center gap-2">
+                      {userData?.name || 'Usuário'}
+                      {userData?.role === 'owner' && <Shield size={14} className="text-dourado" />}
+                    </div>
+                    <div className="text-sm font-medium leading-none text-gray-400 mt-1">{user?.email}</div>
                   </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -157,7 +157,11 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
-
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('q')) {
+    // Se detectou um QR Code na URL, salva no cache antes do redirecionamento limpar tudo
+    localStorage.setItem('pending_qr_scan', params.get('q') || '');
+  }
   if (loading) {
     return (
       <div className="min-h-screen bg-off-white flex items-center justify-center">
@@ -190,7 +194,7 @@ function ProtectedLayout() {
     <div className="min-h-screen bg-off-white">
       <Navbar paginaAtual={pagina} onNavigate={setPagina} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        
+
         {/* Usando ErrorBoundary para evitar que um erro numa página quebre o app todo */}
         <ErrorBoundary key={pagina}>
           <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">

@@ -73,29 +73,39 @@ export function ProdutosPage() {
   // ============================================================================
   // 🔥 LÓGICA DE QR CODE (A MÁGICA ACONTECE AQUI)
   // ============================================================================
-  useEffect(() => {
-    // 1. Pega os parâmetros da URL (ex: ?q=OQ-AG-9502)
+ useEffect(() => {
+    // 1. Tenta pegar o código da URL (vinda direta do QR Code)
     const params = new URLSearchParams(window.location.search);
-    const qrCodeQuery = params.get('q');
+    const qrFromUrl = params.get('q');
 
-    // 2. Se tiver um código, joga no campo de busca
-    if (qrCodeQuery) {
-      setSearchTerm(qrCodeQuery);
-      toast('Filtrado por QR Code', {
+    // 2. Tenta pegar o código do Cache (caso o sistema tenha te jogado no Dashboard antes)
+    const qrFromCache = localStorage.getItem('pending_qr_scan');
+
+    const finalQuery = qrFromUrl || qrFromCache;
+
+    if (finalQuery) {
+      setSearchTerm(finalQuery);
+      
+      toast('Produto localizado via QR Code', {
         icon: '📷',
         style: {
           borderRadius: '10px',
-          background: '#333',
-          color: '#fff',
+          background: '#4a4a4a',
+          color: '#d19900',
+          fontWeight: 'bold',
+          border: '1px solid #d19900'
         },
       });
-      
-      // Limpa a URL para não ficar "presa" no filtro se o usuário der F5 depois
-      // mas mantém o filtro visualmente aplicado
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
 
+      // Limpa os rastros para não filtrar eternamente
+      window.history.replaceState({}, '', window.location.pathname);
+      localStorage.removeItem('pending_qr_scan');
+    }
+    
+    // Listener para capturar o link mesmo se o usuário estiver no Dashboard
+    // Se o QR Code bater no App.tsx e salvar no localStorage, 
+    // a ProdutosPage pegará na próxima montagem.
+  }, []);
   // ============================================================================
   // CARREGAMENTO
   // ============================================================================
