@@ -456,13 +456,14 @@ function CssImageEditor({ src, edit, onChange }: any) {
   const handleWheel = (e: React.WheelEvent) => {
     const delta = e.deltaY * -0.001;
     const newScale = Math.max(0.5, Math.min(5, (edit.scale || 1) + delta));
-    onChange('scale', newScale);
+    onChange('scale ', newScale);
   };
+
 
   return (
     <div 
       className="w-full h-full relative overflow-hidden bg-[#050505]"
-      onMouseDown={handleMouseDown}
+      onMouseDown={handleMouseDown} 
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
