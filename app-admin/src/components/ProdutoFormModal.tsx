@@ -3,25 +3,24 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { X, DollarSign, Plus, Link, Box, Wand2, UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
-import { z } from 'zod'; // Import Zod directly to extend schema
+import { X, DollarSign, Plus, Link, Box, Wand2, UploadCloud, Loader2, Image as ImageIcon, Calculator } from 'lucide-react';
+import { z } from 'zod';
 
 import { CategoryModal } from './CategoryModal';
 import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
-import { produtoSchema, type ConfigFormData } from '../types/schemas'; // Removed ProdutoFormData import to redefine locally
+import { produtoSchema, type ConfigFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto, uploadImage } from '../services/apiService';
 
 // --- EXTENDING TYPES AND SCHEMAS LOCALLY ---
 
-// 1. Extend the Zod Schema to include subcategory
+// 1. Extend the Zod Schema to include subcategory AND markup
 const extendedProdutoSchema = produtoSchema.extend({
   subcategory: z.string().optional(),
+  markup: z.coerce.number().min(1, "Mínimo 1.0").optional(), // Novo campo
 });
 
-// 2. Derive the new Form Data type from the extended schema
 type ExtendedProdutoFormData = z.infer<typeof extendedProdutoSchema>;
 
-// 3. Extend the ProdutoAdmin type for local usage
 interface ExtendedProdutoAdmin extends ProdutoAdmin {
   subcategory?: string;
 }
@@ -40,7 +39,7 @@ interface ProdutoFormModalProps {
 // Componente de Input Reutilizável
 type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
   label?: string;
-  name: keyof ExtendedProdutoFormData; // Updated to use Extended Type
+  name: keyof ExtendedProdutoFormData;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   register: any;
   error?: string;
@@ -79,13 +78,13 @@ export function ProdutoFormModal({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Hook Form using Extended Schema and Type
   const { register, handleSubmit, reset, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<ExtendedProdutoFormData>({
     resolver: zodResolver(extendedProdutoSchema),
     defaultValues: {
       name: '',
       costPrice: 0,
       salePrice: 0,
+      markup: 2.0, // Valor padrão inicial
       quantity: 0,
       supplierId: '',
       supplierProductUrl: '',
@@ -100,9 +99,25 @@ export function ProdutoFormModal({
 
   const custoObservado = watch('costPrice');
   const vendaObservada = watch('salePrice');
+  const markupObservado = watch('markup');
   const categoriaObservada = watch('category');
   const fornecedorObservado = watch('supplierId');
 
+  // --- LÓGICA DE CÁLCULO DE PREÇO ---
+  useEffect(() => {
+    const custo = Number(getValues('costPrice')) || 0;
+    const markup = Number(getValues('markup')) || 0;
+    
+    // Só calcula se tiver custo e markup maior que 0
+    if (custo > 0 && markup > 0) {
+        const precoVenda = custo * markup;
+        // Atualiza o preço de venda formatado com 2 casas decimais
+        // Usamos parseFloat(toFixed) para evitar dízimas infinitas
+        setValue('salePrice', parseFloat(precoVenda.toFixed(2))); 
+    }
+  }, [custoObservado, markupObservado, setValue, getValues]);
+
+  // --- INDICADORES FINANCEIROS ---
   const indicadores = useMemo(() => {
     const custo = Number(custoObservado) || 0;
     const venda = Number(vendaObservada) || 0;
@@ -125,16 +140,22 @@ export function ProdutoFormModal({
     };
   }, [custoObservado, vendaObservada, configGlobal]);
 
+  // --- CARREGAR DADOS NA EDIÇÃO ---
   useEffect(() => {
     if (isOpen) {
       if (isEditMode && produtoParaEditar) {
-        // Cast produtoParaEditar to Extended Type to access subcategory safely
         const produtoExt = produtoParaEditar as ExtendedProdutoAdmin;
         
+        // Calcula o markup atual baseado nos preços existentes
+        const currentMarkup = (produtoExt.salePrice && produtoExt.costPrice) 
+            ? (produtoExt.salePrice / produtoExt.costPrice) 
+            : 2.0;
+
         reset({
           name: produtoExt.name,
           costPrice: produtoExt.costPrice || 0,
           salePrice: produtoExt.salePrice || 0,
+          markup: parseFloat(currentMarkup.toFixed(2)), // Preenche o markup
           quantity: produtoExt.quantity || 0,
           code: produtoExt.code || '',
           category: produtoExt.category || '',
@@ -148,7 +169,7 @@ export function ProdutoFormModal({
         setPreviewImage(produtoExt.imageUrl || null);
       } else {
         reset({
-          name: '', costPrice: 0, salePrice: 0, quantity: 0,
+          name: '', costPrice: 0, salePrice: 0, markup: 2.0, quantity: 0,
           supplierId: '', category: '', subcategory: '', code: '', imageUrl: '',
           status: 'ativo', description: ''
         });
@@ -157,17 +178,7 @@ export function ProdutoFormModal({
     }
   }, [isOpen, isEditMode, produtoParaEditar, reset]);
 
-  useEffect(() => {
-    if (isEditMode) return;
-    const custo = Number(custoObservado);
-    if (custo > 0 && !getValues('salePrice')) {
-      let markup = 2.0;
-      if (custo > 200) markup = 1.5;
-      const precoSugerido = Math.ceil(custo * markup) - 0.10;
-      setValue('salePrice', precoSugerido);
-    }
-  }, [custoObservado, setValue, isEditMode, getValues]);
-
+  // --- SKU AUTOMÁTICO ---
   useEffect(() => {
     if (isEditMode) return;
     if (categoriaObservada && fornecedorObservado && !getValues('code')) {
@@ -212,11 +223,12 @@ export function ProdutoFormModal({
         ...data,
         subcategory: data.subcategory?.toUpperCase() || '',
         imageUrl: data.imageUrl || getValues('imageUrl') || '',
+        // O campo markup é usado apenas para cálculo no front, não precisamos salvar no banco necessariamente,
+        // mas o preço de venda calculado (salePrice) será salvo corretamente.
       };
 
       let result;
       if (isEditMode && produtoParaEditar) {
-        // Cast payload to any to bypass strict type checking until types are updated
         result = await updateAdminProduto(produtoParaEditar.id, payload as any);
         toast.success("Produto atualizado!");
       } else {
@@ -311,11 +323,46 @@ export function ProdutoFormModal({
                 </div>
 
                 <div className="space-y-4">
+                  
+                  {/* --- BLOCO DE PRECIFICAÇÃO REFORMULADO --- */}
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> Precificação</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <FormInput label="Custo (R$)" name="costPrice" type="number" step="0.01" register={register} error={errors.costPrice?.message} />
-                      <FormInput label="Venda (R$)" name="salePrice" type="number" step="0.01" register={register} error={errors.salePrice?.message} />
+                    <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <DollarSign size={16} /> Precificação
+                    </h3>
+                    
+                    {/* Grid com 3 colunas: Custo | Markup | Venda */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <FormInput 
+                        label="Custo (R$)" 
+                        name="costPrice" 
+                        type="number" step="0.01" 
+                        register={register} 
+                        error={errors.costPrice?.message} 
+                      />
+                      
+                      {/* Campo Markup */}
+                      <div className="relative">
+                         <label className="block text-sm font-medium text-gray-700 mb-1">Markup</label>
+                         <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <Calculator size={14} />
+                            </div>
+                            <input
+                                type="number" 
+                                step="0.1"
+                                {...register('markup')}
+                                className="block w-full pl-9 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dourado focus:border-transparent text-center font-bold text-gray-700"
+                            />
+                         </div>
+                      </div>
+
+                      <FormInput 
+                        label="Venda (R$)" 
+                        name="salePrice" 
+                        type="number" step="0.01" 
+                        register={register} 
+                        error={errors.salePrice?.message} 
+                      />
                     </div>
 
                     {indicadores && (
@@ -333,6 +380,7 @@ export function ProdutoFormModal({
                       </div>
                     )}
                   </div>
+                  {/* ------------------------------------------ */}
 
                   <div className="grid grid-cols-2 gap-3">
                     <FormInput label="Estoque Atual" name="quantity" type="number" register={register} error={errors.quantity?.message} icon={<Box size={14} />} />

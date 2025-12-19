@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Upload, X, CloudUpload, Plus, Trash2, Sparkles, 
   CheckSquare, Square, Loader2, CheckCircle, Image as ImageIcon,
-  Tag, Layers // Novos ícones
+  Tag, Layers, Calculator
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -11,7 +11,7 @@ import { toast } from 'react-hot-toast';
 import { uploadImage, importProductsBulk, getCategories, getFornecedores } from '../services/apiService';
 
 // --- CONFIGURAÇÃO DE NEGÓCIO ---
-const DEFAULT_MARKUP = 2.0; // Markup de Venda
+// Removemos a constante fixa DEFAULT_MARKUP pois agora ela é dinâmica via input
 
 interface NeonStudioProps {
   isOpen: boolean;
@@ -26,12 +26,13 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-  // Configurações Globais
+  // Configurações Globais (Agora com MARKUP dinâmico)
   const [globalSettings, setGlobalSettings] = useState({
     supplierId: '',
     categoryId: '',
-    subcategory: '', // Novo Global
+    subcategory: '', 
     stock: '1',
+    markup: '2.0', // <--- NOVO PADRÃO INICIAL
   });
 
   useEffect(() => {
@@ -46,27 +47,24 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
     }
   }, [isOpen]);
 
+  // Função para lidar com mudanças globais
+  const handleGlobalChange = (field: string, value: string) => {
+    setGlobalSettings(prev => ({ ...prev, [field]: value }));
+  };
+
   // --- NOVA LÓGICA DE CÓDIGO: CAT(3) - FOR(2) - RAND(3) ---
   const generateSmartCode = (categoryId: string, supplierId: string) => {
-    // 1. Pega Categoria (3 primeiras letras)
     const catObj = categories.find(c => c.id === categoryId);
-    const catPrefix = catObj 
-      ? catObj.name.substring(0, 3).toUpperCase() 
-      : 'GEN'; // Padrão se não tiver categoria
+    const catPrefix = catObj ? catObj.name.substring(0, 3).toUpperCase() : 'GEN';
 
-    // 2. Pega Fornecedor (2 primeiras letras)
     const supObj = suppliers.find(s => s.id === supplierId);
     let supPrefix = 'XX';
     if (supObj) {
-        // Remove símbolos e pega letras
         const supClean = supObj.name.replace(/[^a-zA-Z]/g, '');
         supPrefix = supClean.substring(0, 2).toUpperCase();
     }
 
-    // 3. Gera 3 dígitos aleatórios (100 a 999)
     const random3 = Math.floor(Math.random() * 900) + 100;
-
-    // Resultado Ex: BRI-VL-197
     return `${catPrefix}-${supPrefix}-${random3}`;
   };
 
@@ -86,7 +84,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
         cm: '',
         mm: '',
         categoryId: globalSettings.categoryId,
-        subcategory: globalSettings.subcategory, // Novo Campo
+        subcategory: globalSettings.subcategory,
         supplierId: globalSettings.supplierId,
         stock: globalSettings.stock,
       },
@@ -111,7 +109,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
     setItems(prev => prev.filter(i => i.id !== id));
   };
 
-  // --- GERADOR DE CROP (SEM CANVAS NA VISUALIZAÇÃO) ---
+  // --- GERADOR DE CROP ---
   const generateFinalCrop = async (item: any): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -158,7 +156,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
     });
   };
 
-  // --- SINCRONIZAÇÃO ---
+  // --- SINCRONIZAÇÃO (COM MARKUP DINÂMICO) ---
   const handleSync = async () => {
     const toUpload = items.filter(i => i.selected && i.status !== 'success');
     if (toUpload.length === 0) return toast.error("Selecione itens para enviar.");
@@ -167,6 +165,9 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
     setProgress({ current: 0, total: toUpload.length });
     const successList: any[] = [];
 
+    // Pega o markup definido no input
+    const activeMarkup = Number(globalSettings.markup) || 2.0;
+
     for (let i = 0; i < toUpload.length; i++) {
       const item = toUpload[i];
       setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'uploading' } : it));
@@ -174,7 +175,6 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
       try {
         const finalBlob = await generateFinalCrop(item);
         
-        // 1. Nome Concatenado
         const finalName = [
           item.data.description, 
           item.data.cm ? `${item.data.cm}CM` : '',
@@ -184,13 +184,11 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
         const fileToUpload = new File([finalBlob], `${finalName}.jpg`, { type: 'image/jpeg' });
         const imageUrl = await uploadImage(fileToUpload);
 
-        // 2. Gera o CÓDIGO INTELIGENTE (ATUALIZADO)
-        // Passa Categoria e Fornecedor
         const smartCode = generateSmartCode(item.data.categoryId, item.data.supplierId);
 
-        // 3. Preços
+        // Cálculos Financeiros
         const costPrice = Number(item.data.price) || 0;
-        const salePrice = costPrice * DEFAULT_MARKUP;
+        const salePrice = costPrice * activeMarkup; // <--- USA O MARKUP DO INPUT
 
         const productData = {
           name: finalName,
@@ -201,7 +199,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
           subcategory: item.data.subcategory || '', 
           supplierId: item.data.supplierId,
           imageUrl: imageUrl,
-          code: smartCode, // CÓDIGO NOVO APLICADO AQUI
+          code: smartCode,
           status: 'ativo'
         };
 
@@ -232,30 +230,67 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
           className="fixed inset-0 z-50 bg-[#0a0a0a] text-white flex flex-col"
         >
           {/* HEADER */}
-          <header className="px-6 py-4 border-b border-white/10 bg-black/40 backdrop-blur-xl flex justify-between items-center sticky top-0 z-50">
-            <div className="flex items-center gap-3">
+          <header className="px-6 py-4 border-b border-white/10 bg-black/40 backdrop-blur-xl flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 gap-4">
+            <div className="flex items-center gap-3 w-full md:w-auto">
               <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition"><X /></button>
               <div>
                 <h1 className="text-xl font-bold flex items-center gap-2">
                   <Sparkles className="text-cyan-400" size={20}/> NEON STUDIO
                 </h1>
-                <p className="text-xs text-gray-400 font-mono">CÓDIGO: CAT(3) + FOR(2) + 000</p>
+                <p className="text-xs text-gray-400 font-mono hidden md:block">CÓDIGO: CAT(3) + FOR(2) + 000</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <label className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition">
-                <Plus size={18} /> <span className="text-sm font-bold">Adicionar Fotos</span>
+            {/* BARRA DE CONFIGURAÇÕES GLOBAIS (MARKUP AQUI) */}
+            <div className="flex gap-2 items-center bg-white/5 p-2 rounded-xl border border-white/10 overflow-x-auto w-full md:w-auto">
+                {/* Markup */}
+                <div className="flex flex-col w-20 shrink-0">
+                   <label className="text-[9px] text-cyan-400 font-bold uppercase mb-1 flex items-center gap-1"><Calculator size={10}/> Markup</label>
+                   <input 
+                      type="number" 
+                      step="0.1"
+                      value={globalSettings.markup}
+                      onChange={e => handleGlobalChange('markup', e.target.value)}
+                      className="bg-black/50 border border-white/20 rounded px-2 py-1 text-white text-xs font-bold outline-none focus:border-cyan-500 text-center"
+                   />
+                </div>
+
+                {/* Estoque */}
+                <div className="flex flex-col w-16 shrink-0">
+                   <label className="text-[9px] text-gray-400 font-bold uppercase mb-1">Qtd Padrão</label>
+                   <input 
+                      type="number" 
+                      value={globalSettings.stock}
+                      onChange={e => handleGlobalChange('stock', e.target.value)}
+                      className="bg-black/50 border border-white/20 rounded px-2 py-1 text-white text-xs font-bold outline-none text-center"
+                   />
+                </div>
+
+                {/* Subcategoria Global */}
+                <div className="flex flex-col w-32 shrink-0">
+                   <label className="text-[9px] text-gray-400 font-bold uppercase mb-1">Subcategoria</label>
+                   <input 
+                      value={globalSettings.subcategory}
+                      onChange={e => handleGlobalChange('subcategory', e.target.value)}
+                      placeholder="EX: ARGOLA"
+                      className="bg-black/50 border border-white/20 rounded px-2 py-1 text-white text-xs font-bold outline-none uppercase"
+                   />
+                </div>
+            </div>
+
+            <div className="flex items-center gap-4 w-full md:w-auto justify-end">
+              <label className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition shrink-0">
+                <Plus size={18} /> <span className="text-sm font-bold hidden md:inline">Add Fotos</span>
                 <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} />
               </label>
 
               <button 
                 onClick={handleSync}
                 disabled={isUploading || items.filter(i => i.selected).length === 0}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg font-bold transition shadow-[0_0_20px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:shadow-none"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-lg font-bold transition shadow-[0_0_20px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:shadow-none shrink-0"
               >
                 {isUploading ? <Loader2 className="animate-spin" /> : <CloudUpload />}
-                {isUploading ? `Enviando ${progress.current}/${progress.total}` : 'Sincronizar Tudo'}
+                {isUploading ? `Enviando...` : 'Sincronizar'}
               </button>
             </div>
           </header>
@@ -266,6 +301,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
               <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-3xl opacity-50">
                 <ImageIcon size={64} className="mb-4 text-gray-600"/>
                 <h2 className="text-2xl font-bold text-gray-500">Arraste fotos ou clique em Adicionar</h2>
+                <p className="text-sm text-gray-600 mt-2">Defina o Markup no topo para calcular preços automáticos.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
@@ -279,7 +315,8 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
                     onEdit={updateEdit}
                     onToggle={toggleSelect}
                     onRemove={removeItem}
-                    generateSmartCode={generateSmartCode} // Passando a função atualizada
+                    generateSmartCode={generateSmartCode}
+                    activeMarkup={globalSettings.markup} // Passa para preview
                   />
                 ))}
               </div>
@@ -292,11 +329,13 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
 }
 
 // --- CARD ATUALIZADO (COM SUBCATEGORIA E PREVIEW DO CÓDIGO) ---
-function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, onRemove, generateSmartCode }: any) {
+function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, onRemove, generateSmartCode, activeMarkup }: any) {
   const borderColor = item.status === 'success' ? 'border-green-500' : item.status === 'error' ? 'border-red-500' : item.selected ? 'border-cyan-500' : 'border-white/10';
   
-  // Calcula o código em tempo real para mostrar pro usuário (baseado em Cat e Forn)
   const smartCodePreview = generateSmartCode(item.data.categoryId, item.data.supplierId);
+  
+  // Cálculo de Preço Estimado para visualização
+  const estimatedSale = (Number(item.data.price) || 0) * (Number(activeMarkup) || 2);
 
   return (
     <div className={`bg-[#111] rounded-xl border ${borderColor} overflow-hidden flex flex-col group relative transition-all hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
@@ -345,6 +384,7 @@ function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, 
            <div className="space-y-1">
              <label className="text-[10px] text-cyan-500 uppercase font-bold">Custo (R$)</label>
              <input type="number" value={item.data.price} onChange={e => onUpdate(item.id, 'price', e.target.value)} className="w-full bg-white/5 rounded px-2 py-1 text-xs text-white outline-none border border-cyan-900/50 focus:border-cyan-500 font-mono" placeholder="0.00" />
+             <p className="text-[9px] text-gray-500 text-right">Venda: R$ {estimatedSale.toFixed(2)}</p>
            </div>
            <div className="space-y-1">
              <label className="text-[10px] text-gray-500 uppercase font-bold">Estoque</label>
