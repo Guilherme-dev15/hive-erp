@@ -304,7 +304,7 @@ export function ProdutosPage() {
           {/* NEON STUDIO */}
           <button 
             onClick={() => setIsNeonOpen(true)} 
-            className="group flex items-center gap-2 px-5 py-3 bg-[#4a4a4a] text-[#d19900] rounded-xl hover:bg-black hover:shadow-[0_0_20px_rgba(209,153,0,0.2)] transition-all font-bold ml-2"
+            className="group flex items-center gap-2 px-5 py-3 bg-[#ffffff] text-[#d19900] rounded-xl hover:bg-black hover:shadow-[0_0_20px_rgba(209,153,0,0.2)] transition-all font-bold ml-2 border"
           >
              <Sparkles size={18} className="group-hover:text-white transition-colors" /> 
              <span className="hidden sm:inline group-hover:text-white transition-colors">Neon Studio</span>
