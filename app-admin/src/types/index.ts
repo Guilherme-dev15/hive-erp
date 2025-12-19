@@ -27,6 +27,7 @@ export interface ChartData {
 // ============================================================================
 
 export interface ProdutoAdmin {
+  weight: any;
   id: string;
   name: string;
   code?: string;
@@ -113,6 +114,7 @@ export interface Transacao {
 // ============================================================================
 
 export interface Fornecedor {
+  rules: any;
   id: string;
   name: string;
   contactPhone?: string;
