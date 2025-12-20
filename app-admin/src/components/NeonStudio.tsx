@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, CloudUpload, Plus, Trash2, Sparkles, 
   CheckSquare, Loader2, CheckCircle, Image as ImageIcon,
-  Scale, Package} from 'lucide-react';
+  Scale, Package
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 import { uploadImage, importProductsBulk, getCategories, getFornecedores } from '../services/apiService';
@@ -84,13 +85,13 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
       data: {
         description: file.name.split('.')[0].replace(/-/g, ' ').toUpperCase(),
         price: '', 
-        cm: '', // Campo original mantido
-        mm: '', // Campo original mantido
+        cm: '', 
+        mm: '', 
         categoryId: globalSettings.categoryId,
         subcategory: globalSettings.subcategory,
         supplierId: globalSettings.supplierId,
         stock: globalSettings.stock,
-        variantes: [] as ProdutoVariante[] // Nova lista de variantes
+        variantes: [] as ProdutoVariante[] 
       },
       edit: { scale: 1, x: 0, y: 0 }
     }));
@@ -103,7 +104,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   const toggleSelect = (id: string) => setItems(prev => prev.map(i => i.id === id ? { ...i, selected: !i.selected } : i));
   const removeItem = (id: string) => setItems(prev => prev.filter(i => i.id !== id));
 
-  // --- LÓGICA DE VARIANTES (ADICIONAR/REMOVER/EDITAR) ---
+  // --- LÓGICA DE VARIANTES ---
   const addVariante = (itemId: string, type: 'cm' | 'aro') => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item;
@@ -161,7 +162,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject();
         ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 1080, 1080);
-        const ratio = 1080 / 300; // 300 é o tamanho visual aproximado
+        const ratio = 1080 / 300; 
         ctx.translate(1080 / 2, 1080 / 2);
         ctx.translate(item.edit.x * ratio, item.edit.y * ratio);
         ctx.scale(item.edit.scale, item.edit.scale);
@@ -174,98 +175,96 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   };
 
   // Sincronização
-const handleSync = async () => {
-  const toUpload = items.filter(i => i.selected && i.status !== 'success');
-  if (toUpload.length === 0) return toast.error("Selecione itens para enviar.");
-  
-  setIsUploading(true);
-  const successList: any[] = [];
-  const activeMarkup = Number(globalSettings.markup) || 2.0;
-
-  for (let i = 0; i < toUpload.length; i++) {
-    const item = toUpload[i];
-    setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'uploading' } : it));
+  const handleSync = async () => {
+    const toUpload = items.filter(i => i.selected && i.status !== 'success');
+    if (toUpload.length === 0) return toast.error("Selecione itens para enviar.");
     
-    try {
-      const finalBlob = await generateFinalCrop(item);
-      const finalName = [
-        item.data.description, 
-        item.data.cm ? `${item.data.cm}CM` : '', 
-        item.data.mm ? `${item.data.mm}MM` : ''
-      ].filter(Boolean).join(' ').toUpperCase();
+    setIsUploading(true);
+    const successList: any[] = [];
+    const activeMarkup = Number(globalSettings.markup) || 2.0;
+
+    for (let i = 0; i < toUpload.length; i++) {
+      const item = toUpload[i];
+      setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'uploading' } : it));
       
-      const fileToUpload = new File([finalBlob], `${finalName}.jpg`, { type: 'image/jpeg' });
-      const imageUrl = await uploadImage(fileToUpload);
-      const smartCode = generateSmartCode(item.data.categoryId, item.data.supplierId);
+      try {
+        const finalBlob = await generateFinalCrop(item);
+        const finalName = [
+          item.data.description, 
+          item.data.cm ? `${item.data.cm}CM` : '', 
+          item.data.mm ? `${item.data.mm}MM` : ''
+        ].filter(Boolean).join(' ').toUpperCase();
+        
+        const fileToUpload = new File([finalBlob], `${finalName}.jpg`, { type: 'image/jpeg' });
+        const imageUrl = await uploadImage(fileToUpload);
+        const smartCode = generateSmartCode(item.data.categoryId, item.data.supplierId);
 
-      // --- LÓGICA DE PREÇO DO PRODUTO PAI ---
-      let costPrice = 0;
-      let weight = 0;
-      const rawInputValue = Number(item.data.price) || 0;
-
-      if (showMetalCalc && globalGramPrice > 0) {
-          weight = rawInputValue;
-          costPrice = weight * globalGramPrice;
-      } else {
-          costPrice = rawInputValue;
-      }
-
-      const finalSalePrice = costPrice * activeMarkup;
-
-      // --- LÓGICA DE PREÇO DAS VARIANTES (FIX CORRIGIDO) ---
-      const variantesCalculadas = item.data.variantes.map((v: any) => {
-        let vCusto = 0;
-        const vValorInput = Number(v.valor_ajuste) || 0;
+        // Preço
+        let costPrice = 0;
+        let weight = 0;
+        const rawInputValue = Number(item.data.price) || 0;
 
         if (showMetalCalc && globalGramPrice > 0) {
-           // Se está no modo metal, o que foi digitado na variante (ex: 1.5) é o PESO
-           vCusto = vValorInput * globalGramPrice; 
+            weight = rawInputValue;
+            costPrice = weight * globalGramPrice;
         } else {
-           // Modo padrão: o valor digitado já é o custo
-           vCusto = vValorInput;
+            costPrice = rawInputValue;
         }
 
-        return {
-          ...v,
-          // O valor que vai para o banco é: (Peso * Grama) * Markup
-          valor_ajuste: parseFloat((vCusto * activeMarkup).toFixed(2))
+        const finalSalePrice = costPrice * activeMarkup;
+
+        // Variantes
+        const variantesCalculadas = item.data.variantes.map((v: any) => {
+          let vCusto = 0;
+          const vValorInput = Number(v.valor_ajuste) || 0;
+
+          if (showMetalCalc && globalGramPrice > 0) {
+             vCusto = vValorInput * globalGramPrice; 
+          } else {
+             vCusto = vValorInput;
+          }
+
+          return {
+            ...v,
+            valor_ajuste: parseFloat((vCusto * activeMarkup).toFixed(2))
+          };
+        });
+
+        const productData = {
+          name: finalName,
+          costPrice: parseFloat(costPrice.toFixed(2)),
+          salePrice: parseFloat(finalSalePrice.toFixed(2)),
+          quantity: item.data.variantes.length > 0 
+            ? item.data.variantes.reduce((acc: number, v: any) => acc + Number(v.estoque), 0) 
+            : Number(item.data.stock) || 0,
+          category: categories.find(c => c.id === item.data.categoryId)?.name || 'Geral',
+          subcategory: item.data.subcategory || '', // Usa o campo editável
+          supplierId: item.data.supplierId,
+          imageUrl: imageUrl,
+          code: smartCode,
+          status: 'ativo',
+          weight: weight > 0 ? weight : undefined,
+          gramPrice: showMetalCalc ? globalGramPrice : undefined,
+          variantes: variantesCalculadas
         };
-      });
 
-      const productData = {
-        name: finalName,
-        costPrice: parseFloat(costPrice.toFixed(2)),
-        salePrice: parseFloat(finalSalePrice.toFixed(2)),
-        quantity: item.data.variantes.length > 0 
-          ? item.data.variantes.reduce((acc: number, v: any) => acc + Number(v.estoque), 0) 
-          : Number(item.data.stock) || 0,
-        category: categories.find(c => c.id === item.data.categoryId)?.name || 'Geral',
-        subcategory: item.data.subcategory || '',
-        supplierId: item.data.supplierId,
-        imageUrl: imageUrl,
-        code: smartCode,
-        status: 'ativo',
-        weight: weight > 0 ? weight : undefined,
-        gramPrice: showMetalCalc ? globalGramPrice : undefined,
-        variantes: variantesCalculadas
-      };
-
-      successList.push(productData);
-      setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'success' } : it));
-    } catch (error) { 
-      console.error(error);
-      setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'error' } : it)); 
+        successList.push(productData);
+        setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'success' } : it));
+      } catch (error) { 
+        console.error(error);
+        setItems(prev => prev.map(it => it.id === item.id ? { ...it, status: 'error' } : it)); 
+      }
     }
-  }
 
-  if (successList.length > 0) {
-    await importProductsBulk(successList);
-    toast.success(`${successList.length} cadastrados com sucesso!`);
-    onSuccess();
-    setTimeout(onClose, 1500);
-  }
-  setIsUploading(false);
-};
+    if (successList.length > 0) {
+      await importProductsBulk(successList);
+      toast.success(`${successList.length} cadastrados com sucesso!`);
+      onSuccess();
+      setTimeout(onClose, 1500);
+    }
+    setIsUploading(false);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -291,6 +290,20 @@ const handleSync = async () => {
                    </div>
                 </div>
 
+                {/* Seletor Global de Subcategoria (Opcional, para preencher padrão) */}
+                <div className="flex items-center gap-3 px-3 border-r border-white/5">
+                   <div className="flex flex-col w-28">
+                      <label className="text-[9px] text-gray-500 font-bold uppercase mb-1">Subcat. Padrão</label>
+                      <input 
+                        type="text" 
+                        value={globalSettings.subcategory.toUpperCase()} 
+                        onChange={e => handleGlobalChange('subcategory', e.target.value)} 
+                        className="bg-transparent text-sm font-bold text-white outline-none w-full"
+                        placeholder="Ex: Anel"
+                      />
+                   </div>
+                </div>
+
                 <div className="flex items-center gap-3 px-3 border-r border-white/5">
                    <button onClick={() => setShowMetalCalc(!showMetalCalc)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${showMetalCalc ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-500'}`}>
                       <Scale size={14} /> {showMetalCalc ? 'Modo Peso' : 'Modo R$'}
@@ -309,7 +322,7 @@ const handleSync = async () => {
                       <input type="number" step="0.1" value={globalSettings.markup} onChange={e => handleGlobalChange('markup', e.target.value)} className="bg-transparent text-sm font-bold text-white outline-none text-center" />
                    </div>
                    <div className="flex flex-col w-16 text-center">
-                      <label className="text-[9px] text-gray-500 font-bold uppercase mb-1">Qtd Padrão</label>
+                      <label className="text-[9px] text-gray-500 font-bold uppercase mb-1">Qtd</label>
                       <input type="number" value={globalSettings.stock} onChange={e => handleGlobalChange('stock', e.target.value)} className="bg-transparent text-sm font-bold text-white outline-none text-center" />
                    </div>
                 </div>
@@ -363,7 +376,7 @@ const handleSync = async () => {
   );
 }
 
-// --- CARD RESTAURADO (DESIGN ORIGINAL + VARIANTES DISCRETAS) ---
+// --- CARD DO PRODUTO (ATUALIZADO COM CAMPO DE SUBCATEGORIA) ---
 function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, onRemove, onAddVariante, onUpdateVariante, onRemoveVariante, generateSmartCode, activeMarkup, isByWeight, lotPrice }: any) {
   const isSelected = item.selected;
   const smartCodePreview = generateSmartCode(item.data.categoryId, item.data.supplierId);
@@ -376,7 +389,7 @@ function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, 
   return (
     <div className={`relative bg-black rounded-2xl overflow-hidden flex flex-col transition-all duration-300 border border-white/10 group hover:border-white/30 ${isSelected ? 'ring-1 ring-cyan-500/50' : 'opacity-90 hover:opacity-100'}`}>
       
-      {/* IMAGEM E EDITOR (INTACTO) */}
+      {/* IMAGEM E EDITOR */}
       <div className="relative aspect-square bg-[#050505] overflow-hidden border-b border-white/5">
         {item.status === 'uploading' && <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center backdrop-blur-sm"><Loader2 className="animate-spin text-cyan-400" size={32}/></div>}
         {item.status === 'success' && <div className="absolute inset-0 z-50 bg-green-900/20 backdrop-blur-sm flex items-center justify-center border border-green-500/30"><CheckCircle className="text-green-400" size={48}/></div>}
@@ -400,6 +413,14 @@ function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, 
           placeholder="NOME DO PRODUTO"
         />
 
+        {/* SUBCATEGORIA (NOVO) */}
+        <input 
+          value={item.data.subcategory} 
+          onChange={e => onUpdate(item.id, 'subcategory', e.target.value)} 
+          className="w-full bg-transparent text-[10px] font-bold text-gray-500 border-b border-white/5 focus:border-cyan-500/50 outline-none uppercase py-1 mb-2"
+          placeholder="SUBCATEGORIA (OPCIONAL)"
+        />
+
         {/* PREÇO E VENDA */}
         <div className="bg-white/5 rounded-xl p-2 border border-white/10 flex justify-between items-center">
            <div className="flex flex-col w-1/2 border-r border-white/10 pr-2">
@@ -412,7 +433,7 @@ function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, 
            </div>
         </div>
 
-        {/* CM / MM (RESTAURADOS) */}
+        {/* CM / MM */}
         <div className="grid grid-cols-2 gap-2">
             <div className="relative">
               <span className="absolute top-2 left-2 text-[8px] text-gray-500 font-bold">CM</span>
@@ -424,7 +445,7 @@ function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, 
             </div>
         </div>
 
-        {/* GAVETA DE VARIANTES (NOVO RECURSO COMPACTO) */}
+        {/* GAVETA DE VARIANTES */}
         <div className="pt-2 mt-auto">
            <div className="flex justify-between items-center mb-1">
               <label className="text-[8px] font-black text-gray-600 uppercase flex items-center gap-1"><Package size={10}/> Grades</label>
@@ -467,7 +488,7 @@ function ProductCard({ item, categories, suppliers, onUpdate, onEdit, onToggle, 
   );
 }
 
-// EDITOR CSS (MANTIDO 100% IGUAL)
+// EDITOR CSS
 function CssImageEditor({ src, edit, onChange }: any) {
   const [isDragging, setIsDragging] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
