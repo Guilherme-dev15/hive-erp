@@ -20,9 +20,9 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'HivePratas Admin',
-        short_name: 'HiveAdmin',
-        description: 'Gestão HivePratas ERP',
+        name: 'Hive Pratas',
+        short_name: 'Hive Pratas',
+        description: 'Catalogo Hive Pratas',
         theme_color: '#343434',
         background_color: '#ffffff',
         display: 'standalone',
