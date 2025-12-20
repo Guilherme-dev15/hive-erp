@@ -6,16 +6,25 @@ import { toast } from 'react-hot-toast';
 import { 
   X, DollarSign, Plus, Box, Wand2, UploadCloud, 
   Loader2, Image as ImageIcon, Calculator, Scale, AlertCircle,
-  Ruler, ChevronDown 
+  Ruler, ChevronDown, Trash2, Copy, Layers, RefreshCw, TrendingUp
 } from 'lucide-react';
 import { z } from 'zod';
 
 import { CategoryModal } from './CategoryModal';
-import { type Fornecedor, type ProdutoAdmin, type Category } from '../types';
+import { type Fornecedor, type ProdutoAdmin, type Category, type ProdutoVariante } from '../types';
 import { produtoSchema, type ConfigFormData } from '../types/schemas';
 import { createAdminProduto, updateAdminProduto, uploadImage } from '../services/apiService';
 
-// --- SCHEMA ---
+// --- SCHEMA DE VARIANTES ---
+const varianteSchema = z.object({
+  medida: z.string().min(1, "Obrigatório"),
+  valor_ajuste: z.coerce.number(),
+  estoque: z.coerce.number(),
+  sob_consulta: z.boolean().optional(),
+  sku_sufixo: z.string().optional()
+});
+
+// --- SCHEMA PRINCIPAL ESTENDIDO ---
 const extendedProdutoSchema = produtoSchema.extend({
   subcategory: z.string().optional(),
   markup: z.coerce.number().min(1, "Mínimo 1.0").optional(),
@@ -23,17 +32,18 @@ const extendedProdutoSchema = produtoSchema.extend({
   gramPrice: z.coerce.number().optional(),
   cm: z.string().optional(),
   mm: z.string().optional(),
+  variantes: z.array(varianteSchema).optional()
 });
 
 type ExtendedProdutoFormData = z.infer<typeof extendedProdutoSchema>;
 
-// Tipo Estendido
 type ExtendedProdutoAdmin = Omit<ProdutoAdmin, 'subcategory' | 'weight' | 'gramPrice'> & {
   subcategory?: string;
   weight?: number;
   gramPrice?: number;
   cm?: string;
   mm?: string;
+  variantes?: ProdutoVariante[];
 };
 
 interface ProdutoFormModalProps {
@@ -48,9 +58,17 @@ interface ProdutoFormModalProps {
 }
 
 // ----------------------------------------------------------------------
-// 1. INPUT PADRONIZADO
+// COMPONENTES UI AUXILIARES
 // ----------------------------------------------------------------------
-const FormInput: React.FC<any> = ({ label, name, register, error, icon, className, children, ...props }) => (
+interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  name: string;
+  register: any;
+  error?: string;
+  icon?: React.ReactNode;
+}
+
+const FormInput: React.FC<FormInputProps> = ({ label, name, register, error, icon, className, ...props }) => (
   <div className={className}>
     {label && (
       <label htmlFor={String(name)} className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 tracking-wider ml-1">
@@ -81,10 +99,15 @@ const FormInput: React.FC<any> = ({ label, name, register, error, icon, classNam
   </div>
 );
 
-// ----------------------------------------------------------------------
-// 2. SELECT PADRONIZADO
-// ----------------------------------------------------------------------
-const FormSelect: React.FC<any> = ({ label, name, register, error, icon, className, children, ...props }) => (
+interface FormSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  name: string;
+  register: any;
+  error?: string;
+  icon?: React.ReactNode;
+}
+
+const FormSelect: React.FC<FormSelectProps> = ({ label, name, register, error, icon, className, children, ...props }) => (
   <div className={className}>
     {label && (
       <label htmlFor={String(name)} className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 tracking-wider ml-1">
@@ -120,6 +143,9 @@ const FormSelect: React.FC<any> = ({ label, name, register, error, icon, classNa
   </div>
 );
 
+// ----------------------------------------------------------------------
+// COMPONENTE PRINCIPAL
+// ----------------------------------------------------------------------
 export function ProdutoFormModal({
   isOpen, onClose, fornecedores, categories, setCategories, produtoParaEditar, onProdutoSalvo, configGlobal
 }: ProdutoFormModalProps) {
@@ -138,7 +164,8 @@ export function ProdutoFormModal({
     defaultValues: {
       name: '', costPrice: 0, salePrice: 0, markup: 2.0, quantity: 0,
       supplierId: '', category: '', subcategory: '', code: '', imageUrl: '',
-      status: 'ativo', description: '', weight: 0, gramPrice: 0, cm: '', mm: ''
+      status: 'ativo', description: '', weight: 0, gramPrice: 0, cm: '', mm: '',
+      variantes: []
     }
   });
 
@@ -148,28 +175,60 @@ export function ProdutoFormModal({
   const pesoObs = watch('weight');
   const gramaObs = watch('gramPrice');
   const fornecedorObs = watch('supplierId');
+  const variantesObs = watch('variantes');
 
-  // --- LÓGICA DE GERAÇÃO DE CÓDIGO INTELIGENTE ---
-  const generateAutoCode = (catName: string, supId: string) => {
-    // 1. Prefixo Categoria (3 letras)
-    const catPart = catName ? catName.substring(0, 3).toUpperCase() : 'GEN';
+  // --- FUNÇÕES DE VARIANTES ---
+  const addVariante = () => {
+    const atuais = getValues('variantes') || [];
+    const precoBase = getValues('salePrice') || 0; 
+    setValue('variantes', [
+      ...atuais, 
+      { medida: '', valor_ajuste: precoBase, estoque: 1, sob_consulta: false }
+    ]);
+  };
+
+  const removeVariante = (index: number) => {
+    const atuais = getValues('variantes') || [];
+    setValue('variantes', atuais.filter((_, i) => i !== index));
+  };
+
+  const updateTotalStock = () => {
+    const atuais = getValues('variantes') || [];
+    const total = atuais.reduce((acc: number, v: { estoque: number }) => acc + (Number(v.estoque) || 0), 0);
+    if (total > 0) {
+      setValue('quantity', total);
+      toast.success(`Estoque geral atualizado para ${total} un.`);
+    }
+  };
+
+  const applyBasePriceToAll = () => {
+    const currentPrice = getValues('salePrice') || 0;
+    const currentVariants = getValues('variantes') || [];
     
-    // 2. Prefixo Fornecedor (2 letras)
+    if (currentVariants.length === 0) return toast.error("Adicione variantes primeiro.");
+
+    const updatedVariants = currentVariants.map(v => ({
+      ...v,
+      valor_ajuste: currentPrice
+    }));
+
+    setValue('variantes', updatedVariants);
+    toast.success(`Preço R$ ${currentPrice.toFixed(2)} aplicado em todas as grades!`);
+  };
+
+  const generateAutoCode = (catName: string, supId: string) => {
+    const catPart = catName ? catName.substring(0, 3).toUpperCase() : 'GEN';
     const supObj = fornecedores.find(f => f.id === supId);
     let supPart = 'XX';
     if (supObj) {
-        // Remove espaços e pega as 2 primeiras letras
         const clean = supObj.name.replace(/[^a-zA-Z]/g, '');
         supPart = clean.substring(0, 2).toUpperCase();
     }
-    
-    // 3. Número Aleatório (4 dígitos)
     const random = Math.floor(Math.random() * 9000) + 1000;
-    
     return `${catPart}-${supPart}-${random}`;
   };
 
-  // 1. Detectar Regras do Fornecedor
+  // Detectar Regras do Fornecedor
   useEffect(() => {
     if (fornecedorObs) {
       const forn = fornecedores.find(f => f.id === fornecedorObs);
@@ -185,7 +244,7 @@ export function ProdutoFormModal({
     }
   }, [fornecedorObs, fornecedores, isEditMode, setValue, getValues]);
 
-  // 2. Cálculos Automáticos
+  // Cálculos Automáticos
   useEffect(() => {
     if (!showMetalCalc) return;
     const p = Number(pesoObs) || 0;
@@ -209,12 +268,21 @@ export function ProdutoFormModal({
     }
   }, [custoObs, markupObs, setValue, getValues]);
 
+  // --- CÁLCULO DE LUCRO E MARGEM (VISÍVEL) ---
   const indicadores = useMemo(() => {
     const c = Number(custoObs) || 0;
     const v = Number(vendaObs) || 0;
-    if (v === 0) return null;
-    const lucro = v - (c + (v * (configGlobal?.cardFee || 0)/100) + (configGlobal?.packagingCost || 0));
-    return { lucro, margem: (lucro / v) * 100 };
+    
+    if (v === 0) return { lucro: 0, margem: 0 };
+
+    // Taxas globais (se não existirem, usa 0)
+    const taxaCartao = configGlobal?.cardFee ? (v * (configGlobal.cardFee / 100)) : 0;
+    const taxaEmbalagem = configGlobal?.packagingCost || 0;
+
+    const lucro = v - (c + taxaCartao + taxaEmbalagem);
+    const margem = (lucro / v) * 100;
+
+    return { lucro, margem };
   }, [custoObs, vendaObs, configGlobal]);
 
   // Init Form
@@ -226,16 +294,18 @@ export function ProdutoFormModal({
         if (p.weight && p.weight > 0) setShowMetalCalc(true);
         reset({
           name: p.name, category: p.category, subcategory: p.subcategory || '',
-          markup: parseFloat(mk.toFixed(2)), weight: p.weight || 0, gramPrice: p.gramPrice || 0,
+          markup: parseFloat(mk.toFixed(2)) || 2.0, weight: p.weight || 0, gramPrice: p.gramPrice || 0,
           costPrice: Number(p.costPrice), salePrice: Number(p.salePrice), quantity: p.quantity,
           supplierId: p.supplierId, code: p.code, imageUrl: p.imageUrl, status: p.status, description: p.description,
-          cm: p.cm || '', mm: p.mm || ''
+          cm: p.cm || '', mm: p.mm || '',
+          variantes: p.variantes || [] 
         });
         setPreviewImage(p.imageUrl || null);
       } else {
         reset({
           name: '', costPrice: 0, salePrice: 0, markup: 2.0, quantity: 0,
-          category: '', subcategory: '', code: '', status: 'ativo', weight: 0, gramPrice: 0, cm: '', mm: ''
+          category: '', subcategory: '', code: '', status: 'ativo', weight: 0, gramPrice: 0, cm: '', mm: '',
+          variantes: []
         });
         setPreviewImage(null);
         setShowMetalCalc(false);
@@ -258,7 +328,6 @@ export function ProdutoFormModal({
 
   const onSubmit: SubmitHandler<ExtendedProdutoFormData> = async (data) => {
     try {
-      // 1. Gera descrição técnica se tiver CM/MM
       let finalDesc = data.description || '';
       const specs = [];
       if (data.cm) specs.push(`Comprimento: ${data.cm}cm`);
@@ -268,8 +337,6 @@ export function ProdutoFormModal({
          if (!finalDesc.includes(specsStr)) finalDesc = `${finalDesc}\n${specsStr}`.trim();
       }
 
-      // 2. GERAÇÃO DE CÓDIGO (A Mágica acontece aqui)
-      // Se não estiver editando e o código estiver vazio, gera um novo.
       let finalCode = data.code;
       if (!isEditMode && !finalCode) {
           finalCode = generateAutoCode(data.category || '', data.supplierId || '');
@@ -277,23 +344,33 @@ export function ProdutoFormModal({
 
       const payload = { 
         ...data, 
-        code: finalCode, // Usa o código gerado
+        code: finalCode,
         subcategory: data.subcategory?.toUpperCase() || '',
         weight: Number(data.weight),
         gramPrice: Number(data.gramPrice),
         description: finalDesc,
         cm: data.cm,
-        mm: data.mm
+        mm: data.mm,
+        variantes: data.variantes || [] 
       };
 
       let res;
-      if (isEditMode && produtoParaEditar) res = await updateAdminProduto(produtoParaEditar.id, payload as any);
-      else res = await createAdminProduto(payload as any);
+      if (isEditMode && produtoParaEditar) {
+        await updateAdminProduto(produtoParaEditar.id, payload as any);
+        // Para atualizar a lista sem F5, montamos o objeto atualizado manualmente
+        // pois o updateAdminProduto as vezes retorna void
+        res = { ...produtoParaEditar, ...payload };
+      } else {
+        res = await createAdminProduto(payload as any);
+      }
       
-      onProdutoSalvo(res);
+      onProdutoSalvo(res); // Envia o objeto completo para a lista atualizar
       onClose();
       toast.success(isEditMode ? "Produto Atualizado!" : `Produto Criado! SKU: ${finalCode}`);
-    } catch { toast.error("Erro ao salvar."); }
+    } catch (error) { 
+        console.error(error);
+        toast.error("Erro ao salvar."); 
+    }
   };
 
   return (
@@ -312,14 +389,13 @@ export function ProdutoFormModal({
             initial={{ y: 20, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }}
           >
             
-            {/* CABEÇALHO */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-white sticky top-0 z-20">
               <div>
                 <h2 className="text-2xl font-black text-[#4a4a4a] tracking-tight flex items-center gap-3">
                    {isEditMode ? "Editar Produto" : "Novo Cadastro"}
                    {isEditMode && produtoParaEditar && <span className="text-[10px] font-bold text-[#d19900] bg-yellow-50 px-2 py-1 rounded-lg uppercase tracking-widest">ID: {produtoParaEditar.id.slice(0,6)}</span>}
                 </h2>
-                <p className="text-xs text-gray-400 font-medium mt-1">Detalhes técnicos, dimensões e precificação.</p>
+                <p className="text-xs text-gray-400 font-medium mt-1">Detalhes técnicos, variantes e precificação.</p>
               </div>
               <button onClick={onClose} className="p-2.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500 transition-all active:scale-90"><X size={22} /></button>
             </div>
@@ -382,7 +458,7 @@ export function ProdutoFormModal({
                         {fornecedores.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                      </FormSelect>
 
-                     {/* --- CALCULADORA DE METAL (DESTAQUE ROXO MANTIDO PARA CONTEXTO TÉCNICO) --- */}
+                     {/* --- CALCULADORA DE METAL --- */}
                      <div className="space-y-3">
                         <div className="flex justify-between items-center px-1">
                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Scale size={12}/> Precificação por Peso</span>
@@ -394,8 +470,6 @@ export function ProdutoFormModal({
                           {showMetalCalc && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                               <div className="p-5 bg-purple-50/50 rounded-2xl border border-purple-100 grid grid-cols-2 gap-4 relative overflow-hidden">
-                                 <div className="absolute top-0 right-0 w-20 h-20 bg-purple-200/20 rounded-full -translate-y-10 translate-x-10 pointer-events-none"></div>
-
                                  {activeSupplierRules?.lots?.length > 0 && (
                                     <div className="col-span-2 mb-2">
                                        <label className="text-[9px] font-black text-purple-600 uppercase mb-1.5 block">Selecione Lote / Cotação</label>
@@ -413,68 +487,136 @@ export function ProdutoFormModal({
                         </AnimatePresence>
                      </div>
 
-                     {/* --- BLOCO PRECIFICAÇÃO (CLEAN) --- */}
+                     {/* --- BLOCO PRECIFICAÇÃO & LUCRO --- */}
                      <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm relative">
                         <div className="grid grid-cols-3 gap-5">
-                           
-                           {/* Custo Real */}
-                           <FormInput 
-                              label="Custo Real (R$)" 
-                              name="costPrice" 
-                              type="number" step="0.01" 
-                              register={register} 
-                              placeholder="0.00"
-                           />
-                           
-                           {/* Markup */}
+                           <FormInput label="Custo Real (R$)" name="costPrice" type="number" step="0.01" register={register} placeholder="0.00" />
                            <div className="relative">
-                              <label htmlFor="markup" className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 tracking-wider text-center">Markup</label>
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 tracking-wider text-center">Markup</label>
                               <div className="relative group">
-                                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                                    <Calculator size={14} />
-                                 </div>
-                                 <input
-                                    id="markup"
-                                    type="number"
-                                    step="0.1"
-                                    {...register('markup')}
-                                    className="block w-full px-3 py-2.5 bg-white border border-gray-200 hover:border-gray-300 rounded-xl text-sm font-medium text-center focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none transition-all pl-9 text-gray-800"
-                                 />
+                                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><Calculator size={14} /></div>
+                                 <input type="number" step="0.1" {...register('markup')} className="block w-full px-3 py-2.5 bg-white border border-gray-200 hover:border-gray-300 rounded-xl text-sm font-medium text-center focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none transition-all pl-9 text-gray-800" />
                               </div>
                            </div>
-                           
-                           {/* Venda Final */}
                            <div className="relative">
-                              <label htmlFor="salePrice" className="block text-[10px] font-bold text-[#4a4a4a] uppercase mb-1.5 tracking-wider text-right">Venda Final</label>
-                              <input
-                                 id="salePrice"
-                                 type="number"
-                                 step="0.01"
-                                 {...register('salePrice')}
-                                 className="block w-full px-3 py-2.5 bg-white border border-gray-300 hover:border-gray-400 rounded-xl text-sm font-black text-right text-[#4a4a4a] focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none transition-all"
-                              />
+                              <label className="block text-[10px] font-bold text-[#4a4a4a] uppercase mb-1.5 tracking-wider text-right">Venda Final</label>
+                              <input type="number" step="0.01" {...register('salePrice')} className="block w-full px-3 py-2.5 bg-white border border-gray-300 hover:border-gray-400 rounded-xl text-sm font-black text-right text-[#4a4a4a] focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none transition-all" />
                            </div>
                         </div>
 
-                        {indicadores && (
-                           <div className="mt-5 pt-4 border-t border-gray-200 flex justify-between items-center">
-                              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">Lucro Líquido Estimado:</span>
-                              <span className={`text-xs font-black px-3 py-1 rounded-lg ${indicadores.lucro > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                 R$ {indicadores.lucro.toFixed(2)} ({indicadores.margem.toFixed(0)}%)
+                        {/* EXIBIÇÃO DO LUCRO - AGORA BEM VISÍVEL */}
+                        <div className="mt-5 pt-4 border-t border-gray-200 flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                           <div className="flex items-center gap-2 text-gray-500">
+                              <TrendingUp size={16} />
+                              <span className="text-[10px] font-bold uppercase tracking-tighter">Lucro Líquido Estimado</span>
+                           </div>
+                           <div className="text-right">
+                              <span className={`text-sm font-black px-2 py-1 rounded-md ${indicadores.lucro > 0 ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                 R$ {indicadores.lucro.toFixed(2)}
+                              </span>
+                              <span className="text-[10px] font-bold text-gray-400 ml-2">
+                                 ({indicadores.margem.toFixed(0)}%)
                               </span>
                            </div>
-                        )}
+                        </div>
                      </div>
 
                      <div className="grid grid-cols-2 gap-4 pt-2">
-                        <FormInput label="Estoque Inicial" name="quantity" type="number" register={register} icon={<Box size={14}/>} />
-                        
+                        <FormInput label="Estoque Principal" name="quantity" type="number" register={register} icon={<Box size={14}/>} />
                         <FormSelect label="Estado" name="status" register={register}>
                            <option value="ativo">Disponível / Ativo</option>
                            <option value="inativo">Indisponível / Oculto</option>
                         </FormSelect>
                      </div>
                   </div>
+                </div>
+
+                {/* --- SEÇÃO DE GRADES E VARIANTES --- */}
+                <div className="mt-8 pt-6 border-t border-gray-100">
+                   <div className="flex justify-between items-end mb-4">
+                      <div>
+                         <h3 className="text-sm font-black text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                            <Layers size={16} className="text-[#d19900]"/> Grades e Variações
+                         </h3>
+                         <p className="text-[10px] text-gray-400 font-medium mt-1">
+                            Adicione tamanhos, aros ou cores. O preço pode ser ajustado individualmente.
+                         </p>
+                      </div>
+                      <div className="flex gap-2">
+                         <button 
+                            type="button" 
+                            onClick={applyBasePriceToAll} 
+                            className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-xl flex items-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200"
+                            title="Copia o 'Preço de Venda Final' para todas as variantes"
+                         >
+                            <RefreshCw size={14} /> Aplicar Preço Base (R$ {Number(vendaObs).toFixed(2)}) em Tudo
+                         </button>
+
+                         <button type="button" onClick={addVariante} className="text-xs bg-black text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-black/10">
+                            <Plus size={14} /> Nova Variação
+                         </button>
+                      </div>
+                   </div>
+
+                   {(!variantesObs || variantesObs.length === 0) ? (
+                      <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-400 text-xs font-medium">
+                         Nenhuma variação cadastrada. Este produto será vendido como item único.
+                      </div>
+                   ) : (
+                      <div className="space-y-3">
+                         <div className="grid grid-cols-12 gap-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider px-2">
+                            <div className="col-span-3">Nome / Medida</div>
+                            <div className="col-span-3">Preço Venda (R$)</div>
+                            <div className="col-span-2 text-center">Estoque</div>
+                            <div className="col-span-3">Status</div>
+                            <div className="col-span-1"></div>
+                         </div>
+                         {variantesObs.map((v: any, index: number) => (
+                            <div key={index} className="grid grid-cols-12 gap-3 items-center bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+                               <div className="col-span-3">
+                                  <input 
+                                    {...register(`variantes.${index}.medida`)} 
+                                    placeholder="Ex: 45cm ou Aro 18" 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:border-[#d19900]"
+                                  />
+                               </div>
+                               <div className="col-span-3 relative group">
+                                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2 text-green-600 font-bold text-xs">R$</div>
+                                  <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    {...register(`variantes.${index}.valor_ajuste`)} 
+                                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-green-700 outline-none focus:border-green-500 pl-8"
+                                  />
+                               </div>
+                               <div className="col-span-2">
+                                  <input 
+                                    type="number" 
+                                    {...register(`variantes.${index}.estoque`)} 
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold text-center outline-none"
+                                  />
+                               </div>
+                               <div className="col-span-3 flex items-center gap-2">
+                                  <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-gray-600 select-none hover:text-black">
+                                     <input type="checkbox" {...register(`variantes.${index}.sob_consulta`)} className="w-4 h-4 rounded text-[#d19900] focus:ring-[#d19900] border-gray-300" />
+                                     Sob Consulta
+                                  </label>
+                               </div>
+                               <div className="col-span-1 flex justify-end">
+                                  <button type="button" onClick={() => removeVariante(index)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                     <Trash2 size={14} />
+                                  </button>
+                               </div>
+                            </div>
+                         ))}
+                         
+                         <div className="flex justify-end pt-2">
+                            <button type="button" onClick={updateTotalStock} className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
+                               <Copy size={12}/> Somar estoque das grades para o total
+                            </button>
+                         </div>
+                      </div>
+                   )}
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col gap-4">

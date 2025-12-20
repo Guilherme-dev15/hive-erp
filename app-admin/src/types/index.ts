@@ -53,6 +53,14 @@ export interface ProdutoAdmin {
   createdAt?: FirestoreDate;
 }
 
+export interface ProdutoVariante {
+  id?: string;
+  sku_sufixo: string; // Ex: -40CM, -50CM, -N18
+  valor_ajuste: number; // Valor a somar ou o preço cheio da variante
+  medida: string; // 40cm, 50cm, ou Número 18
+  estoque: number;
+  sob_consulta: boolean; 
+}
 // ============================================================================
 // 3. PEDIDOS (Orders)
 // ============================================================================

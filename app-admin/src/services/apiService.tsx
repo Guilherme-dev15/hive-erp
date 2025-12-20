@@ -46,7 +46,7 @@ apiClient.interceptors.request.use(
 );
 
 // ============================================================================
-// SERVIÇO DE UPLOAD
+// SERVIÇO DE UPLOAD (FIREBASE STORAGE)
 // ============================================================================
 export const uploadImage = async (file: File, _p0?: string): Promise<string> => {
   if (!file) return '';
@@ -67,7 +67,21 @@ export const uploadImage = async (file: File, _p0?: string): Promise<string> => 
 // ============================================================================
 
 // --- PRODUTOS ---
-export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => (await apiClient.get('/admin/products')).data;
+
+// 🔥 ATUALIZAÇÃO IMPORTANTE AQUI:
+// Expandimos a função para garantir que o array 'variantes' sempre exista.
+export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
+  const { data } = await apiClient.get('/admin/products');
+  
+  // Mapeamento de segurança: Se o backend devolver null/undefined, usamos array vazio/string vazia
+  return data.map((prod: any) => ({
+    ...prod,
+    variantes: prod.variantes || [], // Garante que a grade de tamanhos funcione
+    cm: prod.cm || '',
+    mm: prod.mm || ''
+  }));
+};
+
 export const createAdminProduto = async (data: ProdutoFormData): Promise<ProdutoAdmin> => (await apiClient.post('/admin/products', data)).data;
 export const updateAdminProduto = async (id: string, data: ProdutoFormData): Promise<ProdutoAdmin> => (await apiClient.put(`/admin/products/${id}`, data)).data;
 export const deleteAdminProduto = async (id: string): Promise<void> => apiClient.delete(`/admin/products/${id}`);
@@ -90,7 +104,7 @@ export const createTransacao = async (data: TransacaoFormData): Promise<Transaca
 export const updateTransacao = async (id: string, data: TransacaoFormData): Promise<Transacao> => (await apiClient.put(`/admin/transactions/${id}`, data)).data;
 export const deleteTransacao = async (id: string): Promise<void> => apiClient.delete(`/admin/transactions/${id}`);
 
-// --- PEDIDOS (AQUI ESTAVA O ERRO DE DUPLICIDADE) ---
+// --- PEDIDOS ---
 export const getAdminOrders = async (): Promise<Order[]> => (await apiClient.get('/admin/orders')).data;
 export const updateAdminOrderStatus = async (id: string, status: OrderStatus): Promise<Order> => (await apiClient.put(`/admin/orders/${id}`, { status })).data;
 export const deleteAdminOrder = async (id: string): Promise<void> => apiClient.delete(`/admin/orders/${id}`);
@@ -121,7 +135,6 @@ export const adjustStock = async (data: {
 };
 
 export const getProductLogs = async (productId: string) => {
-  // Atenção na crase (backtick) ` ` e na variável ${productId}
   const response = await apiClient.get(`/admin/inventory/logs/${productId}`);
   return response.data;
 };

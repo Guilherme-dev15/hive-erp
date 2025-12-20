@@ -77,11 +77,11 @@ export function PedidosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Order | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list'); // Padrão LIST é mais profissional para muitos pedidos
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list'); 
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('Todos'); // Novo filtro por abas
+  const [statusFilter, setStatusFilter] = useState<string>('Todos'); 
   const [dateFilter, setDateFilter] = useState<'all' | '7days' | '30days'>('all');
 
   // Config & Print
@@ -141,17 +141,14 @@ export function PedidosPage() {
   // --- FILTROS AVANÇADOS ---
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(pedido => {
-      // Filtro Texto
       const termo = searchTerm.toLowerCase();
       const matchText = (pedido.id?.toLowerCase().includes(termo) || 
                          pedido.customerName?.toLowerCase().includes(termo) || 
                          pedido.customerPhone?.includes(termo));
       if (!matchText) return false;
 
-      // Filtro Status (Abas)
       if (statusFilter !== 'Todos' && pedido.status !== statusFilter) return false;
 
-      // Filtro Data
       if (dateFilter !== 'all') {
         const segundos = getDateSeconds(pedido.createdAt);
         if (!segundos) return false;
@@ -189,7 +186,6 @@ export function PedidosPage() {
     }
   };
 
-  // --- RENDER ---
   if (loading) return <div className="h-[80vh] flex flex-col items-center justify-center"><Loader2 className="animate-spin text-dourado mb-2" size={40} /><p className="text-gray-400 font-medium">Carregando pedidos...</p></div>;
   if (error) return <div className="p-10 text-center text-red-500 font-bold bg-red-50 rounded-xl m-10 border border-red-100">{error}</div>;
 
@@ -221,7 +217,6 @@ export function PedidosPage() {
 
         {/* 2. FILTROS AVANÇADOS */}
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4">
-            {/* Linha 1: Abas de Status */}
             <div className="flex overflow-x-auto pb-2 no-scrollbar gap-2 border-b border-gray-100">
                 <button 
                     onClick={() => setStatusFilter('Todos')}
@@ -240,7 +235,6 @@ export function PedidosPage() {
                 ))}
             </div>
 
-            {/* Linha 2: Busca e Data */}
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-grow">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -285,7 +279,9 @@ export function PedidosPage() {
                         <tbody className="divide-y divide-gray-100">
                             <AnimatePresence>
                                 {pedidosFiltrados.map(pedido => {
-                                    const statusStyle = statusConfig[pedido.status || 'Aguardando Pagamento'];
+                                    // Fallback para status desconhecido
+                                    const statusStyle = statusConfig[pedido.status as OrderStatus] || statusConfig['Aguardando Pagamento'];
+                                    
                                     return (
                                         <motion.tr 
                                             key={pedido.id}
@@ -359,10 +355,19 @@ export function PedidosPage() {
             </div>
         )}
 
+        {/* MODO KANBAN CORRIGIDO */}
         {viewMode === 'kanban' && (
             <div className="flex overflow-x-auto pb-6 gap-4 items-start custom-scrollbar">
                 {statusOrdem.map(status => {
-                    const pedidosDoStatus = pedidosFiltrados.filter(p => p.status === status);
+                    
+                    // --- FILTRO DO KANBAN CORRIGIDO ---
+                    // Agora aceita pedidos sem status (null/undefined) na coluna "Aguardando Pagamento"
+                    const pedidosDoStatus = pedidosFiltrados.filter(p => {
+                        if (p.status === status) return true;
+                        if (status === 'Aguardando Pagamento' && !p.status) return true;
+                        return false;
+                    });
+
                     const estilo = statusConfig[status];
                     
                     return (

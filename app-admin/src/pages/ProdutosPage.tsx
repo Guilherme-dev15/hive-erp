@@ -71,16 +71,12 @@ export function ProdutosPage() {
   const [produtoEstoque, setProdutoEstoque] = useState<ProdutoAdmin | null>(null);
 
   // ============================================================================
-  // 🔥 LÓGICA DE QR CODE (A MÁGICA ACONTECE AQUI)
+  // 🔥 LÓGICA DE QR CODE
   // ============================================================================
- useEffect(() => {
-    // 1. Tenta pegar o código da URL (vinda direta do QR Code)
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const qrFromUrl = params.get('q');
-
-    // 2. Tenta pegar o código do Cache (caso o sistema tenha te jogado no Dashboard antes)
     const qrFromCache = localStorage.getItem('pending_qr_scan');
-
     const finalQuery = qrFromUrl || qrFromCache;
 
     if (finalQuery) {
@@ -97,15 +93,11 @@ export function ProdutosPage() {
         },
       });
 
-      // Limpa os rastros para não filtrar eternamente
       window.history.replaceState({}, '', window.location.pathname);
       localStorage.removeItem('pending_qr_scan');
     }
-    
-    // Listener para capturar o link mesmo se o usuário estiver no Dashboard
-    // Se o QR Code bater no App.tsx e salvar no localStorage, 
-    // a ProdutosPage pegará na próxima montagem.
   }, []);
+
   // ============================================================================
   // CARREGAMENTO
   // ============================================================================
@@ -138,14 +130,12 @@ export function ProdutosPage() {
   // ============================================================================
   const produtosFiltrados = useMemo(() => {
     return produtos.filter(p => {
-      const termo = searchTerm.toLowerCase().trim(); // Remove espaços extras
+      const termo = searchTerm.toLowerCase().trim();
       const sub = p.subcategory ? p.subcategory.toLowerCase() : '';
       const code = p.code ? p.code.toLowerCase() : '';
       const name = p.name ? p.name.toLowerCase() : '';
       
-      // Lógica de busca robusta (Nome, SKU ou Subcategoria)
       const matchTexto = name.includes(termo) || code.includes(termo) || sub.includes(termo);
-
       const matchCategoria = filterCategory === 'Todas' || p.category === filterCategory;
       return matchTexto && matchCategoria;
     });
@@ -223,13 +213,21 @@ export function ProdutosPage() {
     setIsStockModalOpen(true);
   };
 
+  // --- CORREÇÃO DO REFRESH ---
   const handleSaveSuccess = (prodSalvo: ProdutoAdmin) => {
     const prodExt = prodSalvo as unknown as ExtendedProdutoAdmin;
-    if (produtoEditando) {
-      setProdutos(prev => prev.map(p => p.id === prodExt.id ? prodExt : p));
-    } else {
-      setProdutos(prev => [prodExt, ...prev]);
-    }
+    setProdutos(prev => {
+      const index = prev.findIndex(p => p.id === prodExt.id);
+      if (index >= 0) {
+        // Atualiza item existente
+        const novaLista = [...prev];
+        novaLista[index] = prodExt;
+        return novaLista;
+      } else {
+        // Adiciona novo item
+        return [prodExt, ...prev];
+      }
+    });
     setIsModalOpen(false);
   };
 
@@ -259,7 +257,6 @@ export function ProdutosPage() {
 
         <div className="flex flex-wrap gap-3 w-full lg:w-auto items-center">
           
-          {/* Grupo de Ações em Massa */}
           <div className="flex bg-gray-50 p-1.5 rounded-xl border border-gray-100 gap-1">
               <button
                 onClick={onPrintClick}
@@ -290,7 +287,6 @@ export function ProdutosPage() {
 
           <div className="h-8 w-px bg-gray-200 mx-2 hidden lg:block"></div>
 
-          {/* Grupo de Ferramentas */}
           <div className="flex gap-2">
               <button onClick={() => setIsCategoryModalOpen(true)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-xl hover:border-[#d19900]/50 hover:text-[#d19900] transition-colors shadow-sm" title="Categorias">
                   <FolderTree size={18} />
@@ -301,7 +297,6 @@ export function ProdutosPage() {
               </button>
           </div>
 
-          {/* NEON STUDIO */}
           <button 
             onClick={() => setIsNeonOpen(true)} 
             className="group flex items-center gap-2 px-5 py-3 bg-[#ffffff] text-[#d19900] rounded-xl hover:bg-black hover:shadow-[0_0_20px_rgba(209,153,0,0.2)] transition-all font-bold ml-2 border"
@@ -310,7 +305,6 @@ export function ProdutosPage() {
              <span className="hidden sm:inline group-hover:text-white transition-colors">Neon Studio</span>
           </button>
 
-          {/* Botão Novo */}
           <button onClick={handleNew} className="px-6 py-3 bg-[#d19900] text-white rounded-xl hover:bg-[#b88600] hover:shadow-lg hover:shadow-[#d19900]/30 flex items-center gap-2 font-bold transition-all active:scale-95">
             <Plus size={20} /> <span className="hidden sm:inline">Novo Produto</span>
           </button>
@@ -366,7 +360,6 @@ export function ProdutosPage() {
       {/* GRID DE PRODUTOS */}
       {produtosFiltrados.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center bg-white rounded-3xl border border-dashed border-gray-200">
-            {/* Se tem termo de busca, mas não achou nada */}
             {searchTerm ? (
                <>
                  <div className="bg-red-50 p-6 rounded-full mb-4">
@@ -402,7 +395,6 @@ export function ProdutosPage() {
                   `}
                   onClick={(e) => { if ((e.target as HTMLElement).closest('button')) return; toggleSelection(p.id); }}
                 >
-                  {/* Checkbox */}
                   <div className="absolute top-4 right-4 z-20 transition-transform duration-200 group-hover:scale-110">
                     <div className={`
                         w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm
@@ -412,7 +404,6 @@ export function ProdutosPage() {
                     </div>
                   </div>
 
-                  {/* Imagem */}
                   <div className="h-64 relative bg-gray-50 overflow-hidden">
                     {p.imageUrl ? (
                         <img src={p.imageUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
@@ -423,7 +414,6 @@ export function ProdutosPage() {
                         </div>
                     )}
 
-                    {/* Badges */}
                     <div className="absolute bottom-3 left-3 flex flex-col gap-1 items-start max-w-[80%]">
                         <span className="bg-white/90 backdrop-blur-md text-[#4a4a4a] text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow-sm border border-white/20">
                             {p.category || 'Geral'}
@@ -435,7 +425,6 @@ export function ProdutosPage() {
                         )}
                     </div>
 
-                    {/* Overlay Ações */}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 backdrop-blur-[2px]">
                       <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="p-3.5 bg-white text-[#4a4a4a] rounded-2xl hover:scale-110 hover:text-[#d19900] transition-all shadow-lg" title="Editar"><Edit size={20} /></button>
                       <button onClick={(e) => { e.stopPropagation(); handleStock(p); }} className="p-3.5 bg-white text-[#4a4a4a] rounded-2xl hover:scale-110 hover:text-amber-600 transition-all shadow-lg" title="Estoque"><History size={20} /></button>
@@ -443,18 +432,17 @@ export function ProdutosPage() {
                     </div>
                   </div>
 
-                  {/* Infos */}
                   <div className="p-5 flex-grow flex flex-col justify-between bg-white">
                     <div>
                       <div className="flex justify-between items-start mb-2">
-                         <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 font-mono tracking-wide">
+                          <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 font-mono tracking-wide">
                             {p.code || 'SEM SKU'}
-                         </span>
-                         {p.weight && (
+                          </span>
+                          {p.weight && (
                             <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1">
                                <span className="w-1.5 h-1.5 rounded-full bg-[#d19900]"></span> {p.weight}g
                             </span>
-                         )}
+                          )}
                       </div>
                       
                       <h3 className="font-bold text-[#4a4a4a] text-base leading-tight line-clamp-2 mb-1 group-hover:text-[#d19900] transition-colors" title={p.name}>
@@ -464,16 +452,16 @@ export function ProdutosPage() {
                     
                     <div className="flex justify-between items-end mt-4 pt-4 border-t border-gray-50">
                       <div className="flex flex-col">
-                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Preço Venda</span>
-                         <span className="text-xl font-black text-[#d19900] tracking-tight">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Preço Venda</span>
+                          <span className="text-xl font-black text-[#d19900] tracking-tight">
                             R$ {Number(p.salePrice || 0).toFixed(2)}
-                         </span>
+                          </span>
                       </div>
                       <div className="text-right flex flex-col items-end">
-                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Estoque</span>
-                         <span className={`font-bold text-sm px-2 py-0.5 rounded-lg ${p.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Estoque</span>
+                          <span className={`font-bold text-sm px-2 py-0.5 rounded-lg ${p.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
                             {p.quantity || 0} un
-                         </span>
+                          </span>
                       </div>
                     </div>
                   </div>
