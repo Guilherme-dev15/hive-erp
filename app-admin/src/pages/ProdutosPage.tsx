@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Edit, Trash2, Package, Loader2,
   RefreshCw, Filter, FolderTree, FileSpreadsheet, FileDown,
-  CheckSquare, Square, X, Tag, History, Sparkles, ChevronRight, QrCode
+  CheckSquare, Square, X, Tag, History, Sparkles, ChevronRight, QrCode, AlertTriangle
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -42,7 +42,9 @@ export function ProdutosPage() {
   const [produtos, setProdutos] = useState<ExtendedProdutoAdmin[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [storeConfig, setStoreConfig] = useState<{ storeName: string } | null>(null);
+  
+  // 🔥 ATUALIZADO: Agora aceita o campo lowStockThreshold
+  const [storeConfig, setStoreConfig] = useState<{ storeName: string; lowStockThreshold?: number } | null>(null);
 
   // 2. CONTROLE
   const [loading, setLoading] = useState(true);
@@ -213,18 +215,15 @@ export function ProdutosPage() {
     setIsStockModalOpen(true);
   };
 
-  // --- CORREÇÃO DO REFRESH ---
   const handleSaveSuccess = (prodSalvo: ProdutoAdmin) => {
     const prodExt = prodSalvo as unknown as ExtendedProdutoAdmin;
     setProdutos(prev => {
       const index = prev.findIndex(p => p.id === prodExt.id);
       if (index >= 0) {
-        // Atualiza item existente
         const novaLista = [...prev];
         novaLista[index] = prodExt;
         return novaLista;
       } else {
-        // Adiciona novo item
         return [prodExt, ...prev];
       }
     });
@@ -301,8 +300,8 @@ export function ProdutosPage() {
             onClick={() => setIsNeonOpen(true)} 
             className="group flex items-center gap-2 px-5 py-3 bg-[#ffffff] text-[#d19900] rounded-xl hover:bg-black hover:shadow-[0_0_20px_rgba(209,153,0,0.2)] transition-all font-bold ml-2 border"
           >
-             <Sparkles size={18} className="group-hover:text-white transition-colors" /> 
-             <span className="hidden sm:inline group-hover:text-white transition-colors">Neon Studio</span>
+              <Sparkles size={18} className="group-hover:text-white transition-colors" /> 
+              <span className="hidden sm:inline group-hover:text-white transition-colors">Neon Studio</span>
           </button>
 
           <button onClick={handleNew} className="px-6 py-3 bg-[#d19900] text-white rounded-xl hover:bg-[#b88600] hover:shadow-lg hover:shadow-[#d19900]/30 flex items-center gap-2 font-bold transition-all active:scale-95">
@@ -384,6 +383,13 @@ export function ProdutosPage() {
           <AnimatePresence>
             {produtosFiltrados.map((p) => {
               const isSelected = selectedIds.includes(p.id);
+              
+              // 🔥 LÓGICA VISUAL DE ESTOQUE BAIXO
+              const stock = p.quantity || 0;
+              const limit = storeConfig?.lowStockThreshold || 5;
+              const isLow = stock > 0 && stock <= limit;
+              const isOut = stock <= 0;
+
               return (
                 <motion.div
                   layout key={p.id}
@@ -459,8 +465,15 @@ export function ProdutosPage() {
                       </div>
                       <div className="text-right flex flex-col items-end">
                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Estoque</span>
-                          <span className={`font-bold text-sm px-2 py-0.5 rounded-lg ${p.quantity > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                            {p.quantity || 0} un
+                          
+                          {/* 🔥 BADGE DE ESTOQUE INTELIGENTE */}
+                          <span className={`font-bold text-sm px-2 py-0.5 rounded-lg flex items-center gap-1
+                            ${isOut ? 'bg-red-50 text-red-600' : 
+                              isLow ? 'bg-orange-50 text-orange-600 border border-orange-100' : 
+                              'bg-green-50 text-green-700'}
+                          `}>
+                            {stock} un
+                            {isLow && <AlertTriangle size={12} className="animate-pulse" />}
                           </span>
                       </div>
                     </div>

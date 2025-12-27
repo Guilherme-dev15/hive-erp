@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface ProdutoCatalogo {
+  [x: string]: any;
   variantes: any;
   id: string;
   name: string;
