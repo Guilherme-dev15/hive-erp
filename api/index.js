@@ -391,8 +391,21 @@ app.get('/admin/coupons', async (req, res) => {
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
 });
 app.post('/admin/coupons', async (req, res) => {
-  const ref = await db.collection(COLL.COUPONS).add(req.body);
-  res.json({ id: ref.id });
+  try {
+    const couponData = {
+      ...req.body,
+      // Forçamos letra maiúscula e removemos espaços
+      code: req.body.code.toUpperCase().trim(),
+      // O PULO DO GATO: Adicionamos o status manualmente
+      status: 'ativo', 
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    const ref = await db.collection(COLL.COUPONS).add(couponData);
+    res.json({ id: ref.id, ...couponData });
+  } catch (e) {
+    res.status(500).json({ error: "Erro ao criar cupom" });
+  }
 });
 app.delete('/admin/coupons/:id', async (req, res) => {
   await db.collection(COLL.COUPONS).doc(req.params.id).delete();

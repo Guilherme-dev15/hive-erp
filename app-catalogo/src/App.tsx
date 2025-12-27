@@ -10,12 +10,11 @@ import { BannerCarousel } from './components/BannerCarousel';
 import { CardProduto } from './components/CardProduto';
 import { ModalCarrinho } from './components/ModalCarrinho';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
-import { CategoryFilter } from './components/CategoryFilter'; // <--- IMPORTADO
+import { CategoryFilter } from './components/CategoryFilter';
 
 export default function App() {
   // --- ESTADOS DE DADOS ---
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
-  // const [categories, setCategories] = useState<string[]>([]); // Removido pois o CategoryFilter gerencia isso
   const [config, setConfig] = useState<ConfigPublica>({
     whatsappNumber: null, 
     storeName: 'Carregando...', 
@@ -33,9 +32,9 @@ export default function App() {
   // Produto selecionado para o Modal de Detalhes
   const [selectedProduct, setSelectedProduct] = useState<ProdutoCatalogo | null>(null);
   
-  // FILTROS (ATUALIZADO)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // Agora pode ser null
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null); // Novo Estado
+  // FILTROS
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<'default' | 'priceAsc' | 'priceDesc'>('default');
@@ -55,7 +54,6 @@ export default function App() {
         }));
         
         setProdutos(safeProducts);
-        // setCategories(["Todos", ...(data.categorias || [])]); // Não precisa mais setar manual
         
         if (data.config) {
           setConfig({
@@ -77,27 +75,36 @@ export default function App() {
     init();
   }, []);
 
-  // --- LÓGICA DO CARRINHO ---
+  // --- LÓGICA DO CARRINHO (CORRIGIDA) ---
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
     const stock = produto.quantity ?? 0;
     
-    if (stock <= 0) return toast.error("Esgotado!", { id: `esgotado-${produto.id}` });
+    // 1. Verificações Iniciais (Antes de mexer no estado)
+    if (stock <= 0) {
+      toast.error("Esgotado!", { id: `esgotado-${produto.id}` });
+      return;
+    }
 
-    setCarrinho((prev) => {
-      const qtd = prev[produto.id]?.quantidade || 0;
-      
-      if (qtd + 1 > stock) { 
-        toast.error("Estoque limite atingido.", { id: `limit-${produto.id}` }); 
-        return prev; 
-      }
-      
-      toast.success("Adicionado ao carrinho!", { id: `add-${produto.id}` });
-      setIsCarrinhoAberto(true);
-      return { ...prev, [produto.id]: { produto, quantidade: qtd + 1 } };
-    });
+    // Pega a quantidade atual direto do estado 'carrinho'
+    const qtdAtual = carrinho[produto.id]?.quantidade || 0;
+    
+    if (qtdAtual + 1 > stock) { 
+       toast.error("Estoque limite atingido.", { id: `limit-${produto.id}` }); 
+       return; 
+    }
+    
+    // 2. Atualiza o Estado (Agora é uma função pura, sem side-effects)
+    setCarrinho((prev) => ({ 
+        ...prev, 
+        [produto.id]: { produto, quantidade: qtdAtual + 1 } 
+    }));
+
+    // 3. Efeitos Colaterais (Toasts e Abrir Modal) executados fora do setCarrinho
+    toast.success("Adicionado ao carrinho!", { id: `add-${produto.id}` });
+    setIsCarrinhoAberto(true);
   };
 
-  // --- CÁLCULOS E FILTROS (ATUALIZADO COM SUBCATEGORIA) ---
+  // --- CÁLCULOS E FILTROS ---
   const itensDoCarrinho = useMemo(() => Object.values(carrinho), [carrinho]);
   const totalItens = itensDoCarrinho.reduce((acc, item) => acc + item.quantidade, 0);
 
@@ -105,7 +112,7 @@ export default function App() {
     // 1. Filtra por status primeiro
     let lista = produtos.filter(p => p.status === 'ativo' || !p.status);
     
-    // 2. Filtro de Busca (Nome ou Código)
+    // 2. Filtro de Busca
     if (searchTerm.trim()) {
       const t = searchTerm.toLowerCase();
       lista = lista.filter(p => 
@@ -119,7 +126,7 @@ export default function App() {
        lista = lista.filter(p => p.category === selectedCategory);
     }
 
-    // 4. Filtro de Subcategoria (NOVO)
+    // 4. Filtro de Subcategoria
     if (selectedSubcategory) {
        lista = lista.filter(p => p.subcategory === selectedSubcategory);
     }
@@ -183,7 +190,7 @@ export default function App() {
             </button>
           </div>
           
-          {/* PAINEL DE ORDENAÇÃO (EXPANDÍVEL) */}
+          {/* PAINEL DE ORDENAÇÃO */}
           <AnimatePresence>
             {isFilterOpen && (
               <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden px-4 mb-2">
@@ -202,10 +209,10 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {/* 🔥 NOVO FILTRO DE CATEGORIA E SUBCATEGORIA */}
+          {/* FILTRO DE CATEGORIA E SUBCATEGORIA */}
           <div className="px-4 pb-2">
              <CategoryFilter 
-               products={produtos} // Passa todos os produtos para ele calcular as opções
+               products={produtos} 
                selectedCategory={selectedCategory}
                selectedSubcategory={selectedSubcategory}
                onSelectCategory={setSelectedCategory}
