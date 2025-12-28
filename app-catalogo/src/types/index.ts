@@ -13,9 +13,12 @@ export interface ProdutoCatalogo {
   imageUrl?: string;
   quantity?: number;
   subcategory?: string;
+  promotionalPrice?: number; 
+  isOnSale?: boolean;
 }
 
 export interface ConfigPublica {
+  lowStockThreshold: number;
   whatsappNumber: string | null;
   storeName: string;
   primaryColor: string;

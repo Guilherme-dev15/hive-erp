@@ -20,7 +20,8 @@ export default function App() {
     storeName: 'Carregando...', 
     primaryColor: '#D4AF37', 
     secondaryColor: '#343434', 
-    banners: []
+    banners: [],
+    lowStockThreshold: 5 // Valor padrão seguro
   });
 
   // --- ESTADOS DE UI ---
@@ -47,10 +48,11 @@ export default function App() {
         setLoading(true);
         const data = await fetchCatalogData();
         
-        // Sanitização de preços
+        // 1. Sanitização de preços (INCLUINDO O PROMOCIONAL)
         const safeProducts = (data.produtos || []).map((p: any) => ({ 
           ...p, 
-          salePrice: Number(p.salePrice) || 0 
+          salePrice: Number(p.salePrice) || 0,
+          promotionalPrice: Number(p.promotionalPrice) || 0 // 🔥 Importante para o desconto
         }));
         
         setProdutos(safeProducts);
@@ -61,7 +63,9 @@ export default function App() {
             storeName: data.config.storeName || 'Loja Virtual',
             primaryColor: data.config.primaryColor || '#D4AF37',
             secondaryColor: data.config.secondaryColor || '#343434',
-            banners: data.config.banners || []
+            banners: data.config.banners || [],
+            // 🔥 Lê a configuração de estoque baixo do Admin
+            lowStockThreshold: Number(data.config.lowStockThreshold) || 5
           });
           document.title = data.config.storeName || 'Loja Virtual';
         }
@@ -75,17 +79,16 @@ export default function App() {
     init();
   }, []);
 
-  // --- LÓGICA DO CARRINHO (CORRIGIDA) ---
+  // --- LÓGICA DO CARRINHO (AGORA COM PREÇO DINÂMICO) ---
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
     const stock = produto.quantity ?? 0;
     
-    // 1. Verificações Iniciais (Antes de mexer no estado)
+    // Verificações
     if (stock <= 0) {
       toast.error("Esgotado!", { id: `esgotado-${produto.id}` });
       return;
     }
 
-    // Pega a quantidade atual direto do estado 'carrinho'
     const qtdAtual = carrinho[produto.id]?.quantidade || 0;
     
     if (qtdAtual + 1 > stock) { 
@@ -93,13 +96,23 @@ export default function App() {
        return; 
     }
     
-    // 2. Atualiza o Estado (Agora é uma função pura, sem side-effects)
+    // 🔥 LÓGICA DE PREÇO: Se tiver promoção ativa, usa o preço promocional
+    const finalPrice = (produto.isOnSale && produto.promotionalPrice && produto.promotionalPrice < produto.salePrice)
+        ? produto.promotionalPrice
+        : produto.salePrice;
+
+    // Cria um objeto para o carrinho com o preço "corrigido"
+    const produtoParaCarrinho = {
+        ...produto,
+        salePrice: finalPrice // O Carrinho vai somar este valor
+    };
+
+    // Atualiza o Estado
     setCarrinho((prev) => ({ 
         ...prev, 
-        [produto.id]: { produto, quantidade: qtdAtual + 1 } 
+        [produto.id]: { produto: produtoParaCarrinho, quantidade: qtdAtual + 1 } 
     }));
 
-    // 3. Efeitos Colaterais (Toasts e Abrir Modal) executados fora do setCarrinho
     toast.success("Adicionado ao carrinho!", { id: `add-${produto.id}` });
     setIsCarrinhoAberto(true);
   };
@@ -109,7 +122,7 @@ export default function App() {
   const totalItens = itensDoCarrinho.reduce((acc, item) => acc + item.quantidade, 0);
 
   const produtosFiltrados = useMemo(() => {
-    // 1. Filtra por status primeiro
+    // 1. Filtra por status
     let lista = produtos.filter(p => p.status === 'ativo' || !p.status);
     
     // 2. Filtro de Busca
@@ -131,9 +144,14 @@ export default function App() {
        lista = lista.filter(p => p.subcategory === selectedSubcategory);
     }
     
-    // 5. Ordenação
-    if (sortOrder === 'priceAsc') lista.sort((a, b) => a.salePrice - b.salePrice);
-    if (sortOrder === 'priceDesc') lista.sort((a, b) => b.salePrice - a.salePrice);
+    // 5. Ordenação (AGORA INTELIGENTE)
+    // Função auxiliar para pegar o preço real (Promo ou Normal)
+    const getEffectivePrice = (p: ProdutoCatalogo) => {
+        return (p.isOnSale && p.promotionalPrice) ? p.promotionalPrice : p.salePrice;
+    };
+
+    if (sortOrder === 'priceAsc') lista.sort((a, b) => getEffectivePrice(a) - getEffectivePrice(b));
+    if (sortOrder === 'priceDesc') lista.sort((a, b) => getEffectivePrice(b) - getEffectivePrice(a));
     
     return lista;
   }, [produtos, selectedCategory, selectedSubcategory, searchTerm, sortOrder]);

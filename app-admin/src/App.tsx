@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Loader2, Menu, X, Shield } from 'lucide-react';
+import { 
+  LogOut, Loader2, Menu, X, Shield, LayoutDashboard, ShoppingBag, 
+  Package, Users, DollarSign, Percent, Ticket, BarChart3, 
+  Settings, Calculator, Briefcase 
+} from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
 // Imports de Autenticação
@@ -17,34 +21,46 @@ import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
 import { PedidosPage } from './pages/PedidosPage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
 import { CuponsPage } from './pages/CuponsPage';
-import { EquipePage } from './pages/EquipePage'; // <--- Nova Página
+import { EquipePage } from './pages/EquipePage';
+import { CampanhasPage } from './pages/CampanhasPage'; // <--- NOVA PÁGINA GLOBAL
 
 // Importar a Proteção contra Tela Branca
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-// Adicionei 'equipe' aqui
-type Pagina = 'dashboard' | 'pedidos' | 'produtos' | 'fornecedores' | 'financeiro' | 'campanhas' | 'precificacao' | 'relatorios' | 'equipe' | 'configuracoes';
+// Definição das Rotas
+type Pagina = 
+  | 'dashboard' 
+  | 'pedidos' 
+  | 'produtos' 
+  | 'fornecedores' 
+  | 'financeiro' 
+  | 'campanhas' // Descontos Globais
+  | 'cupons'    // Códigos de Desconto
+  | 'precificacao' 
+  | 'relatorios' 
+  | 'equipe' 
+  | 'configuracoes';
 
 // --- NAVBAR RESPONSIVA ---
 function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: (p: Pagina) => void }) {
   const { user, userData, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Lista de páginas na ordem do menu
-  const paginas: Pagina[] = [
-    'dashboard',
-    'pedidos',
-    'produtos',
-    'fornecedores',
-    'financeiro',
-    'campanhas',
-    'relatorios',
-    'precificacao',
-    'equipe', // <--- Adicionado ao menu
-    'configuracoes'
+  // Configuração do Menu com Ícones e Labels
+  const menuItems: { id: Pagina, label: string, icon: any }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'pedidos', label: 'Pedidos', icon: ShoppingBag },
+    { id: 'produtos', label: 'Produtos', icon: Package },
+    { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
+    { id: 'campanhas', label: 'Promoções', icon: Percent }, // Novo Painel Global
+    { id: 'cupons', label: 'Cupons', icon: Ticket },        // Antigo Cupons
+    { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
+    { id: 'fornecedores', label: 'Fornecedores', icon: Users },
+    { id: 'equipe', label: 'Equipe', icon: Briefcase },
+    { id: 'precificacao', label: 'Calc. Preço', icon: Calculator },
+    { id: 'configuracoes', label: 'Config', icon: Settings },
   ];
 
-  // Função para navegar e fechar o menu mobile
   const handleMobileNavigate = (p: Pagina) => {
     onNavigate(p);
     setIsMobileMenuOpen(false);
@@ -58,24 +74,24 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
           {/* LADO ESQUERDO: Logo e Menu Desktop */}
           <div className="flex">
             <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('dashboard')}>
-              {/* Ícone simples ou Logo */}
               <div className="w-8 h-8 bg-dourado rounded-lg flex items-center justify-center text-carvao font-bold">H</div>
               <h1 className="text-xl font-bold text-dourado hidden sm:block">HIVE ERP</h1>
             </div>
 
             {/* Menu Desktop (Hidden em Mobile) */}
-            <div className="hidden lg:ml-6 lg:flex lg:space-x-1 overflow-x-auto no-scrollbar items-center">
-              {paginas.map((p) => (
+            <div className="hidden xl:ml-6 xl:flex xl:space-x-1 overflow-x-auto no-scrollbar items-center">
+              {menuItems.map((item) => (
                 <button
-                  key={p}
-                  onClick={() => onNavigate(p)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 whitespace-nowrap capitalize
-                    ${paginaAtual === p
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5
+                    ${paginaAtual === item.id
                       ? 'bg-gray-800 text-dourado border-b-2 border-dourado rounded-none h-full'
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                     }`}
                 >
-                  {p}
+                  <item.icon size={16} />
+                  {item.label}
                 </button>
               ))}
             </div>
@@ -99,10 +115,10 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
               <LogOut size={20} />
             </button>
 
-            {/* Botão Hambúrguer (Só aparece em Mobile) */}
+            {/* Botão Hambúrguer (Mobile) */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
+              className="xl:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
             >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -110,30 +126,31 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
         </div>
       </div>
 
-      {/* --- MENU MOBILE DROPDOWN (Animação Segura) --- */}
+      {/* --- MENU MOBILE DROPDOWN --- */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="lg:hidden bg-carvao border-t border-gray-700 overflow-hidden"
+            className="xl:hidden bg-carvao border-t border-gray-700 overflow-hidden"
           >
             <div className="px-2 pt-2 pb-3 space-y-1">
-              {paginas.map((p) => (
+              {menuItems.map((item) => (
                 <button
-                  key={p}
-                  onClick={() => handleMobileNavigate(p)}
-                  className={`block w-full text-left px-3 py-3 rounded-md text-base font-medium capitalize
-                    ${paginaAtual === p
+                  key={item.id}
+                  onClick={() => handleMobileNavigate(item.id)}
+                  className={`block w-full text-left px-3 py-3 rounded-md text-base font-medium flex items-center gap-3
+                    ${paginaAtual === item.id
                       ? 'bg-gray-900 text-dourado border-l-4 border-dourado'
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                     }`}
                 >
-                  {p}
+                  <item.icon size={18} />
+                  {item.label}
                 </button>
               ))}
-              {/* Info do Usuário no Mobile */}
+              
               <div className="border-t border-gray-700 mt-4 pt-4 px-3 pb-2">
                 <div className="flex items-center">
                   <div className="ml-3">
@@ -157,11 +174,13 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
+  
+  // Tratamento de QR Code
   const params = new URLSearchParams(window.location.search);
   if (params.get('q')) {
-    // Se detectou um QR Code na URL, salva no cache antes do redirecionamento limpar tudo
     localStorage.setItem('pending_qr_scan', params.get('q') || '');
   }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-off-white flex items-center justify-center">
@@ -181,10 +200,14 @@ function ProtectedLayout() {
       case 'produtos': return <ProdutosPage />;
       case 'fornecedores': return <FornecedoresPage />;
       case 'financeiro': return <FinanceiroPage />;
-      case 'campanhas': return <CuponsPage />;
+      
+      // Separação de Campanhas (Global) e Cupons (Individual)
+      case 'campanhas': return <CampanhasPage />; 
+      case 'cupons': return <CuponsPage />;
+      
       case 'precificacao': return <PrecificacaoPage />;
       case 'relatorios': return <RelatoriosPage />;
-      case 'equipe': return <EquipePage />; // <--- Renderização da nova página
+      case 'equipe': return <EquipePage />;
       case 'configuracoes': return <ConfiguracoesPage />;
       default: return <div className="text-center py-20 text-gray-500">Página não encontrada</div>;
     }
@@ -194,19 +217,15 @@ function ProtectedLayout() {
     <div className="min-h-screen bg-off-white">
       <Navbar paginaAtual={pagina} onNavigate={setPagina} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-
-        {/* Usando ErrorBoundary para evitar que um erro numa página quebre o app todo */}
         <ErrorBoundary key={pagina}>
           <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
             {renderizarPagina()}
           </div>
         </ErrorBoundary>
-
       </main>
     </div>
   );
 }
-
 
 export default function App() {
   return (

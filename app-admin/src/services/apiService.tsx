@@ -138,3 +138,19 @@ export const getProductLogs = async (productId: string) => {
   const response = await apiClient.get(`/admin/inventory/logs/${productId}`);
   return response.data;
 };
+// --- CAMPANHAS GLOBAIS (Margem e Desconto) ---
+export const simulateCampaign = async (discountPercent: number, minMarkup: number) => {
+  // Envia os dados para o simulador
+  const response = await apiClient.post('/admin/campaign/simulate', { discountPercent, minMarkup });
+  return response.data;
+};
+
+export const applyCampaign = async (discountPercent: number, minMarkup: number, campaignName: string) => {
+  const response = await apiClient.post('/admin/campaign/apply', { discountPercent, minMarkup, campaignName });
+  return response.data;
+};
+
+export const revertCampaign = async () => {
+  const response = await apiClient.post('/admin/campaign/revert');
+  return response.data;
+};

@@ -567,4 +567,188 @@ app.get('/admin/inventory/logs/:productId', authenticateUser, async (req, res) =
   }
 });
 
+
+
+// ============================================================================
+// 🧠 MOTOR DE CAMPANHAS GLOBAIS (Prevenção de Prejuízo)
+// ============================================================================
+
+// Função auxiliar para dividir arrays grandes (Firebase aceita máx 500 ops por lote)
+const chunkArray = (array, size) => {
+  const chunked = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunked.push(array.slice(i, i + size));
+  }
+  return chunked;
+};
+
+// 1. SIMULADOR (Não altera nada, apenas calcula)
+app.post('/admin/campaign/simulate', authenticateUser, async (req, res) => {
+  try {
+    const { discountPercent, minMarkup } = req.body; // Ex: 25 (%) e 1.2 (Markup Min)
+    
+    // Busca todos os produtos ativos
+    const snapshot = await db.collection(COLL.PRODUCTS).where('status', '==', 'ativo').get();
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    let stats = {
+      totalProducts: products.length,
+      affectedProducts: 0,
+      skippedProducts: 0, // Produtos que bateram na trave de segurança
+      
+      currentRevenue: 0,
+      projectedRevenue: 0,
+      
+      currentProfit: 0,
+      projectedProfit: 0,
+      
+      currentAvgMarkup: 0,
+      projectedAvgMarkup: 0,
+      
+      totalCost: 0
+    };
+
+    let totalMarkupSumCurrent = 0;
+    let totalMarkupSumProjected = 0;
+
+    products.forEach(p => {
+        const cost = parseFloat(p.costPrice || 0);
+        const currentPrice = parseFloat(p.salePrice || 0);
+        const stock = parseInt(p.quantity || 0);
+
+        // --- CÁLCULO ATUAL ---
+        const currentMargin = currentPrice - cost;
+        const currentMarkup = cost > 0 ? (currentPrice / cost) : 0;
+        
+        stats.totalCost += (cost * stock);
+        stats.currentRevenue += (currentPrice * stock);
+        stats.currentProfit += (currentMargin * stock);
+        totalMarkupSumCurrent += currentMarkup;
+
+        // --- CÁLCULO PROJETADO ---
+        let newPrice = currentPrice * (1 - (discountPercent / 100));
+        
+        // 🛡️ TRAVA DE SEGURANÇA (O Anti-Prejuízo)
+        // O preço nunca pode ser menor que (Custo * Markup Mínimo)
+        const minSafePrice = cost * (minMarkup || 1.0); 
+        
+        let isLimited = false;
+        if (newPrice < minSafePrice) {
+            newPrice = minSafePrice; // Força o preço para o mínimo seguro
+            isLimited = true;
+            stats.skippedProducts++;
+        } else {
+            stats.affectedProducts++;
+        }
+
+        // Se o produto não tiver custo cadastrado, não aplicamos a trava (cuidado!)
+        if (cost === 0) newPrice = currentPrice * (1 - (discountPercent / 100));
+
+        const newMargin = newPrice - cost;
+        const newMarkup = cost > 0 ? (newPrice / cost) : 0;
+
+        stats.projectedRevenue += (newPrice * stock);
+        stats.projectedProfit += (newMargin * stock);
+        totalMarkupSumProjected += newMarkup;
+    });
+
+    // Médias
+    if (products.length > 0) {
+        stats.currentAvgMarkup = (totalMarkupSumCurrent / products.length);
+        stats.projectedAvgMarkup = (totalMarkupSumProjected / products.length);
+    }
+
+    res.json(stats);
+
+  } catch (error) {
+    console.error("Erro na simulação:", error);
+    res.status(500).json({ error: "Erro ao simular campanha." });
+  }
+});
+
+// 2. APLICAR CAMPANHA (Grava no Banco)
+app.post('/admin/campaign/apply', authenticateUser, async (req, res) => {
+  try {
+    const { discountPercent, minMarkup, campaignName } = req.body;
+    
+    const snapshot = await db.collection(COLL.PRODUCTS).where('status', '==', 'ativo').get();
+    const products = snapshot.docs;
+
+    // Processar em lotes de 400 para não estourar o limite do Firestore
+    const batches = chunkArray(products, 400);
+    let updatedCount = 0;
+
+    for (const batchDocs of batches) {
+        const batch = db.batch();
+        
+        batchDocs.forEach(doc => {
+            const p = doc.data();
+            const cost = parseFloat(p.costPrice || 0);
+            const currentPrice = parseFloat(p.salePrice || 0);
+
+            // Calcula o preço promocional
+            let newPrice = currentPrice * (1 - (discountPercent / 100));
+            
+            // Trava de Segurança
+            const minSafePrice = cost * (minMarkup || 1.0);
+            if (newPrice < minSafePrice && cost > 0) {
+                newPrice = minSafePrice;
+            }
+
+            // Define os campos novos sem apagar o preço original
+            batch.update(doc.ref, {
+                promotionalPrice: parseFloat(newPrice.toFixed(2)),
+                isOnSale: true,
+                campaignName: campaignName || 'Oferta Especial',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            updatedCount++;
+        });
+
+        await batch.commit();
+    }
+
+    res.json({ success: true, message: `${updatedCount} produtos atualizados com sucesso.` });
+
+  } catch (error) {
+    console.error("Erro ao aplicar:", error);
+    res.status(500).json({ error: "Erro ao aplicar campanha." });
+  }
+});
+
+// 3. REVERTER CAMPANHA (Limpa os preços promocionais)
+app.post('/admin/campaign/revert', authenticateUser, async (req, res) => {
+  try {
+    // Busca apenas produtos que estão em oferta
+    const snapshot = await db.collection(COLL.PRODUCTS).where('isOnSale', '==', true).get();
+    
+    if (snapshot.empty) {
+        return res.json({ success: true, message: "Nenhum produto em oferta para reverter." });
+    }
+
+    const batches = chunkArray(snapshot.docs, 400);
+    let revertedCount = 0;
+
+    for (const batchDocs of batches) {
+        const batch = db.batch();
+        batchDocs.forEach(doc => {
+            // Remove os campos da promoção
+            batch.update(doc.ref, {
+                promotionalPrice: admin.firestore.FieldValue.delete(),
+                isOnSale: false,
+                campaignName: admin.firestore.FieldValue.delete(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            revertedCount++;
+        });
+        await batch.commit();
+    }
+
+    res.json({ success: true, message: `${revertedCount} produtos voltaram ao preço original.` });
+
+  } catch (error) {
+    console.error("Erro ao reverter:", error);
+    res.status(500).json({ error: "Erro ao reverter campanha." });
+  }
+});
 module.exports = app;
