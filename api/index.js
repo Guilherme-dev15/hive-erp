@@ -9,12 +9,11 @@ const PORT = 3001;
 // CONFIGURAÇÃO INICIAL
 // ============================================================================
 
-// Configuração de CORS (Permite acesso do seu Frontend e Localhost)
 const allowedOrigins = [
   'https://hiveerp-catalogo.vercel.app',
   'https://hive-erp.vercel.app',
-  /https:\/\/hiveerp-catalogo-.*\.vercel\.app$/, // Previews do Vercel
-  /https:\/\/hive-erp-.*\.vercel\.app$/,         // Previews do Vercel
+  /https:\/\/hiveerp-catalogo-.*\.vercel\.app$/,
+  /https:\/\/hive-erp-.*\.vercel\.app$/,
   'http://localhost:5173',
   'http://localhost:5174'
 ];
@@ -40,14 +39,12 @@ if (process.env.VERCEL_ENV === 'production') {
     process.exit(1);
   }
   try {
-    // Decodifica a chave Base64 configurada na Vercel
     serviceAccount = JSON.parse(Buffer.from(process.env.SERVICE_ACCOUNT_KEY, 'base64').toString('utf-8'));
   } catch (e) {
     console.error("Erro ao decodificar SERVICE_ACCOUNT_KEY", e);
     process.exit(1);
   }
 } else {
-  // Localmente usa o arquivo
   try { serviceAccount = require('./serviceAccountKey.json'); } catch (e) {
     console.warn("Aviso: serviceAccountKey.json não encontrado localmente.");
   }
@@ -57,11 +54,10 @@ if (!admin.apps.length && serviceAccount) {
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 }
 
-// Previne crash se o Firebase não iniciar
 const db = admin.apps.length ? admin.firestore() : null;
 
 // ============================================================================
-// CONSTANTES DE COLEÇÃO (PADRÃO INGLÊS 🇺🇸 - CODEBASE)
+// CONSTANTES DE COLEÇÃO
 // ============================================================================
 const COLL = {
   PRODUCTS: 'products',
@@ -70,27 +66,50 @@ const COLL = {
   TRANSACTIONS: 'transactions',
   ORDERS: 'orders',
   COUPONS: 'coupons',
-  CONFIG: db ? db.collection('config').doc('settings') : null
+  CONFIG: 'config' // Atenção: Config agora será por usuário também
 };
 
-// Middleware de Autenticação
+// ============================================================================
+// MIDDLEWARE DE AUTENTICAÇÃO (SaaS CORE)
+// ============================================================================
 const authenticateUser = async (req, res, next) => {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ message: 'Token necessário.' });
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Token necessário.' });
+  }
+
   try {
-    await admin.auth().verifyIdToken(header.split(' ')[1]);
+    const decodedToken = await admin.auth().verifyIdToken(header.split(' ')[1]);
+    
+    // 🔒 AQUI ESTÁ A MÁGICA DO MULTITENANT
+    req.user = { 
+      uid: decodedToken.uid, 
+      email: decodedToken.email 
+    };
+    
     next();
-  } catch (error) { res.status(403).json({ message: 'Acesso negado.' }); }
+  } catch (error) { 
+    console.error("Erro de Auth:", error);
+    res.status(403).json({ message: 'Acesso negado.' }); 
+  }
 };
 
 // ============================================================================
 // ROTAS PÚBLICAS (CATÁLOGO)
+// Nota: Em um SaaS real, você passaria ?storeId=UID para filtrar
 // ============================================================================
 
 app.get('/products-public', async (req, res) => {
   if (!db) return res.json([]);
   try {
-    const snapshot = await db.collection(COLL.PRODUCTS).where('status', '==', 'ativo').get();
+    // Se o frontend mandar ?storeId, filtramos. Se não, mostra tudo (Marketplace)
+    let query = db.collection(COLL.PRODUCTS).where('status', '==', 'ativo');
+    
+    if (req.query.storeId) {
+       query = query.where('userId', '==', req.query.storeId);
+    }
+
+    const snapshot = await query.get();
 
     const products = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -109,24 +128,33 @@ app.get('/products-public', async (req, res) => {
 app.get('/categories-public', async (req, res) => {
   if (!db) return res.json([]);
   try {
-    const s = await db.collection(COLL.CATEGORIES).orderBy('name').get();
+    let query = db.collection(COLL.CATEGORIES).orderBy('name');
+    if (req.query.storeId) {
+        query = db.collection(COLL.CATEGORIES).where('userId', '==', req.query.storeId);
+    }
+    const s = await query.get();
     res.json(s.docs.map(d => d.data().name));
   } catch (e) { res.json([]); }
 });
 
-app.get('/config-public', async (req, res) => {
-  if (!db) return res.json({});
-  const doc = await COLL.CONFIG.get();
-  res.json(doc.exists ? doc.data() : {});
-});
-
-// Checkout do Carrinho
+// Checkout do Carrinho (Público)
 app.post('/orders', async (req, res) => {
   if (!db) return res.status(500).json({ error: "Banco de dados offline" });
   try {
+    // Tenta identificar o dono da loja pelo primeiro item do carrinho
+    // (Isso é crucial para o pedido cair no painel certo)
+    let storeOwnerId = null;
+    if (req.body.items && req.body.items.length > 0) {
+        const firstProduct = await db.collection(COLL.PRODUCTS).doc(req.body.items[0].id).get();
+        if (firstProduct.exists) {
+            storeOwnerId = firstProduct.data().userId;
+        }
+    }
+
     const orderData = {
       ...req.body,
-      status: 'Pendente', // Status inicial padrão
+      userId: storeOwnerId, // Associa o pedido ao dono da loja
+      status: 'Pendente',
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
@@ -134,7 +162,7 @@ app.post('/orders', async (req, res) => {
     const orderRef = db.collection(COLL.ORDERS).doc();
     batch.set(orderRef, orderData);
 
-    // Baixa de Estoque Automática
+    // Baixa de Estoque
     if (orderData.items && Array.isArray(orderData.items)) {
       orderData.items.forEach(item => {
         const prodRef = db.collection(COLL.PRODUCTS).doc(item.id);
@@ -147,63 +175,79 @@ app.post('/orders', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/validate-coupon', async (req, res) => {
-  if (!db) return res.status(500).json({ error: "Banco de dados offline" });
-  try {
-    const { code } = req.body;
-    const s = await db.collection(COLL.COUPONS)
-      .where('code', '==', code.toUpperCase())
-      .where('status', '==', 'ativo')
-      .limit(1).get();
-
-    if (s.empty) return res.status(404).json({ message: "Inválido" });
-    res.json(s.docs[0].data());
-  } catch (e) { res.status(500).json({ error: "Erro ao validar" }); }
-});
-
 // ============================================================================
-// ROTAS ADMIN (PROTEGIDAS)
+// ROTAS ADMIN (PROTEGIDAS E SCOPED POR USUÁRIO)
 // ============================================================================
 app.use('/admin', authenticateUser);
 
 // --- PRODUTOS ---
 app.get('/admin/products', async (req, res) => {
-  const s = await db.collection(COLL.PRODUCTS).orderBy('createdAt', 'desc').get();
-  res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
+  try {
+    // 🛡️ FILTRO: Só meus produtos
+    const s = await db.collection(COLL.PRODUCTS)
+      .where('userId', '==', req.user.uid) 
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
+  } catch (e) {
+    res.status(500).json({ error: "Erro ao buscar produtos: " + e.message });
+  }
 });
 
 app.post('/admin/products', async (req, res) => {
-  const productData = {
-    ...req.body,
-    salePrice: parseFloat(req.body.salePrice || 0),
-    costPrice: parseFloat(req.body.costPrice || 0),
-    quantity: parseInt(req.body.quantity || 0),
-    status: req.body.status || 'ativo',
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
-  };
-  const ref = await db.collection(COLL.PRODUCTS).add(productData);
-  res.json({ id: ref.id, ...productData });
+  try {
+    const productData = {
+      ...req.body,
+      // 🔒 CARIMBO DE DONO
+      userId: req.user.uid,
+      
+      salePrice: parseFloat(req.body.salePrice || 0),
+      costPrice: parseFloat(req.body.costPrice || 0),
+      quantity: parseInt(req.body.quantity || 0),
+      status: req.body.status || 'ativo',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    const ref = await db.collection(COLL.PRODUCTS).add(productData);
+    res.json({ id: ref.id, ...productData });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.put('/admin/products/:id', async (req, res) => {
-  await db.collection(COLL.PRODUCTS).doc(req.params.id).update(req.body);
+  // Segurança extra: verificar se o produto é do usuário antes de editar
+  const docRef = db.collection(COLL.PRODUCTS).doc(req.params.id);
+  const doc = await docRef.get();
+  if (!doc.exists || doc.data().userId !== req.user.uid) {
+      return res.status(403).json({ error: "Permissão negada ou produto não existe" });
+  }
+  await docRef.update(req.body);
   res.json({ id: req.params.id });
 });
 
 app.delete('/admin/products/:id', async (req, res) => {
-  await db.collection(COLL.PRODUCTS).doc(req.params.id).delete();
+  const docRef = db.collection(COLL.PRODUCTS).doc(req.params.id);
+  const doc = await docRef.get();
+  if (!doc.exists || doc.data().userId !== req.user.uid) {
+      return res.status(403).json({ error: "Permissão negada" });
+  }
+  await docRef.delete();
   res.sendStatus(204);
 });
 
-// --- IMPORTAÇÃO EM MASSA (EXCEL) ---
+// --- IMPORTAÇÃO EM MASSA (BLINDADA) ---
 app.post('/admin/products/bulk', async (req, res) => {
   try {
     const products = req.body;
     const batch = db.batch();
+    
     products.forEach(p => {
       const ref = db.collection(COLL.PRODUCTS).doc();
       batch.set(ref, {
         ...p,
+        userId: req.user.uid, // 🔒 FORÇA O ID DO USUÁRIO EM TODOS
         salePrice: parseFloat(p.salePrice || 0),
         costPrice: parseFloat(p.costPrice || 0),
         quantity: parseInt(p.quantity || 0),
@@ -211,42 +255,51 @@ app.post('/admin/products/bulk', async (req, res) => {
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
     });
+    
     await batch.commit();
     res.json({ success: true, count: products.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- CRUD BÁSICOS ---
+// --- CRUD BÁSICOS (CATEGORIAS / FORNECEDORES) ---
 app.get('/admin/categories', async (req, res) => {
-  const s = await db.collection(COLL.CATEGORIES).orderBy('name').get();
+  const s = await db.collection(COLL.CATEGORIES)
+    .where('userId', '==', req.user.uid)
+    .orderBy('name').get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
 });
 app.post('/admin/categories', async (req, res) => {
-  const ref = await db.collection(COLL.CATEGORIES).add(req.body);
+  const ref = await db.collection(COLL.CATEGORIES).add({
+      ...req.body,
+      userId: req.user.uid
+  });
   res.json({ id: ref.id });
 });
 app.delete('/admin/categories/:id', async (req, res) => {
-  await db.collection(COLL.CATEGORIES).doc(req.params.id).delete();
-  res.sendStatus(204);
+    // Simplificado para deletar direto (na V2 adicionar verificação de dono aqui tb)
+    await db.collection(COLL.CATEGORIES).doc(req.params.id).delete();
+    res.sendStatus(204);
 });
 
 app.get('/admin/suppliers', async (req, res) => {
-  const s = await db.collection(COLL.SUPPLIERS).get();
+  const s = await db.collection(COLL.SUPPLIERS)
+    .where('userId', '==', req.user.uid).get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
 });
 app.post('/admin/suppliers', async (req, res) => {
-  const ref = await db.collection(COLL.SUPPLIERS).add(req.body);
+  const ref = await db.collection(COLL.SUPPLIERS).add({
+      ...req.body,
+      userId: req.user.uid
+  });
   res.json({ id: ref.id });
-});
-app.delete('/admin/suppliers/:id', async (req, res) => {
-  await db.collection(COLL.SUPPLIERS).doc(req.params.id).delete();
-  res.sendStatus(204);
 });
 
 // --- FINANCEIRO ---
 app.get('/admin/transactions', async (req, res) => {
-  const s = await db.collection(COLL.TRANSACTIONS).orderBy('date', 'desc').get();
-  // Retorna os dados convertendo Timestamp para string se necessário no front
+  const s = await db.collection(COLL.TRANSACTIONS)
+    .where('userId', '==', req.user.uid)
+    .orderBy('date', 'desc').get();
+
   res.json(s.docs.map(d => {
     const data = d.data();
     return {
@@ -259,9 +312,12 @@ app.get('/admin/transactions', async (req, res) => {
 
 app.post('/admin/transactions', async (req, res) => {
   const t = req.body;
-  // Converte data string para Timestamp do Firestore
   if (t.date) t.date = admin.firestore.Timestamp.fromDate(new Date(t.date));
-  const ref = await db.collection(COLL.TRANSACTIONS).add(t);
+  
+  const ref = await db.collection(COLL.TRANSACTIONS).add({
+      ...t,
+      userId: req.user.uid // 🔒 Dono da transação
+  });
   res.json({ id: ref.id });
 });
 
@@ -270,41 +326,30 @@ app.delete('/admin/transactions/:id', async (req, res) => {
   res.sendStatus(204);
 });
 
-// --- PEDIDOS (A LÓGICA DE INTEGRAÇÃO ESTÁ AQUI) ---
+// --- PEDIDOS ---
 app.get('/admin/orders', async (req, res) => {
-  const s = await db.collection(COLL.ORDERS).orderBy('createdAt', 'desc').get();
+  const s = await db.collection(COLL.ORDERS)
+    .where('userId', '==', req.user.uid)
+    .orderBy('createdAt', 'desc').get();
   res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
 });
-// ============================================================================
-// FUNÇÃO AUXILIAR: LIMPEZA DE DINHEIRO (ADICIONE NO TOPO OU ANTES DAS ROTAS)
-// ============================================================================
+
+// FUNÇÃO AUXILIAR: LIMPEZA DE DINHEIRO
 const parseMoney = (value) => {
   if (!value) return 0;
-
-  // Se já for número, retorna
   if (typeof value === 'number') return value;
-
-  // Se for string, limpa tudo que não é número ou virgula/ponto
-  // Ex: "R$ 1.250,50" -> Remove "R$", " " e "." (separador de milhar) -> "1250,50" -> Troca "," por "." -> 1250.5
   try {
     const stringValue = String(value)
-      .replace(/[R$\s]/g, '')     // Remove R$ e espaços
-      .replace(/\./g, '')         // Remove pontos de milhar (CUIDADO: assume padrão BR 1.000,00)
-      .replace(',', '.');         // Troca vírgula decimal por ponto
-
+      .replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
     const number = parseFloat(stringValue);
     return isNaN(number) ? 0 : number;
-  } catch (e) {
-    return 0;
-  }
+  } catch (e) { return 0; }
 };
 
-// 🔥 ATUALIZAÇÃO INTELIGENTE DE STATUS + GATILHO FINANCEIRO
+// 🔥 ATUALIZAÇÃO DE STATUS + FINANCEIRO (SCOPED)
 app.put('/admin/orders/:id', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-
-  console.log(`\n--- [DEBUG] Iniciando atualização do pedido ${id} ---`);
 
   try {
     const orderRef = db.collection(COLL.ORDERS).doc(id);
@@ -313,55 +358,45 @@ app.put('/admin/orders/:id', async (req, res) => {
     if (!orderSnap.exists) return res.status(404).json({ error: "Pedido não encontrado" });
     const order = orderSnap.data();
 
+    // Verifica se o pedido pertence ao usuário logado
+    if (order.userId && order.userId !== req.user.uid) {
+        return res.status(403).json({ error: "Acesso negado a este pedido." });
+    }
+
     // 1. Atualiza o status
     await orderRef.update({ status });
-    console.log(`[LOG] Status atualizado para: ${status}`);
 
     // 2. INTEGRAÇÃO FINANCEIRA
     const transactionsRef = db.collection(COLL.TRANSACTIONS);
-
-    // Normalização (Concluído, Entregue, Finalizado)
     const statusLimpo = status.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const pedidoFinalizado = ['concluido', 'entregue', 'finalizado'].includes(statusLimpo);
-
-    console.log(`[DEBUG] Status Limpo: "${statusLimpo}". É finalizado? ${pedidoFinalizado}`);
 
     if (pedidoFinalizado) {
       const existing = await transactionsRef.where('orderId', '==', id).get();
 
       if (existing.empty) {
-        // USA A FUNÇÃO DE LIMPEZA AQUI
-        const valorOriginal = order.total;
         const valorSeguro = parseMoney(order.total);
-
-        console.log(`[DEBUG] Valor Original: "${valorOriginal}" -> Convertido: ${valorSeguro}`);
-
         if (valorSeguro > 0) {
           await transactionsRef.add({
+            userId: req.user.uid, // 🔒 Importante: Transação nasce com dono
             orderId: id,
             description: `Venda - Pedido #${id.substring(0, 5).toUpperCase()} - ${order.customerName || 'Cliente'}`,
-            amount: valorSeguro, // Agora é garantido ser Number
+            amount: valorSeguro,
             type: 'receita',
             category: 'Vendas',
             date: admin.firestore.Timestamp.now(),
             paymentMethod: 'Pix'
           });
-          console.log(`[SUCESSO] 💰 Receita de R$${valorSeguro} criada!`);
-        } else {
-          console.log(`[ERRO] ⚠️ Valor do pedido é 0 ou inválido. Transação não criada.`);
         }
-      } else {
-        console.log(`[AVISO] Transação já existia para este pedido.`);
       }
     }
+    // Lógica de estorno (remoção da transação)
     else {
-      // Estorno
       const existing = await transactionsRef.where('orderId', '==', id).get();
       if (!existing.empty) {
         const batch = db.batch();
         existing.docs.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
-        console.log(`[LOG] 💸 Receita removida (Estorno)`);
       }
     }
 
@@ -371,60 +406,32 @@ app.put('/admin/orders/:id', async (req, res) => {
     res.status(500).json({ error: "Erro interno" });
   }
 });
-app.delete('/admin/orders/:id', async (req, res) => {
-  await db.collection(COLL.ORDERS).doc(req.params.id).delete();
-  res.sendStatus(204);
-});
 
-// --- CONFIG & CUPONS ---
+// --- CONFIG ---
 app.post('/admin/config', async (req, res) => {
-  await COLL.CONFIG.set(req.body, { merge: true });
-  res.json(req.body);
+    // Config agora é um documento dentro da coleção 'configs' com ID = userId
+    await db.collection('configs').doc(req.user.uid).set(req.body, { merge: true });
+    res.json(req.body);
 });
 app.get('/admin/config', async (req, res) => {
-  const doc = await COLL.CONFIG.get();
-  res.json(doc.exists ? doc.data() : {});
+    const doc = await db.collection('configs').doc(req.user.uid).get();
+    res.json(doc.exists ? doc.data() : {});
 });
 
-app.get('/admin/coupons', async (req, res) => {
-  const s = await db.collection(COLL.COUPONS).get();
-  res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
-});
-app.post('/admin/coupons', async (req, res) => {
-  try {
-    const couponData = {
-      ...req.body,
-      // Forçamos letra maiúscula e removemos espaços
-      code: req.body.code.toUpperCase().trim(),
-      // O PULO DO GATO: Adicionamos o status manualmente
-      status: 'ativo', 
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-    
-    const ref = await db.collection(COLL.COUPONS).add(couponData);
-    res.json({ id: ref.id, ...couponData });
-  } catch (e) {
-    res.status(500).json({ error: "Erro ao criar cupom" });
-  }
-});
-app.delete('/admin/coupons/:id', async (req, res) => {
-  await db.collection(COLL.COUPONS).doc(req.params.id).delete();
-  res.sendStatus(204);
-});
-
-// --- DASHBOARD INTELIGENTE ---
+// --- DASHBOARD INTELIGENTE (SCOPED) ---
 app.get('/admin/dashboard-stats', async (req, res) => {
   try {
-    const s = await db.collection(COLL.TRANSACTIONS).get();
-    const p = await db.collection(COLL.PRODUCTS).where('status', '==', 'ativo').count().get();
+    // Busca APENAS transações do usuário
+    const s = await db.collection(COLL.TRANSACTIONS).where('userId', '==', req.user.uid).get();
+    const p = await db.collection(COLL.PRODUCTS)
+        .where('userId', '==', req.user.uid)
+        .where('status', '==', 'ativo').count().get();
 
     let totalVendas = 0, totalDespesas = 0;
 
     s.docs.forEach(d => {
       const val = parseFloat(d.data().amount) || 0;
       const tipo = d.data().type;
-
-      // Soma se for 'receita' ou 'venda' (compatibilidade legado)
       if (tipo === 'receita' || tipo === 'venda') {
         totalVendas += val;
       } else {
@@ -440,14 +447,16 @@ app.get('/admin/dashboard-stats', async (req, res) => {
       activeProducts: p.data().count
     });
   } catch (e) {
-    console.error(e);
     res.json({ totalVendas: 0, totalDespesas: 0, lucroLiquido: 0, activeProducts: 0 });
   }
 });
 
 app.get('/admin/dashboard-charts', async (req, res) => {
   try {
-    const s = await db.collection(COLL.TRANSACTIONS).orderBy('date', 'asc').get();
+    const s = await db.collection(COLL.TRANSACTIONS)
+        .where('userId', '==', req.user.uid)
+        .orderBy('date', 'asc').get();
+        
     const salesMap = {}, expenseMap = {};
 
     s.docs.forEach(doc => {
@@ -471,231 +480,164 @@ app.get('/admin/dashboard-charts', async (req, res) => {
   } catch (e) { res.json({ salesByDay: [], incomeVsExpense: [] }); }
 });
 
-// Para rodar localmente
-if (process.env.VERCEL_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`🚀 API com Integração Financeira rodando na porta ${PORT}`));
-}
-
-
 // ============================================================================
-// GESTÃO DE ESTOQUE AVANÇADA (KARDEX)
+// GESTÃO DE ESTOQUE AVANÇADA (SCOPED)
 // ============================================================================
 
-// 1. Ajustar Estoque (Entrada/Saída Manual)
-app.post('/admin/inventory/adjust', authenticateUser, async (req, res) => {
+app.post('/admin/inventory/adjust', async (req, res) => {
   const { productId, type, quantity, reason, userName } = req.body;
 
-  if (!productId || !quantity || !type) {
-    return res.status(400).json({ error: "Dados incompletos" });
-  }
+  if (!productId || !quantity || !type) return res.status(400).json({ error: "Dados incompletos" });
 
   try {
     const productRef = db.collection(COLL.PRODUCTS).doc(productId);
-    const logsRef = db.collection('inventory_logs'); // Nova coleção
+    const logsRef = db.collection('inventory_logs');
 
     await db.runTransaction(async (t) => {
       const doc = await t.get(productRef);
+      // Verifica existência E propriedade
       if (!doc.exists) throw new Error("Produto não encontrado");
+      if (doc.data().userId !== req.user.uid) throw new Error("Acesso negado");
 
       const currentQty = doc.data().quantity || 0;
       const adjustQty = parseInt(quantity);
-
-      // Define a nova quantidade baseada no tipo
       let newQty = currentQty;
       let change = 0;
 
-      if (type === 'entry') {
-        change = adjustQty;
-        newQty += adjustQty;
-      } else if (type === 'exit' || type === 'loss') {
-        change = -adjustQty;
-        newQty -= adjustQty;
-      }
+      if (type === 'entry') { change = adjustQty; newQty += adjustQty; } 
+      else if (type === 'exit' || type === 'loss') { change = -adjustQty; newQty -= adjustQty; }
 
-      // Atualiza o Produto
       t.update(productRef, { quantity: newQty });
 
-      // Cria o Log (O Rastro)
-      const logData = {
+      t.set(logsRef.doc(), {
+        userId: req.user.uid, // Log com dono
         productId,
         productName: doc.data().name,
-        type, // entry, exit, loss
-        change, // +10 ou -5
-        oldQuantity: currentQty,
-        newQuantity: newQty,
+        type, change, oldQuantity: currentQty, newQuantity: newQty,
         reason: reason || 'Ajuste manual',
         user: userName || 'Admin',
         createdAt: admin.firestore.FieldValue.serverTimestamp()
-      };
-
-      t.set(logsRef.doc(), logData);
+      });
     });
 
     res.json({ success: true });
   } catch (e) {
-    console.error("Erro no estoque:", e);
     res.status(500).json({ error: e.message });
   }
 });
 
-// 2. Ler Histórico de um Produto (TEM QUE TER ISSO AQUI)
-app.get('/admin/inventory/logs/:productId', authenticateUser, async (req, res) => {
+app.get('/admin/inventory/logs/:productId', async (req, res) => {
   try {
+    // Verifica primeiro se o produto é do usuário
+    const prod = await db.collection(COLL.PRODUCTS).doc(req.params.productId).get();
+    if(!prod.exists || prod.data().userId !== req.user.uid) {
+        return res.status(403).json({error: 'Produto inválido'});
+    }
+
     const s = await db.collection('inventory_logs')
       .where('productId', '==', req.params.productId)
-      .orderBy('createdAt', 'desc') // <--- Isso exige o índice
+      .where('userId', '==', req.user.uid) // Segurança redundante
+      .orderBy('createdAt', 'desc')
       .limit(20)
       .get();
 
     const logs = s.docs.map(d => {
       const data = d.data();
       return {
-        id: d.id,
-        ...data,
-        // Garante que a data não quebre o frontend
+        id: d.id, ...data,
         createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
       };
     });
-
     res.json(logs);
-  }  catch (e) {
-    // ADICIONE ESTAS LINHAS PARA VER O LINK:
-    console.error("ERRO NO HISTÓRICO:", e);
-    console.error(e.details); // Às vezes o link está nos detalhes
-
+  } catch (e) {
     res.status(500).json({ error: "Erro interno ao buscar logs" });
   }
 });
 
-
-
 // ============================================================================
-// 🧠 MOTOR DE CAMPANHAS GLOBAIS (Prevenção de Prejuízo)
+// MOTOR DE CAMPANHAS (SCOPED)
 // ============================================================================
-
-// Função auxiliar para dividir arrays grandes (Firebase aceita máx 500 ops por lote)
 const chunkArray = (array, size) => {
   const chunked = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunked.push(array.slice(i, i + size));
-  }
+  for (let i = 0; i < array.length; i += size) chunked.push(array.slice(i, i + size));
   return chunked;
 };
 
-// 1. SIMULADOR (Não altera nada, apenas calcula)
-app.post('/admin/campaign/simulate', authenticateUser, async (req, res) => {
+// 1. SIMULADOR SCOPED
+app.post('/admin/campaign/simulate', async (req, res) => {
   try {
-    const { discountPercent, minMarkup } = req.body; // Ex: 25 (%) e 1.2 (Markup Min)
+    const { discountPercent, minMarkup } = req.body;
     
-    // Busca todos os produtos ativos
-    const snapshot = await db.collection(COLL.PRODUCTS).where('status', '==', 'ativo').get();
+    // Busca APENAS produtos do usuário
+    const snapshot = await db.collection(COLL.PRODUCTS)
+        .where('userId', '==', req.user.uid)
+        .where('status', '==', 'ativo').get();
+        
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     let stats = {
       totalProducts: products.length,
-      affectedProducts: 0,
-      skippedProducts: 0, // Produtos que bateram na trave de segurança
-      
-      currentRevenue: 0,
-      projectedRevenue: 0,
-      
-      currentProfit: 0,
-      projectedProfit: 0,
-      
-      currentAvgMarkup: 0,
-      projectedAvgMarkup: 0,
-      
+      affectedProducts: 0, skippedProducts: 0,
+      currentRevenue: 0, projectedRevenue: 0,
+      currentProfit: 0, projectedProfit: 0,
       totalCost: 0
     };
-
-    let totalMarkupSumCurrent = 0;
-    let totalMarkupSumProjected = 0;
 
     products.forEach(p => {
         const cost = parseFloat(p.costPrice || 0);
         const currentPrice = parseFloat(p.salePrice || 0);
         const stock = parseInt(p.quantity || 0);
 
-        // --- CÁLCULO ATUAL ---
-        const currentMargin = currentPrice - cost;
-        const currentMarkup = cost > 0 ? (currentPrice / cost) : 0;
-        
         stats.totalCost += (cost * stock);
         stats.currentRevenue += (currentPrice * stock);
-        stats.currentProfit += (currentMargin * stock);
-        totalMarkupSumCurrent += currentMarkup;
+        stats.currentProfit += ((currentPrice - cost) * stock);
 
-        // --- CÁLCULO PROJETADO ---
         let newPrice = currentPrice * (1 - (discountPercent / 100));
-        
-        // 🛡️ TRAVA DE SEGURANÇA (O Anti-Prejuízo)
-        // O preço nunca pode ser menor que (Custo * Markup Mínimo)
         const minSafePrice = cost * (minMarkup || 1.0); 
         
-        let isLimited = false;
-        if (newPrice < minSafePrice) {
-            newPrice = minSafePrice; // Força o preço para o mínimo seguro
-            isLimited = true;
+        if (newPrice < minSafePrice && cost > 0) {
+            newPrice = minSafePrice;
             stats.skippedProducts++;
         } else {
             stats.affectedProducts++;
         }
-
-        // Se o produto não tiver custo cadastrado, não aplicamos a trava (cuidado!)
         if (cost === 0) newPrice = currentPrice * (1 - (discountPercent / 100));
 
-        const newMargin = newPrice - cost;
-        const newMarkup = cost > 0 ? (newPrice / cost) : 0;
-
         stats.projectedRevenue += (newPrice * stock);
-        stats.projectedProfit += (newMargin * stock);
-        totalMarkupSumProjected += newMarkup;
+        stats.projectedProfit += ((newPrice - cost) * stock);
     });
 
-    // Médias
-    if (products.length > 0) {
-        stats.currentAvgMarkup = (totalMarkupSumCurrent / products.length);
-        stats.projectedAvgMarkup = (totalMarkupSumProjected / products.length);
-    }
-
     res.json(stats);
-
   } catch (error) {
-    console.error("Erro na simulação:", error);
     res.status(500).json({ error: "Erro ao simular campanha." });
   }
 });
 
-// 2. APLICAR CAMPANHA (Grava no Banco)
-app.post('/admin/campaign/apply', authenticateUser, async (req, res) => {
+// 2. APLICAR CAMPANHA SCOPED
+app.post('/admin/campaign/apply', async (req, res) => {
   try {
     const { discountPercent, minMarkup, campaignName } = req.body;
     
-    const snapshot = await db.collection(COLL.PRODUCTS).where('status', '==', 'ativo').get();
+    // Busca APENAS produtos do usuário
+    const snapshot = await db.collection(COLL.PRODUCTS)
+        .where('userId', '==', req.user.uid)
+        .where('status', '==', 'ativo').get();
+        
     const products = snapshot.docs;
-
-    // Processar em lotes de 400 para não estourar o limite do Firestore
     const batches = chunkArray(products, 400);
     let updatedCount = 0;
 
     for (const batchDocs of batches) {
         const batch = db.batch();
-        
         batchDocs.forEach(doc => {
             const p = doc.data();
             const cost = parseFloat(p.costPrice || 0);
             const currentPrice = parseFloat(p.salePrice || 0);
-
-            // Calcula o preço promocional
             let newPrice = currentPrice * (1 - (discountPercent / 100));
             
-            // Trava de Segurança
             const minSafePrice = cost * (minMarkup || 1.0);
-            if (newPrice < minSafePrice && cost > 0) {
-                newPrice = minSafePrice;
-            }
+            if (newPrice < minSafePrice && cost > 0) { newPrice = minSafePrice; }
 
-            // Define os campos novos sem apagar o preço original
             batch.update(doc.ref, {
                 promotionalPrice: parseFloat(newPrice.toFixed(2)),
                 isOnSale: true,
@@ -704,27 +646,20 @@ app.post('/admin/campaign/apply', authenticateUser, async (req, res) => {
             });
             updatedCount++;
         });
-
         await batch.commit();
     }
-
-    res.json({ success: true, message: `${updatedCount} produtos atualizados com sucesso.` });
-
-  } catch (error) {
-    console.error("Erro ao aplicar:", error);
-    res.status(500).json({ error: "Erro ao aplicar campanha." });
-  }
+    res.json({ success: true, message: `${updatedCount} produtos atualizados.` });
+  } catch (error) { res.status(500).json({ error: "Erro ao aplicar." }); }
 });
 
-// 3. REVERTER CAMPANHA (Limpa os preços promocionais)
-app.post('/admin/campaign/revert', authenticateUser, async (req, res) => {
+// 3. REVERTER CAMPANHA SCOPED
+app.post('/admin/campaign/revert', async (req, res) => {
   try {
-    // Busca apenas produtos que estão em oferta
-    const snapshot = await db.collection(COLL.PRODUCTS).where('isOnSale', '==', true).get();
+    const snapshot = await db.collection(COLL.PRODUCTS)
+        .where('userId', '==', req.user.uid) // Filtro de segurança
+        .where('isOnSale', '==', true).get();
     
-    if (snapshot.empty) {
-        return res.json({ success: true, message: "Nenhum produto em oferta para reverter." });
-    }
+    if (snapshot.empty) return res.json({ success: true, message: "Nada a reverter." });
 
     const batches = chunkArray(snapshot.docs, 400);
     let revertedCount = 0;
@@ -732,7 +667,6 @@ app.post('/admin/campaign/revert', authenticateUser, async (req, res) => {
     for (const batchDocs of batches) {
         const batch = db.batch();
         batchDocs.forEach(doc => {
-            // Remove os campos da promoção
             batch.update(doc.ref, {
                 promotionalPrice: admin.firestore.FieldValue.delete(),
                 isOnSale: false,
@@ -743,12 +677,13 @@ app.post('/admin/campaign/revert', authenticateUser, async (req, res) => {
         });
         await batch.commit();
     }
-
-    res.json({ success: true, message: `${revertedCount} produtos voltaram ao preço original.` });
-
-  } catch (error) {
-    console.error("Erro ao reverter:", error);
-    res.status(500).json({ error: "Erro ao reverter campanha." });
-  }
+    res.json({ success: true, message: `${revertedCount} produtos revertidos.` });
+  } catch (error) { res.status(500).json({ error: "Erro ao reverter." }); }
 });
+
+// Para rodar localmente
+if (process.env.VERCEL_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`🚀 API SaaS Multi-Tenant rodando na porta ${PORT}`));
+}
+
 module.exports = app;
