@@ -32,28 +32,50 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 
 // Inicialização do Firebase
+// ============================================================================
+// INICIALIZAÇÃO DO FIREBASE (BLINDADA)
+// ============================================================================
 let serviceAccount;
+
 if (process.env.VERCEL_ENV === 'production') {
   if (!process.env.SERVICE_ACCOUNT_KEY) {
     console.error("ERRO CRÍTICO: Variável SERVICE_ACCOUNT_KEY não encontrada.");
-    process.exit(1);
-  }
-  try {
-    serviceAccount = JSON.parse(Buffer.from(process.env.SERVICE_ACCOUNT_KEY, 'base64').toString('utf-8'));
-  } catch (e) {
-    console.error("Erro ao decodificar SERVICE_ACCOUNT_KEY", e);
-    process.exit(1);
+    // Não damos exit(1) para não retornar HTML 500, tentamos seguir
+  } else {
+    try {
+      // TENTATIVA 1: O usuário colou o JSON direto?
+      serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+      console.log("Sucesso: Chave carregada como JSON Puro.");
+    } catch (e) {
+      // TENTATIVA 2: O usuário codificou em Base64?
+      try {
+        serviceAccount = JSON.parse(Buffer.from(process.env.SERVICE_ACCOUNT_KEY, 'base64').toString('utf-8'));
+        console.log("Sucesso: Chave carregada via Base64.");
+      } catch (e2) {
+        console.error("ERRO FATAL: Não foi possível ler a SERVICE_ACCOUNT_KEY nem como JSON nem como Base64.");
+        console.error(e2);
+      }
+    }
   }
 } else {
+  // Localmente usa o arquivo
   try { serviceAccount = require('./serviceAccountKey.json'); } catch (e) {
     console.warn("Aviso: serviceAccountKey.json não encontrado localmente.");
   }
 }
 
 if (!admin.apps.length && serviceAccount) {
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("Firebase Admin inicializado com sucesso!");
+  } catch (e) {
+    console.error("Erro ao inicializar Firebase Admin:", e);
+  }
 }
 
+// Previne crash se o Firebase não iniciar
 const db = admin.apps.length ? admin.firestore() : null;
 
 // ============================================================================
