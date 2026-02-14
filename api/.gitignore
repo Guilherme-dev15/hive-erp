@@ -36,3 +36,6 @@ dist-ssr
 # (Este é o passo mais importante!)
 serviceAccountKey.json
 api/serviceAccountKey.json
+
+.env
+node_modules
