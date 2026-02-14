@@ -18,12 +18,14 @@ export interface ProdutoCatalogo {
 }
 
 export interface ConfigPublica {
+  storeId?: string;
   lowStockThreshold: number;
   whatsappNumber: string | null;
   storeName: string;
   primaryColor: string;
   secondaryColor: string;
   banners?: string[];
+  slug?: string;
 }
 
 export interface ItemCarrinho {
@@ -47,4 +49,5 @@ export interface OrderPayload {
   discount: number;
   total: number;
   notes: string;
+  storeId?: string;
 }
