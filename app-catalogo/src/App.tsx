@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'react-hot-toast';
 
 import { ProdutoCatalogo, ConfigPublica, ItemCarrinho } from './types';
-import { fetchCatalogData, fetchStoreBySlug } from './services/api'; // Certifique-se de ter o fetchStoreBySlug no api.ts
+import { fetchCatalogData, fetchStoreBySlug } from './services/api';
 import { BannerCarousel } from './components/BannerCarousel';
 import { CardProduto } from './components/CardProduto';
 import { ModalCarrinho } from './components/ModalCarrinho';
@@ -17,12 +17,12 @@ export default function App() {
   // --- ESTADOS DE DADOS ---
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
   const [config, setConfig] = useState<ConfigPublica>({
-    whatsappNumber: null, 
-    storeName: 'Carregando...', 
-    primaryColor: '#D4AF37', 
-    secondaryColor: '#343434', 
+    whatsappNumber: null,
+    storeName: 'Carregando...',
+    primaryColor: '#D4AF37',
+    secondaryColor: '#343434',
     banners: [],
-    lowStockThreshold: 5 
+    lowStockThreshold: 5
   });
 
   // --- ESTADOS DE UI ---
@@ -31,7 +31,7 @@ export default function App() {
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProdutoCatalogo | null>(null);
-  
+
   // FILTROS
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
@@ -45,49 +45,45 @@ export default function App() {
       try {
         setLoading(true);
 
-        // 1. DETECÇÃO DE URL (LOCALHOST VS SUBDOMÍNIO)
+        // 1. DETECÇÃO DE SLUG (Lógica Corrigida para Vercel)
         let currentSlug = '';
-        let currentStoreId = '';
-
-        const hostname = window.location.hostname;
+        
+        // Prioridade 1: Parâmetro ?loja=hivepratas na URL
         const params = new URLSearchParams(window.location.search);
+        const lojaParam = params.get('loja');
 
-        // A. Se estiver em Localhost, usa query params (?loja=... ou ?storeId=...)
-        if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-          currentSlug = params.get('loja') || '';
-          currentStoreId = params.get('storeId') || '';
-        } 
-        // B. Se estiver em Produção (Vercel), tenta pegar o subdomínio
-        else {
-          const parts = hostname.split('.');
-          // Ex: "joias.hiveerp.com" -> partes[0] = "joias" (assumindo que não é www)
-          if (parts.length >= 2 && parts[0] !== 'www' && parts[0] !== 'app') {
-            currentSlug = parts[0];
-          } else {
-            // Fallback para query params mesmo em produção (útil para testes)
-            currentSlug = params.get('loja') || '';
-            currentStoreId = params.get('storeId') || '';
+        if (lojaParam) {
+          currentSlug = lojaParam;
+          console.log("📍 Slug detectado via URL:", currentSlug);
+        } else {
+          // Prioridade 2: Subdomínio (ex: hivepratas.meudominio.com)
+          // Ignora se for localhost ou o domínio padrão da Vercel
+          const host = window.location.hostname;
+          if (!host.includes('localhost') && !host.includes('vercel.app')) {
+            currentSlug = host.split('.')[0];
+            console.log("📍 Slug detectado via Subdomínio:", currentSlug);
           }
         }
 
-        // 2. RESOLUÇÃO DA LOJA
-        let finalStoreId = currentStoreId;
+        // 2. BUSCA DADOS DA LOJA
+        let finalStoreId = params.get('storeId') || ''; // Aceita storeId direto como fallback
 
-        // Se temos um SLUG (nome da loja), buscamos o ID real no backend
         if (currentSlug && !finalStoreId) {
           try {
+            console.log("🔍 Buscando dados da loja:", currentSlug);
             const storeData = await fetchStoreBySlug(currentSlug);
             finalStoreId = storeData.storeId;
-            
-            // Já carrega a config para evitar delay visual
+
+            // Já carrega a config inicial
             setConfig({
-              storeId: storeData.storeId,
+              storeId: storeData.storeId, // Importante para o carrinho
               whatsappNumber: storeData.whatsappNumber,
               storeName: storeData.storeName || 'Loja Virtual',
               primaryColor: storeData.primaryColor || '#D4AF37',
               secondaryColor: storeData.secondaryColor || '#343434',
               banners: storeData.banners || [],
-              lowStockThreshold: Number(storeData.lowStockThreshold) || 5
+              lowStockThreshold: Number(storeData.lowStockThreshold) || 5,
+              slug: storeData.slug
             });
             document.title = storeData.storeName || 'Loja Virtual';
           } catch (err) {
@@ -99,25 +95,28 @@ export default function App() {
         }
 
         if (!finalStoreId) {
-          setError("Loja não identificada. Verifique o link fornecido.");
+          console.warn("⚠️ Nenhuma loja identificada (Sem slug e sem ID).");
+          setError("Loja não identificada. Use o link correto (ex: /?loja=nome).");
           setLoading(false);
           return;
         }
 
         // 3. BUSCA DO CATÁLOGO (PRODUTOS)
+        console.log("📦 Carregando produtos do ID:", finalStoreId);
         const data = await fetchCatalogData(finalStoreId);
-        
-        const safeProducts = (data.produtos || []).map((p: any) => ({ 
-          ...p, 
+
+        const safeProducts = (data.produtos || []).map((p: any) => ({
+          ...p,
           salePrice: Number(p.salePrice) || 0,
-          promotionalPrice: Number(p.promotionalPrice) || 0 
+          promotionalPrice: Number(p.promotionalPrice) || 0
         }));
-        
+
         setProdutos(safeProducts);
-        
-        // Se a config não veio pelo slug (caso de uso por ID direto), carrega aqui
-        if (data.config && !currentSlug) {
+
+        // Se a config veio vazia do fetchStoreBySlug, tenta garantir aqui
+        if (data.config && (!config.storeName || config.storeName === 'Carregando...')) {
           setConfig({
+            storeId: finalStoreId,
             whatsappNumber: data.config.whatsappNumber,
             storeName: data.config.storeName || 'Loja Virtual',
             primaryColor: data.config.primaryColor || '#D4AF37',
@@ -128,15 +127,15 @@ export default function App() {
           document.title = data.config.storeName || 'Loja Virtual';
         }
 
-      } catch (err) { 
-        console.error("Erro no carregamento:", err); 
-        setError("Erro ao carregar loja."); 
-      } finally { 
-        setLoading(false); 
+      } catch (err) {
+        console.error("Erro no carregamento:", err);
+        setError("Erro ao carregar loja.");
+      } finally {
+        setLoading(false);
       }
     }
     init();
-  }, []);
+  }, [config.storeName]);
 
   // --- LÓGICA DO CARRINHO ---
   const adicionarAoCarrinho = (produto: ProdutoCatalogo) => {
@@ -147,20 +146,20 @@ export default function App() {
     }
 
     const qtdAtual = carrinho[produto.id]?.quantidade || 0;
-    if (qtdAtual + 1 > stock) { 
-       toast.error("Estoque limite atingido.", { id: `limit-${produto.id}` }); 
-       return; 
+    if (qtdAtual + 1 > stock) {
+      toast.error("Estoque limite atingido.", { id: `limit-${produto.id}` });
+      return;
     }
-    
+
     const finalPrice = (produto.isOnSale && produto.promotionalPrice && produto.promotionalPrice < produto.salePrice)
-        ? produto.promotionalPrice
-        : produto.salePrice;
+      ? produto.promotionalPrice
+      : produto.salePrice;
 
     const produtoParaCarrinho = { ...produto, salePrice: finalPrice };
 
-    setCarrinho((prev) => ({ 
-        ...prev, 
-        [produto.id]: { produto: produtoParaCarrinho, quantidade: qtdAtual + 1 } 
+    setCarrinho((prev) => ({
+      ...prev,
+      [produto.id]: { produto: produtoParaCarrinho, quantidade: qtdAtual + 1 }
     }));
 
     toast.success("Adicionado ao carrinho!", { id: `add-${produto.id}` });
@@ -179,12 +178,12 @@ export default function App() {
     }
     if (selectedCategory) lista = lista.filter(p => p.category === selectedCategory);
     if (selectedSubcategory) lista = lista.filter(p => p.subcategory === selectedSubcategory);
-    
+
     const getEffectivePrice = (p: ProdutoCatalogo) => (p.isOnSale && p.promotionalPrice) ? p.promotionalPrice : p.salePrice;
 
     if (sortOrder === 'priceAsc') lista.sort((a, b) => getEffectivePrice(a) - getEffectivePrice(b));
     if (sortOrder === 'priceDesc') lista.sort((a, b) => getEffectivePrice(b) - getEffectivePrice(a));
-    
+
     return lista;
   }, [produtos, selectedCategory, selectedSubcategory, searchTerm, sortOrder]);
 
@@ -236,28 +235,28 @@ export default function App() {
           <div className="px-4 mb-3 flex gap-2">
             <div className="relative flex-grow shadow-sm group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Buscar produtos..." 
-                value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)} 
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border-none bg-white text-sm focus:ring-2 ring-opacity-20 outline-none" 
-                style={{ '--tw-ring-color': config.primaryColor } as any} 
+              <input
+                type="text"
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border-none bg-white text-sm focus:ring-2 ring-opacity-20 outline-none"
+                style={{ '--tw-ring-color': config.primaryColor } as any}
               />
             </div>
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="p-3 rounded-2xl shadow-sm bg-white text-gray-500">
               <SlidersHorizontal size={20} />
             </button>
           </div>
-          
+
           <AnimatePresence>
             {isFilterOpen && (
               <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden px-4 mb-2">
                 <div className="flex gap-2 py-1 overflow-x-auto no-scrollbar">
                   {['default', 'priceAsc', 'priceDesc'].map(opt => (
-                    <button 
-                      key={opt} 
-                      onClick={() => setSortOrder(opt as any)} 
+                    <button
+                      key={opt}
+                      onClick={() => setSortOrder(opt as any)}
                       className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap ${sortOrder === opt ? 'bg-gray-800 text-white' : 'bg-white text-gray-600'}`}
                     >
                       {opt === 'default' ? 'Relevância' : opt === 'priceAsc' ? 'Menor Preço' : 'Maior Preço'}
@@ -269,14 +268,14 @@ export default function App() {
           </AnimatePresence>
 
           <div className="px-4 pb-2">
-             <CategoryFilter 
-               products={produtos} 
-               selectedCategory={selectedCategory}
-               selectedSubcategory={selectedSubcategory}
-               onSelectCategory={setSelectedCategory}
-               onSelectSubcategory={setSelectedSubcategory}
-               config={config}
-             />
+            <CategoryFilter
+              products={produtos}
+              selectedCategory={selectedCategory}
+              selectedSubcategory={selectedSubcategory}
+              onSelectCategory={setSelectedCategory}
+              onSelectSubcategory={setSelectedSubcategory}
+              config={config}
+            />
           </div>
         </div>
       </div>
@@ -284,63 +283,63 @@ export default function App() {
       {/* LISTAGEM DE PRODUTOS */}
       <main className="max-w-7xl mx-auto p-4 min-h-[60vh]">
         <div className="mb-5 px-1 flex items-end justify-between border-b border-gray-100 pb-2">
-            <div className="flex flex-col">
-               <h2 className="text-xl font-bold text-gray-800">
-                 {selectedCategory || 'Destaques'}
-               </h2>
-               {selectedSubcategory && (
-                 <span className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
-                   ▶ {selectedSubcategory}
-                 </span>
-               )}
-            </div>
-            <span className="text-xs text-gray-400 font-medium mb-1">{produtosFiltrados.length} itens</span>
+          <div className="flex flex-col">
+            <h2 className="text-xl font-bold text-gray-800">
+              {selectedCategory || 'Destaques'}
+            </h2>
+            {selectedSubcategory && (
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                ▶ {selectedSubcategory}
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-gray-400 font-medium mb-1">{produtosFiltrados.length} itens</span>
         </div>
 
         {produtosFiltrados.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
             {produtosFiltrados.map(prod => (
-              <CardProduto 
-                key={prod.id} 
-                produto={prod} 
-                config={config} 
-                onAdicionar={() => adicionarAoCarrinho(prod)} 
-                onImageClick={() => setSelectedProduct(prod)} 
+              <CardProduto
+                key={prod.id}
+                produto={prod}
+                config={config}
+                onAdicionar={() => adicionarAoCarrinho(prod)}
+                onImageClick={() => setSelectedProduct(prod)}
               />
             ))}
           </div>
         ) : (
           <div className="py-24 text-center flex flex-col items-center justify-center text-gray-400">
-             <Search size={48} className="mb-4 opacity-20" />
-             <p>Nenhum produto encontrado.</p>
-             {(selectedCategory || searchTerm) && (
-               <button 
-                 onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); setSearchTerm(''); }}
-                 className="mt-4 text-blue-500 text-sm font-bold hover:underline"
-               >
-                 Limpar Filtros
-               </button>
-             )}
+            <Search size={48} className="mb-4 opacity-20" />
+            <p>Nenhum produto encontrado.</p>
+            {(selectedCategory || searchTerm) && (
+              <button
+                onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); setSearchTerm(''); }}
+                className="mt-4 text-blue-500 text-sm font-bold hover:underline"
+              >
+                Limpar Filtros
+              </button>
+            )}
           </div>
         )}
       </main>
 
       {/* MODAIS */}
-      <ModalCarrinho 
-        isOpen={isCarrinhoAberto} 
-        onClose={() => setIsCarrinhoAberto(false)} 
-        itens={itensDoCarrinho} 
-        setCarrinho={setCarrinho} 
-        whatsappNumber={config.whatsappNumber} 
-        config={config} 
+      <ModalCarrinho
+        isOpen={isCarrinhoAberto}
+        onClose={() => setIsCarrinhoAberto(false)}
+        itens={itensDoCarrinho}
+        setCarrinho={setCarrinho}
+        whatsappNumber={config.whatsappNumber}
+        config={config}
       />
-      
-      <ProductDetailsModal 
-        isOpen={!!selectedProduct} 
-        onClose={() => setSelectedProduct(null)} 
-        product={selectedProduct} 
-        onAddToCart={adicionarAoCarrinho} 
-        config={config} 
+
+      <ProductDetailsModal
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        product={selectedProduct}
+        onAddToCart={adicionarAoCarrinho}
+        config={config}
       />
     </div>
   );
