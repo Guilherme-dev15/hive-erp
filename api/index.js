@@ -225,7 +225,7 @@ app.post('/orders', async (req, res) => {
     const orderData = {
       ...req.body,
       userId: storeOwnerId,
-      status: 'Pendente',
+      status: req.body.status || 'Aguardando Pagamento',
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 

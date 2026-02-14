@@ -1,4 +1,5 @@
  
+ 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +8,7 @@ import { toast } from 'react-hot-toast';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 
-import { ItemCarrinho, ConfigPublica, OrderPayload } from '../types';
+import { ItemCarrinho, ConfigPublica } from '../types';
 import { saveOrder, checkCoupon, createPaymentIntent } from '../services/api';
 import { formatCurrency } from '../utils/format';
 import { CheckoutForm } from './CheckoutForm'; // <--- Importamos seu componente novo
@@ -131,11 +132,21 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
 
   // --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
   // Essa função serve tanto para WhatsApp quanto para sucesso do Stripe
+// --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
   const saveOrderToDb = async (paymentMethod: 'whatsapp' | 'credit_card') => {
-    // Correção: Adicionamos a info do pagamento nas observações para não ficar variável inutilizada
+    
+    // 1. Define o texto extra na observação
     const paymentInfo = paymentMethod === 'credit_card' ? ' [PAGO VIA CARTÃO]' : ' [VIA WHATSAPP]';
     
-    const orderPayload: OrderPayload = {
+    // 2. LÓGICA DO STATUS:
+    // Se pagou no cartão -> Já entra como "Em Separação"
+    // Se é WhatsApp -> Entra como "Aguardando Pagamento"
+    const statusInicial = paymentMethod === 'credit_card' ? 'Em Separação' : 'Aguardando Pagamento';
+
+    // 3. Monta o pedido
+    // Obs: Troquei o tipo para 'any' temporariamente para o TypeScript aceitar o campo 'status'
+    // sem você precisar mexer no arquivo de types agora.
+    const orderPayload: any = {
       customerName: nome,
       customerPhone: tel,
       items: itens.map(i => ({
@@ -148,14 +159,14 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
       subtotal,
       discount: desconto,
       total,
-      notes: (obs || '') + paymentInfo, // <--- Usamos o paymentMethod aqui!
-      storeId: config.storeId
+      notes: (obs || '') + paymentInfo,
+      storeId: config.storeId,
+      status: statusInicial // <--- AQUI ESTÁ A MÁGICA
     };
 
     const res: any = await saveOrder(orderPayload);
     return res.id || 'NOVO';
   };
-
   const finalizarWhatsApp = async () => {
     if (!whatsappNumber) return toast.error("Loja sem WhatsApp configurado");
     if (!nome.trim() || !tel.trim()) return toast.error("Preencha Nome e WhatsApp");
