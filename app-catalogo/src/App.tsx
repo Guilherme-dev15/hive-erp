@@ -54,14 +54,14 @@ export default function App() {
 
         if (lojaParam) {
           currentSlug = lojaParam;
-          console.log("📍 Slug detectado via URL:", currentSlug);
+         // console.log("📍 Slug detectado via URL:", currentSlug);
         } else {
           // Prioridade 2: Subdomínio (ex: hivepratas.meudominio.com)
           // Ignora se for localhost ou o domínio padrão da Vercel
           const host = window.location.hostname;
           if (!host.includes('localhost') && !host.includes('vercel.app')) {
             currentSlug = host.split('.')[0];
-            console.log("📍 Slug detectado via Subdomínio:", currentSlug);
+          //  console.log("📍 Slug detectado via Subdomínio:", currentSlug);
           }
         }
 
@@ -70,7 +70,7 @@ export default function App() {
 
         if (currentSlug && !finalStoreId) {
           try {
-            console.log("🔍 Buscando dados da loja:", currentSlug);
+           // console.log("🔍 Buscando dados da loja:", currentSlug);
             const storeData = await fetchStoreBySlug(currentSlug);
             finalStoreId = storeData.storeId;
 
@@ -102,7 +102,7 @@ export default function App() {
         }
 
         // 3. BUSCA DO CATÁLOGO (PRODUTOS)
-        console.log("📦 Carregando produtos do ID:", finalStoreId);
+        //console.log("📦 Carregando produtos do ID:", finalStoreId);
         const data = await fetchCatalogData(finalStoreId);
 
         const safeProducts = (data.produtos || []).map((p: any) => ({
