@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+const Stripe = require('stripe');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +31,8 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '50mb' }));
+
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // ============================================================================
 // 2. INICIALIZAÇÃO DO FIREBASE
@@ -119,9 +122,9 @@ app.get('/config-by-slug', async (req, res) => {
     const realStoreId = data.userId || doc.id;
     console.log("✅ Loja achada! ID real para buscar produtos:", realStoreId);
 
-    res.json({ 
-      ...data, 
-      storeId: realStoreId 
+    res.json({
+      ...data,
+      storeId: realStoreId
     });
   } catch (e) {
     console.error("Erro config-by-slug:", e);
@@ -137,19 +140,19 @@ app.get('/config-public', async (req, res) => {
   try {
     // Tenta buscar pelo ID direto. Se não achar, tenta buscar onde userId == storeId
     let doc = await db.collection(COLL.CONFIG).doc(storeId).get();
-    
+
     if (!doc.exists) {
-        // Fallback: Busca query por userId caso o ID do doc seja diferente (ex: 'settings')
-        const snap = await db.collection(COLL.CONFIG).where('userId', '==', storeId).limit(1).get();
-        if (!snap.empty) doc = snap.docs[0];
+      // Fallback: Busca query por userId caso o ID do doc seja diferente (ex: 'settings')
+      const snap = await db.collection(COLL.CONFIG).where('userId', '==', storeId).limit(1).get();
+      if (!snap.empty) doc = snap.docs[0];
     }
 
     if (!doc.exists) {
-      return res.json({ 
-        storeName: "Loja Virtual", 
-        primaryColor: "#000000", 
-        banners: [] 
-      }); 
+      return res.json({
+        storeName: "Loja Virtual",
+        primaryColor: "#000000",
+        banners: []
+      });
     }
     res.json(doc.data());
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -164,18 +167,18 @@ app.post('/validate-coupon', async (req, res) => {
     const snapshot = await db.collection(COLL.COUPONS)
       .where('userId', '==', storeId)
       .where('code', '==', code.toUpperCase())
-      .get(); 
+      .get();
 
     if (snapshot.empty) return res.status(200).json({ valid: false, message: "Cupom inválido" });
 
     const cupom = snapshot.docs[0].data();
     if (cupom.status && cupom.status !== 'ativo') return res.status(200).json({ valid: false, message: "Cupom inativo" });
 
-    res.json({ 
-      valid: true, 
-      discountValue: Number(cupom.discountValue || cupom.discountPercent || cupom.percent || 0), 
-      type: cupom.type || 'percentage', 
-      code: cupom.code 
+    res.json({
+      valid: true,
+      discountValue: Number(cupom.discountValue || cupom.discountPercent || cupom.percent || 0),
+      type: cupom.type || 'percentage',
+      code: cupom.code
     });
   } catch (e) { res.status(500).json({ valid: false, message: "Erro interno" }); }
 });
@@ -186,7 +189,7 @@ app.get('/products-public', async (req, res) => {
   try {
     let query = db.collection(COLL.PRODUCTS).where('status', '==', 'ativo');
     if (req.query.storeId) query = query.where('userId', '==', req.query.storeId);
-    
+
     const snapshot = await query.get();
     const products = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -219,11 +222,11 @@ app.post('/orders', async (req, res) => {
     }
     if (!storeOwnerId && req.body.storeId) storeOwnerId = req.body.storeId;
 
-    const orderData = { 
-      ...req.body, 
-      userId: storeOwnerId, 
-      status: 'Pendente', 
-      createdAt: admin.firestore.FieldValue.serverTimestamp() 
+    const orderData = {
+      ...req.body,
+      userId: storeOwnerId,
+      status: 'Pendente',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
     const batch = db.batch();
@@ -345,7 +348,7 @@ app.post('/admin/inventory/adjust', async (req, res) => {
     const productRef = db.collection(COLL.PRODUCTS).doc(productId);
     await db.runTransaction(async (t) => {
       const doc = await t.get(productRef);
-      const newQty = type === 'entry' ? (doc.data().quantity||0) + Number(quantity) : (doc.data().quantity||0) - Number(quantity);
+      const newQty = type === 'entry' ? (doc.data().quantity || 0) + Number(quantity) : (doc.data().quantity || 0) - Number(quantity);
       t.update(productRef, { quantity: newQty });
       t.set(db.collection('inventory_logs').doc(), { userId: req.user.uid, productId, type, change: quantity, newQuantity: newQty, user: userName, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     });
@@ -385,11 +388,50 @@ app.get('/admin/config', async (req, res) => {
   res.json(doc.exists ? doc.data() : {});
 });
 
+
+// ============================================================================
+// 💰 ROTA DE PAGAMENTO (STRIPE)
+// ============================================================================
+
+app.post('/create-payment-intent', async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: "Stripe não configurado no servidor" });
+  }
+
+  const { amount, currency = 'brl', storeId } = req.body;
+
+  try {
+    // Cria a intenção de pagamento no Stripe
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Stripe trabalha com centavos (R$10,00 = 1000)
+      currency: currency,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: {
+        storeId: storeId // Salva o ID da loja para sabermos de quem é o dinheiro
+      }
+    });
+
+    // Retorna o "segredo" para o Frontend finalizar a compra
+    res.json({
+      clientSecret: paymentIntent.client_secret
+    });
+
+  } catch (error) {
+    console.error("Erro no Stripe:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`🚀 API SaaS (Coleção: ${COLL.CONFIG}) Rodando na porta ${PORT}`);
     console.log(`👉 Teste: http://localhost:${PORT}/config-by-slug?slug=hivepratas`);
   });
 }
+
+
 
 module.exports = app;

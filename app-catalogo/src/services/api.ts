@@ -43,6 +43,20 @@ export const fetchCatalogData = async (storeId: string) => {
   };
 };
 
+// 3. Função para criar o Payment Intent
+export const createPaymentIntent = async (amount: number, storeId: string) => {
+  try {
+    const response = await apiClient.post('/create-payment-intent', { 
+      amount, 
+      storeId 
+    });
+    return response.data; // Retorna { clientSecret: "..." }
+  } catch (error) {
+    console.error("Erro ao criar pagamento:", error);
+    throw error;
+  }
+};
+
 /**
  * Busca o ID da loja baseado no nome amigável (slug)
  * Ex: busca 'hivepratas' e retorna o ID 'He8p0w...'
