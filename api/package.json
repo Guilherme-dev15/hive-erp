@@ -17,6 +17,7 @@
     "firebase-admin": "^13.5.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-qr-code": "^2.0.18"
+    "react-qr-code": "^2.0.18",
+    "stripe": "^20.3.1"
   }
 }
