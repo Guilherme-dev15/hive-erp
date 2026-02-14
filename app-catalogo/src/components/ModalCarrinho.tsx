@@ -1,5 +1,5 @@
- 
- 
+
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -116,7 +116,7 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
   // --- INICIAR PAGAMENTO ONLINE (STRIPE) ---
   const handleOnlinePayment = async () => {
     if (!nome.trim() || !tel.trim()) return toast.error("Preencha Nome e WhatsApp antes de pagar.");
-    
+
     setLoading(true);
     try {
       const data = await createPaymentIntent(total, config.storeId || '');
@@ -132,12 +132,12 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
 
   // --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
   // Essa função serve tanto para WhatsApp quanto para sucesso do Stripe
-// --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
+  // --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
   const saveOrderToDb = async (paymentMethod: 'whatsapp' | 'credit_card') => {
-    
+
     // 1. Define o texto extra na observação
     const paymentInfo = paymentMethod === 'credit_card' ? ' [PAGO VIA CARTÃO]' : ' [VIA WHATSAPP]';
-    
+
     // 2. LÓGICA DO STATUS:
     // Se pagou no cartão -> Já entra como "Em Separação"
     // Se é WhatsApp -> Entra como "Aguardando Pagamento"
@@ -162,9 +162,11 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
       notes: (obs || '') + paymentInfo,
       storeId: config.storeId,
       status: statusInicial // <--- AQUI ESTÁ A MÁGICA
-    };
 
-    const res: any = await saveOrder(orderPayload);
+    };
+    // ADICIONE ESTA LINHA PARA TESTAR NO LOCALHOST:
+    console.log("📦 Enviando pedido com status:", orderPayload.status);
+    const res = await saveOrder(orderPayload);
     return res.id || 'NOVO';
   };
   const finalizarWhatsApp = async () => {
@@ -202,13 +204,13 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
   // --- CALLBACK DE SUCESSO DO STRIPE ---
   const onPaymentSuccess = async () => {
     try {
-        await saveOrderToDb('credit_card');
-        setCarrinho({});
-        onClose();
-        // Você pode redirecionar para uma página de "Obrigado" aqui se quiser
+      await saveOrderToDb('credit_card');
+      setCarrinho({});
+      onClose();
+      // Você pode redirecionar para uma página de "Obrigado" aqui se quiser
     } catch (error) {
-        console.error("Erro ao salvar pedido pago:", error);
-        toast.error("Pagamento aprovado, mas erro ao salvar pedido. Contate a loja.");
+      console.error("Erro ao salvar pedido pago:", error);
+      toast.error("Pagamento aprovado, mas erro ao salvar pedido. Contate a loja.");
     }
   };
 
@@ -248,73 +250,73 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
                   {/* SE O PAGAMENTO ESTIVER ATIVO, MOSTRA SÓ O FORMULÁRIO DO STRIPE */}
                   {showPayment && clientSecret ? (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <button onClick={() => setShowPayment(false)} className="text-sm text-gray-500 mb-4 flex items-center gap-1 hover:underline">
-                            ← Voltar para resumo
-                        </button>
-                        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
-                            <CheckoutForm 
-                                amount={total} 
-                                storeId={config.storeId || ''}
-                                onSuccess={onPaymentSuccess}
-                                onCancel={() => setShowPayment(false)}
-                            />
-                        </Elements>
+                      <button onClick={() => setShowPayment(false)} className="text-sm text-gray-500 mb-4 flex items-center gap-1 hover:underline">
+                        ← Voltar para resumo
+                      </button>
+                      <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+                        <CheckoutForm
+                          amount={total}
+                          storeId={config.storeId || ''}
+                          onSuccess={onPaymentSuccess}
+                          onCancel={() => setShowPayment(false)}
+                        />
+                      </Elements>
                     </div>
                   ) : (
                     /* SE NÃO, MOSTRA O CARRINHO NORMAL */
                     <>
-                        <div className="space-y-4">
-                            {itens.map((item) => (
-                            <div key={item.produto.id} className="flex gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm relative">
-                                <div className="w-20 h-20 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border">
-                                {item.produto.imageUrl ? (
-                                    <img src={item.produto.imageUrl} className="w-full h-full object-cover" alt={item.produto.name} />
-                                ) : (
-                                    <Package size={24} className="text-gray-300" />
-                                )}
-                                </div>
-                                <div className="flex-1 pr-6">
-                                <p className="text-sm font-bold line-clamp-2 text-gray-800">{item.produto.name}</p>
-                                <p className="text-xs text-gray-500 mb-2 mt-1">{formatCurrency(item.produto.salePrice)}</p>
-                                <div className="flex items-center bg-gray-50 rounded-lg h-8 px-1 w-max border">
-                                    <button onClick={() => updateQtd(item.produto.id, -1)} className="w-8 h-full flex justify-center items-center"><Minus size={14} /></button>
-                                    <span className="w-6 text-center text-sm font-bold">{item.quantidade}</span>
-                                    <button onClick={() => updateQtd(item.produto.id, 1)} className="w-8 h-full flex justify-center items-center"><Plus size={14} /></button>
-                                </div>
-                                </div>
-                                <button onClick={() => removeItem(item.produto.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500 p-1"><X size={16} /></button>
+                      <div className="space-y-4">
+                        {itens.map((item) => (
+                          <div key={item.produto.id} className="flex gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm relative">
+                            <div className="w-20 h-20 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border">
+                              {item.produto.imageUrl ? (
+                                <img src={item.produto.imageUrl} className="w-full h-full object-cover" alt={item.produto.name} />
+                              ) : (
+                                <Package size={24} className="text-gray-300" />
+                              )}
                             </div>
-                            ))}
-                        </div>
-
-                        {/* DADOS DO CLIENTE */}
-                        <div className="bg-gray-50 p-5 rounded-2xl space-y-4 border border-gray-100 mt-6">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><User size={14} /> Seus Dados</p>
-                            <input placeholder="Seu Nome Completo" className="w-full p-3.5 rounded-xl border text-sm" value={nome} onChange={e => setNome(e.target.value)} />
-                            <input placeholder="WhatsApp (com DDD)" type="tel" className="w-full p-3.5 rounded-xl border text-sm" value={tel} onChange={e => setTel(e.target.value)} />
-                            <textarea placeholder="Observações..." className="w-full p-3.5 rounded-xl border text-sm" rows={2} value={obs} onChange={e => setObs(e.target.value)} />
-                        </div>
-
-                        {/* CUPOM */}
-                        <div className="flex gap-2 mt-4">
-                            <div className="relative flex-1">
-                            <TicketPercent size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                placeholder="CUPOM DE DESCONTO"
-                                className="w-full pl-10 p-3.5 rounded-xl border text-sm uppercase"
-                                value={couponCode}
-                                onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                                disabled={!!appliedCoupon}
-                            />
+                            <div className="flex-1 pr-6">
+                              <p className="text-sm font-bold line-clamp-2 text-gray-800">{item.produto.name}</p>
+                              <p className="text-xs text-gray-500 mb-2 mt-1">{formatCurrency(item.produto.salePrice)}</p>
+                              <div className="flex items-center bg-gray-50 rounded-lg h-8 px-1 w-max border">
+                                <button onClick={() => updateQtd(item.produto.id, -1)} className="w-8 h-full flex justify-center items-center"><Minus size={14} /></button>
+                                <span className="w-6 text-center text-sm font-bold">{item.quantidade}</span>
+                                <button onClick={() => updateQtd(item.produto.id, 1)} className="w-8 h-full flex justify-center items-center"><Plus size={14} /></button>
+                              </div>
                             </div>
-                            <button
-                            onClick={appliedCoupon ? () => { setAppliedCoupon(null); setCouponCode('') } : handleCoupon}
-                            disabled={checkingCoupon}
-                            className={`px-5 rounded-xl font-bold text-xs transition-all ${appliedCoupon ? 'bg-red-50 text-red-600' : 'bg-gray-900 text-white'}`}
-                            >
-                            {checkingCoupon ? <Loader2 className="animate-spin" size={16} /> : (appliedCoupon ? 'REMOVER' : 'APLICAR')}
-                            </button>
+                            <button onClick={() => removeItem(item.produto.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500 p-1"><X size={16} /></button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* DADOS DO CLIENTE */}
+                      <div className="bg-gray-50 p-5 rounded-2xl space-y-4 border border-gray-100 mt-6">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><User size={14} /> Seus Dados</p>
+                        <input placeholder="Seu Nome Completo" className="w-full p-3.5 rounded-xl border text-sm" value={nome} onChange={e => setNome(e.target.value)} />
+                        <input placeholder="WhatsApp (com DDD)" type="tel" className="w-full p-3.5 rounded-xl border text-sm" value={tel} onChange={e => setTel(e.target.value)} />
+                        <textarea placeholder="Observações..." className="w-full p-3.5 rounded-xl border text-sm" rows={2} value={obs} onChange={e => setObs(e.target.value)} />
+                      </div>
+
+                      {/* CUPOM */}
+                      <div className="flex gap-2 mt-4">
+                        <div className="relative flex-1">
+                          <TicketPercent size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            placeholder="CUPOM DE DESCONTO"
+                            className="w-full pl-10 p-3.5 rounded-xl border text-sm uppercase"
+                            value={couponCode}
+                            onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                            disabled={!!appliedCoupon}
+                          />
                         </div>
+                        <button
+                          onClick={appliedCoupon ? () => { setAppliedCoupon(null); setCouponCode('') } : handleCoupon}
+                          disabled={checkingCoupon}
+                          className={`px-5 rounded-xl font-bold text-xs transition-all ${appliedCoupon ? 'bg-red-50 text-red-600' : 'bg-gray-900 text-white'}`}
+                        >
+                          {checkingCoupon ? <Loader2 className="animate-spin" size={16} /> : (appliedCoupon ? 'REMOVER' : 'APLICAR')}
+                        </button>
+                      </div>
                     </>
                   )}
                 </>
@@ -323,37 +325,37 @@ export function ModalCarrinho({ isOpen, onClose, itens, setCarrinho, whatsappNum
 
             {/* FOOTER (SÓ APARECE SE NÃO ESTIVER PAGANDO) */}
             {!showPayment && (
-                <div className="p-6 border-t bg-white">
+              <div className="p-6 border-t bg-white">
                 <div className="space-y-2 mb-5 text-sm">
-                    <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                    {desconto > 0 && <div className="flex justify-between text-green-600 font-bold bg-green-50 p-2 rounded-lg"><span>Desconto</span><span>-{formatCurrency(desconto)}</span></div>}
-                    <div className="flex justify-between text-2xl font-black text-gray-900 border-t pt-3 mt-2"><span>Total</span><span>{formatCurrency(total)}</span></div>
+                  <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                  {desconto > 0 && <div className="flex justify-between text-green-600 font-bold bg-green-50 p-2 rounded-lg"><span>Desconto</span><span>-{formatCurrency(desconto)}</span></div>}
+                  <div className="flex justify-between text-2xl font-black text-gray-900 border-t pt-3 mt-2"><span>Total</span><span>{formatCurrency(total)}</span></div>
                 </div>
 
                 <div className="flex flex-col gap-3">
-                    {/* BOTÃO WHATSAPP */}
-                    <button
-                        onClick={finalizarWhatsApp}
-                        disabled={itens.length === 0 || loading}
-                        className="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
-                        style={{ backgroundColor: '#25D366' }} // Verde do WhatsApp
-                    >
-                        {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-                        Finalizar no WhatsApp
-                    </button>
+                  {/* BOTÃO WHATSAPP */}
+                  <button
+                    onClick={finalizarWhatsApp}
+                    disabled={itens.length === 0 || loading}
+                    className="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: '#25D366' }} // Verde do WhatsApp
+                  >
+                    {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
+                    Finalizar no WhatsApp
+                  </button>
 
-                    {/* BOTÃO CARTÃO DE CRÉDITO */}
-                    <button
-                        onClick={handleOnlinePayment}
-                        disabled={itens.length === 0 || loading}
-                        className="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
-                        style={{ backgroundColor: config.primaryColor }}
-                    >
-                        {loading ? <Loader2 className="animate-spin" /> : <CreditCard size={20} />}
-                        Pagar com Cartão
-                    </button>
+                  {/* BOTÃO CARTÃO DE CRÉDITO */}
+                  <button
+                    onClick={handleOnlinePayment}
+                    disabled={itens.length === 0 || loading}
+                    className="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: config.primaryColor }}
+                  >
+                    {loading ? <Loader2 className="animate-spin" /> : <CreditCard size={20} />}
+                    Pagar com Cartão
+                  </button>
                 </div>
-                </div>
+              </div>
             )}
           </motion.div>
         </>
