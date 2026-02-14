@@ -50,4 +50,5 @@ export interface OrderPayload {
   total: number;
   notes: string;
   storeId?: string;
+  status: string;
 }

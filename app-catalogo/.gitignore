@@ -37,3 +37,4 @@ node_modules/
 dist/
 build/
 .vercel/
+.env
