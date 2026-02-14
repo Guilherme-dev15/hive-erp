@@ -225,9 +225,14 @@ app.post('/orders', async (req, res) => {
     const orderData = {
       ...req.body,
       userId: storeOwnerId,
-      status: req.body.status || 'Aguardando Pagamento',
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
+
+    // Forçamos o status a ser o que veio do frontend. 
+    // Se não veio nada, aí sim colocamos o padrão.
+    if (!orderData.status) {
+      orderData.status = 'Aguardando Pagamento';
+    }
 
     const batch = db.batch();
     const orderRef = db.collection(COLL.ORDERS).doc();
