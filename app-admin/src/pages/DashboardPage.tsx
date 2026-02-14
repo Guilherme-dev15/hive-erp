@@ -13,7 +13,7 @@ import { motion } from 'framer-motion';
 // SERVIÇOS
 import { getAdminProdutos, getTransacoes } from '../services/apiService';
 
-// --- CORES PREMIUM ---
+// --- CORES PREMIUM ORIGINAIS ---
 const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 // --- ANIMAÇÕES ---
@@ -30,7 +30,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('30d');
   
-  // Armazena os dados BRUTOS vindos da API (para não refazer requisição ao filtrar)
+  // Armazena os dados BRUTOS vindos da API
   const [rawProducts, setRawProducts] = useState<any[]>([]);
   const [rawTransactions, setRawTransactions] = useState<any[]>([]);
 
@@ -48,7 +48,7 @@ export function DashboardPage() {
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [recentList, setRecentList] = useState<any[]>([]);
 
-  // 1. CARGA INICIAL (Busca tudo do Firebase uma vez)
+  // 1. CARGA INICIAL
   useEffect(() => {
     async function loadInitialData() {
       try {
@@ -57,10 +57,9 @@ export function DashboardPage() {
           getTransacoes().catch(() => [])
         ]);
         
-        setRawProducts(prods);
-        setRawTransactions(trans);
+        setRawProducts(prods || []);
+        setRawTransactions(trans || []);
         
-        // Timeout cosmético para mostrar o Skeleton (Efeito Premium)
         setTimeout(() => setLoading(false), 800);
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
@@ -70,7 +69,7 @@ export function DashboardPage() {
     loadInitialData();
   }, []);
 
-  // 2. PROCESSAMENTO E FILTROS (Roda sempre que muda o timeRange ou chegam dados)
+  // 2. PROCESSAMENTO E FILTROS
   useEffect(() => {
     if (loading) return;
 
@@ -80,27 +79,23 @@ export function DashboardPage() {
     
     if (timeRange === '7d') cutoffDate.setDate(now.getDate() - 7);
     if (timeRange === '30d') cutoffDate.setDate(now.getDate() - 30);
-    if (timeRange === 'all') cutoffDate.setFullYear(2000); // Pega tudo
+    if (timeRange === 'all') cutoffDate.setFullYear(2000);
 
     const filteredTrans = rawTransactions.filter((t: any) => {
       const tDate = new Date(t.date);
-      // Ajuste de fuso horário simples para garantir comparação correta do dia
       return tDate >= cutoffDate;
     });
 
-    // --- B. CÁLCULOS KPI (Financeiro depende do filtro, Estoque é sempre atual) ---
+    // --- B. CÁLCULOS KPI ---
+    const stockValue = rawProducts.reduce((acc, p) => acc + (Number(p.salePrice || 0) * (Number(p.quantity) || 0)), 0);
+    const lowStock = rawProducts.filter(p => (Number(p.quantity) || 0) < 5).length;
     
-    // 1. Estoque (Sempre estado atual, independente do filtro de tempo)
-    const stockValue = rawProducts.reduce((acc, p) => acc + (Number(p.salePrice || 0) * (p.quantity || 0)), 0);
-    const lowStock = rawProducts.filter(p => (p.quantity || 0) < 5).length;
-    
-    // 2. Financeiro (Depende do filtro)
     let revenue = 0;
     let expenses = 0;
     let salesCount = 0;
 
     filteredTrans.forEach((t: any) => {
-      const val = Number(t.amount);
+      const val = Number(t.amount || 0);
       if (t.type === 'receita' || t.type === 'venda') {
         revenue += val;
         salesCount++;
@@ -121,14 +116,13 @@ export function DashboardPage() {
       produtosAtivos: rawProducts.length
     });
 
-    // --- C. GRÁFICO DE LINHA/ÁREA (Agrupado por Dia) ---
+    // --- C. GRÁFICO DE LINHA/ÁREA ---
     const dailyMap: Record<string, { vendas: number, lucro: number, dateObj: number }> = {};
 
     filteredTrans.forEach((t: any) => {
-      // Cria chave DD/MM
       const dateObj = new Date(t.date);
       const dayKey = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-      const val = Number(t.amount);
+      const val = Number(t.amount || 0);
 
       if (!dailyMap[dayKey]) {
         dailyMap[dayKey] = { vendas: 0, lucro: 0, dateObj: dateObj.getTime() };
@@ -136,13 +130,12 @@ export function DashboardPage() {
 
       if (t.type === 'receita' || t.type === 'venda') {
         dailyMap[dayKey].vendas += val;
-        dailyMap[dayKey].lucro += val; // Soma na receita bruta p/ lucro
+        dailyMap[dayKey].lucro += val;
       } else {
-        dailyMap[dayKey].lucro -= val; // Subtrai despesa
+        dailyMap[dayKey].lucro -= val;
       }
     });
 
-    // Transforma em array e ordena por data
     const sortedChart = Object.keys(dailyMap)
       .map(key => ({
         name: key,
@@ -154,7 +147,7 @@ export function DashboardPage() {
 
     setChartData(sortedChart.length > 0 ? sortedChart : [{ name: 'Sem dados', vendas: 0, lucro: 0 }]);
 
-    // --- D. GRÁFICO DE CATEGORIA (Baseado no Estoque Atual) ---
+    // --- D. GRÁFICO DE CATEGORIA ---
     const catMap: Record<string, number> = {};
     rawProducts.forEach(p => {
       const c = p.category || 'Outros';
@@ -173,7 +166,6 @@ export function DashboardPage() {
   }, [loading, timeRange, rawProducts, rawTransactions]);
 
 
-  // --- SKELETON LOADING ---
   if (loading) {
     return (
       <div className="space-y-6 p-6 animate-pulse">
@@ -214,7 +206,6 @@ export function DashboardPage() {
         </div>
         
         <div className="flex gap-3">
-          {/* BOTÕES DE FILTRO FUNCIONAIS */}
           <div className="flex bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
             {[
               { id: '7d', label: '7 Dias' },
@@ -235,13 +226,13 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95">
+          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
             <Download size={18} /> Relatório
           </button>
         </div>
       </div>
 
-      {/* 2. CARDS DE KPI (DINÂMICOS) */}
+      {/* 2. CARDS DE KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatsCard 
           title="Faturamento" 
@@ -283,20 +274,18 @@ export function DashboardPage() {
       </div>
 
       {/* 3. GRÁFICOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[400px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto">
         
         {/* GRÁFICO 1: EVOLUÇÃO FINANCEIRA */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col min-h-[400px]">
           <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                Fluxo de Caixa
-                <InfoTooltip text="Relação entre o que entrou (Vendas) e o que sobrou (Lucro) dia a dia." />
-              </h3>
-            </div>
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              Fluxo de Caixa
+              <InfoTooltip text="Relação entre o que entrou (Vendas) e o que sobrou (Lucro) dia a dia." />
+            </h3>
           </div>
 
-          <div className="flex-grow w-full min-h-[250px]">
+          <div className="flex-grow w-full min-h-[300px]">
              {chartData.length > 0 && chartData[0].name !== 'Sem dados' ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -329,12 +318,12 @@ export function DashboardPage() {
         </motion.div>
 
         {/* GRÁFICO 2: MIX DE PRODUTOS */}
-        <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+        <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col min-h-[400px]">
           <h3 className="text-lg font-bold text-gray-900 mb-2">Mix de Produtos</h3>
           <p className="text-sm text-gray-500 mb-6">Distribuição real do estoque.</p>
 
-          <div className="flex-grow flex items-center justify-center relative">
-            <ResponsiveContainer width="100%" height={200}>
+          <div className="flex-grow flex items-center justify-center relative min-h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={categoryData}
@@ -397,7 +386,7 @@ export function DashboardPage() {
                   key={t.id}
                   desc={t.description || t.category} 
                   date={new Date(t.date).toLocaleDateString('pt-BR')} 
-                  value={Number(t.amount)} 
+                  value={Number(t.amount || 0)} 
                   type={t.type === 'receita' || t.type === 'venda' ? 'in' : 'out'} 
                 />
               )) : (
@@ -462,7 +451,7 @@ function TransactionRow({ desc, date, value, type }: any) {
       </td>
       <td className="p-4 text-gray-500">{date}</td>
       <td className={`p-4 pr-6 text-right font-bold ${type === 'in' ? 'text-emerald-600' : 'text-rose-600'}`}>
-        {type === 'out' && '-'} R$ {value.toFixed(2)}
+        {type === 'out' && '-'} R$ {Number(value).toFixed(2)}
       </td>
     </tr>
   );
@@ -490,7 +479,7 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
             <div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: entry.color, color: entry.color }}></div>
             <span className="text-gray-300 w-20">{entry.name}:</span>
             <span className="font-mono font-bold text-white text-base">
-              R$ {entry.value.toLocaleString('pt-BR')}
+              R$ {Number(entry.value).toLocaleString('pt-BR')}
             </span>
           </div>
         ))}
