@@ -2,16 +2,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
+import { useReactToPrint } from 'react-to-print';
+import { 
+  Package, Truck, Clock, Loader2, ScrollText, 
+  Search, Calendar, LayoutGrid, List as ListIcon, XCircle, Trash2,
+  DollarSign, Filter, CheckCircle2 
+} from 'lucide-react';
+
 import { type Order, type OrderStatus, type FirestoreDate } from '../types';
 import { getAdminOrders, updateAdminOrderStatus, getConfig, deleteAdminOrder } from '../services/apiService';
 import { type ConfigFormData } from '../types/schemas';
 
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
-import { 
-  Package, Truck, Clock, Loader2, ScrollText, 
-  Search, Calendar, LayoutGrid, List as ListIcon, XCircle, Trash2,
-  DollarSign, Filter, CheckCircle2} from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
 import { CertificadoImpressao } from '../components/CertificadoImpressao';
 
 // --- CONFIGURAÇÃO VISUAL (CORES E ÍCONES) ---
@@ -308,7 +310,7 @@ export function PedidosPage() {
                                                         </div>
                                                     ) : (
                                                         <select 
-                                                            value={pedido.status}
+                                                            value={pedido.status || 'Aguardando Pagamento'}
                                                             onChange={(e) => handleStatusChange(pedido.id, e.target.value as OrderStatus)}
                                                             className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-xs font-bold border cursor-pointer outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-200 transition-all ${statusStyle.bg} ${statusStyle.color} ${statusStyle.border}`}
                                                         >
@@ -355,12 +357,12 @@ export function PedidosPage() {
             </div>
         )}
 
-        {/* MODO KANBAN CORRIGIDO */}
+        {/* MODO KANBAN */}
         {viewMode === 'kanban' && (
             <div className="flex overflow-x-auto pb-6 gap-4 items-start custom-scrollbar">
                 {statusOrdem.map(status => {
                     
-                    // --- FILTRO DO KANBAN CORRIGIDO ---
+                    // --- FILTRO DO KANBAN ---
                     // Agora aceita pedidos sem status (null/undefined) na coluna "Aguardando Pagamento"
                     const pedidosDoStatus = pedidosFiltrados.filter(p => {
                         if (p.status === status) return true;
