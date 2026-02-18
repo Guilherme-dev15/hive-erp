@@ -140,7 +140,7 @@ function Navbar({ paginaAtual, onNavigate }: { paginaAtual: Pagina, onNavigate: 
                 <button
                   key={item.id}
                   onClick={() => handleMobileNavigate(item.id)}
-                  className={`block w-full text-left px-3 py-3 rounded-md text-base font-medium flex items-center gap-3
+                  className={`block w-full text-left px-3 py-3 rounded-md text-base font-medium items-center gap-3
                     ${paginaAtual === item.id
                       ? 'bg-gray-900 text-dourado border-l-4 border-dourado'
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white'
