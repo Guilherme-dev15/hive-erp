@@ -45,7 +45,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     // 1. Validação de Segurança
     // Em produção com a CLI configurada, usaríamos:
     // event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    
+
     // Para facilitar o desenvolvimento agora sem CLI obrigatória:
     if (!stripe) throw new Error("Stripe não configurado");
     event = JSON.parse(req.body.toString());
@@ -58,7 +58,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
     console.log('💰 Webhook: Pagamento Aprovado!', paymentIntent.id);
-    
+
     // Recupera o ID da loja que enviamos no metadata
     const { storeId } = paymentIntent.metadata || {};
     console.log('🏬 Loja beneficiária:', storeId);
@@ -407,14 +407,39 @@ app.delete('/admin/coupons/:id', async (req, res) => {
 
 // Config Admin
 app.post('/admin/config', async (req, res) => {
-  await db.collection(COLL.CONFIG).doc('settings').set({ ...req.body, userId: req.user.uid }, { merge: true });
+  // Salva ou atualiza as configurações do usuário logado
+  // Vamos usar o ID do usuário como chave ou um documento fixo 'settings' dentro de uma subcoleção se preferir.
+  // Pela lógica atual simplificada:
+  await db.collection(COLL.CONFIG).doc('settings').set({
+    ...req.body,
+    userId: req.user.uid,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
   res.json(req.body);
 });
+
 app.get('/admin/config', async (req, res) => {
-  const doc = await db.collection(COLL.CONFIG).doc('settings').get();
-  res.json(doc.exists ? doc.data() : {});
+  // Busca configurações onde userId == req.user.uid
+  const snapshot = await db.collection(COLL.CONFIG).where('userId', '==', req.user.uid).limit(1).get();
+
+  if (snapshot.empty) {
+    return res.json({});
+  }
+  return res.json(snapshot.docs[0].data());
 });
 
+// Substitua ou adicione no final da seção ROTAS ADMIN
+app.get('/admin/config', async (req, res) => {
+  try {
+    const snapshot = await db.collection(COLL.CONFIG).where('userId', '==', req.user.uid).limit(1).get();
+    if (snapshot.empty) return res.json({});
+    // Retorna os dados + o ID do documento para facilitar updates futuros se precisar
+    return res.json({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
 // ============================================================================
 // 💰 ROTA DE PAGAMENTO (STRIPE) - ATUALIZADA COM METADATA
 // ============================================================================
