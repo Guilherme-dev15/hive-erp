@@ -30,12 +30,53 @@ app.use(cors({
   }
 }));
 
-app.use(express.json({ limit: '50mb' }));
-
+// Inicializa Stripe
 const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // ============================================================================
-// 2. INICIALIZAÇÃO DO FIREBASE
+// 🚨 NOVO: ROTA DE WEBHOOK (Deve vir ANTES do express.json)
+// ============================================================================
+// O Stripe exige o corpo cru (raw) para validar a assinatura criptográfica.
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    // 1. Validação de Segurança
+    // Em produção com a CLI configurada, usaríamos:
+    // event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    
+    // Para facilitar o desenvolvimento agora sem CLI obrigatória:
+    if (!stripe) throw new Error("Stripe não configurado");
+    event = JSON.parse(req.body.toString());
+  } catch (err) {
+    console.error(`❌ Erro no Webhook: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // 2. Processar o Evento
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    console.log('💰 Webhook: Pagamento Aprovado!', paymentIntent.id);
+    
+    // Recupera o ID da loja que enviamos no metadata
+    const { storeId } = paymentIntent.metadata || {};
+    console.log('🏬 Loja beneficiária:', storeId);
+
+    // AQUI FUTURAMENTE: Atualizar status do pedido no Firebase para "Pago"
+  }
+
+  // 3. Confirmar recebimento para o Stripe
+  res.json({ received: true });
+});
+
+// ============================================================================
+// 2. MIDDLEWARES GERAIS (Agora vem o JSON)
+// ============================================================================
+app.use(express.json({ limit: '50mb' }));
+
+// ============================================================================
+// 3. INICIALIZAÇÃO DO FIREBASE
 // ============================================================================
 function initializeFirebase() {
   if (admin.apps.length) return admin.firestore();
@@ -70,11 +111,11 @@ const COLL = {
   TRANSACTIONS: 'transactions',
   ORDERS: 'orders',
   COUPONS: 'coupons',
-  CONFIG: 'config' // <--- MUDADO PARA SINGULAR CONFORME SEU BANCO
+  CONFIG: 'config'
 };
 
 // ============================================================================
-// 3. MIDDLEWARE DE AUTENTICAÇÃO
+// 4. MIDDLEWARE DE AUTENTICAÇÃO
 // ============================================================================
 const authenticateUser = async (req, res, next) => {
   if (!admin.apps.length) return res.status(500).json({ error: "Servidor offline" });
@@ -91,7 +132,7 @@ const authenticateUser = async (req, res, next) => {
 };
 
 // ============================================================================
-// 4. ROTAS PÚBLICAS (CATÁLOGO)
+// 5. ROTAS PÚBLICAS (CATÁLOGO)
 // ============================================================================
 
 // --- BUSCAR LOJA POR NOME (SLUG) ---
@@ -102,7 +143,6 @@ app.get('/config-by-slug', async (req, res) => {
   if (!slug) return res.status(400).json({ error: "Nome da loja não informado" });
 
   try {
-    // Busca na coleção 'config' (singular)
     const snapshot = await db.collection(COLL.CONFIG)
       .where('slug', '==', slug.toLowerCase())
       .limit(1)
@@ -115,17 +155,10 @@ app.get('/config-by-slug', async (req, res) => {
 
     const doc = snapshot.docs[0];
     const data = doc.data();
-
-    // 🚨 O PULO DO GATO:
-    // Se o documento tiver um campo 'userId', usamos ele como ID da loja (para achar os produtos).
-    // Se não, usamos o ID do documento (fallback).
     const realStoreId = data.userId || doc.id;
-    console.log("✅ Loja achada! ID real para buscar produtos:", realStoreId);
+    console.log("✅ Loja achada! ID real:", realStoreId);
 
-    res.json({
-      ...data,
-      storeId: realStoreId
-    });
+    res.json({ ...data, storeId: realStoreId });
   } catch (e) {
     console.error("Erro config-by-slug:", e);
     res.status(500).json({ error: e.message });
@@ -138,21 +171,15 @@ app.get('/config-public', async (req, res) => {
   if (!storeId) return res.status(400).json({ error: "storeId é necessário" });
 
   try {
-    // Tenta buscar pelo ID direto. Se não achar, tenta buscar onde userId == storeId
     let doc = await db.collection(COLL.CONFIG).doc(storeId).get();
 
     if (!doc.exists) {
-      // Fallback: Busca query por userId caso o ID do doc seja diferente (ex: 'settings')
       const snap = await db.collection(COLL.CONFIG).where('userId', '==', storeId).limit(1).get();
       if (!snap.empty) doc = snap.docs[0];
     }
 
     if (!doc.exists) {
-      return res.json({
-        storeName: "Loja Virtual",
-        primaryColor: "#000000",
-        banners: []
-      });
+      return res.json({ storeName: "Loja Virtual", primaryColor: "#000000", banners: [] });
     }
     res.json(doc.data());
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -228,8 +255,6 @@ app.post('/orders', async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // Forçamos o status a ser o que veio do frontend. 
-    // Se não veio nada, aí sim colocamos o padrão.
     if (!orderData.status) {
       orderData.status = 'Aguardando Pagamento';
     }
@@ -250,7 +275,7 @@ app.post('/orders', async (req, res) => {
 });
 
 // ============================================================================
-// 5. ROTAS ADMIN (PROTEGIDAS)
+// 6. ROTAS ADMIN (PROTEGIDAS)
 // ============================================================================
 app.use('/admin', authenticateUser);
 
@@ -382,9 +407,6 @@ app.delete('/admin/coupons/:id', async (req, res) => {
 
 // Config Admin
 app.post('/admin/config', async (req, res) => {
-  // ATENÇÃO: Se o frontend admin estiver salvando em 'configs' (plural) com ID do user,
-  // precisamos decidir se mudamos lá ou aqui. 
-  // Por enquanto, vou manter salvando em 'config' (singular) para alinhar com o banco atual.
   await db.collection(COLL.CONFIG).doc('settings').set({ ...req.body, userId: req.user.uid }, { merge: true });
   res.json(req.body);
 });
@@ -393,9 +415,8 @@ app.get('/admin/config', async (req, res) => {
   res.json(doc.exists ? doc.data() : {});
 });
 
-
 // ============================================================================
-// 💰 ROTA DE PAGAMENTO (STRIPE)
+// 💰 ROTA DE PAGAMENTO (STRIPE) - ATUALIZADA COM METADATA
 // ============================================================================
 
 app.post('/create-payment-intent', async (req, res) => {
@@ -414,7 +435,8 @@ app.post('/create-payment-intent', async (req, res) => {
         enabled: true,
       },
       metadata: {
-        storeId: storeId // Salva o ID da loja para sabermos de quem é o dinheiro
+        storeId: storeId, // 🚨 IMPORTANTE: Envia o ID da loja para o Webhook usar depois
+        integration: 'hive-erp'
       }
     });
 
@@ -429,14 +451,10 @@ app.post('/create-payment-intent', async (req, res) => {
   }
 });
 
-
 if (process.env.VERCEL_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`🚀 API SaaS (Coleção: ${COLL.CONFIG}) Rodando na porta ${PORT}`);
-    console.log(`👉 Teste: http://localhost:${PORT}/config-by-slug?slug=hivepratas`);
   });
 }
-
-
 
 module.exports = app;
