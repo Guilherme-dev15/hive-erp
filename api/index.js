@@ -358,19 +358,99 @@ app.put('/admin/orders/:id', async (req, res) => {
   res.json({ id: req.params.id });
 });
 
-// Dashboard
-app.get('/admin/dashboard-stats', async (req, res) => {
+// Rota específica para atualizar apenas o status do pedido, garantindo que o campo correto seja atualizado
+app.patch('/admin/orders/:id/status', async (req, res) => {
   try {
-    const s = await db.collection(COLL.TRANSACTIONS).where('userId', '==', req.user.uid).get();
-    let v = 0, d = 0;
-    s.docs.forEach(doc => {
-      const val = parseFloat(doc.data().amount) || 0;
-      doc.data().type === 'receita' ? v += val : d += val;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    console.log(`Atualizando pedido ${id} para status: ${status}`);
+
+    await db.collection('orders').doc(id).update({
+      status: status, // Aqui deve ser o nome exato que o Front envia
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
-    res.json({ totalVendas: v, totalDespesas: d, lucroLiquido: v - d });
-  } catch (e) { res.json({ totalVendas: 0, totalDespesas: 0 }); }
+
+    res.json({ message: "Status atualizado no banco!" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// ROTA PARA EXCLUIR PEDIDO (Cole isso perto das outras rotas /admin/orders)
+app.delete('/admin/orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Deleta o documento da coleção 'orders' no Firestore
+    await db.collection('orders').doc(id).delete();
+
+    console.log(`[BACKEND] Pedido ${id} removido com sucesso.`);
+
+    res.json({
+      success: true,
+      message: "Pedido excluído do sistema."
+    });
+  } catch (error) {
+    console.error("Erro ao excluir pedido:", error);
+    res.status(500).json({ error: "Erro interno ao processar a exclusão." });
+  }
+});
+// --- DASHBOARD ANALYTICS ---
+app.get('/admin/dashboard/stats', async (req, res) => {
+  try {
+    // Busca todos os pedidos PAGOS (ou aprovados)
+    // Nota: Se você usa 'pago', 'approved' ou 'paid', ajuste o status abaixo.
+    // Vamos buscar tudo por enquanto e filtrar no código para garantir.
+    const snapshot = await db.collection(COLL.ORDERS).get();
+
+    let totalFaturamento = 0;
+    let pedidosHoje = 0;
+    let totalPedidos = 0;
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0); // Zera hora para comparar datas
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+
+      // Filtra apenas pedidos válidos (ajuste conforme seus status reais)
+      const statusValidos = ['pago', 'paid', 'approved', 'sep', 'env'];
+      const statusAtual = (data.status || '').toLowerCase();
+
+      if (statusValidos.some(s => statusAtual.includes(s))) {
+        const valor = Number(data.total) || 0;
+        totalFaturamento += valor;
+        totalPedidos++;
+
+        // Verifica se foi hoje
+        let dataPedido = null;
+        if (data.createdAt && data.createdAt.toDate) {
+          dataPedido = data.createdAt.toDate();
+        } else if (data.createdAt) {
+          dataPedido = new Date(data.createdAt);
+        }
+
+        if (dataPedido && dataPedido >= hoje) {
+          pedidosHoje++;
+        }
+      }
+    });
+
+    const ticketMedio = totalPedidos > 0 ? (totalFaturamento / totalPedidos) : 0;
+
+    res.json({
+      revenue: totalFaturamento,
+      ordersToday: pedidosHoje,
+      totalOrders: totalPedidos,
+      averageTicket: ticketMedio
+    });
+
+  } catch (error) {
+    console.error("Erro dashboard:", error);
+    res.status(500).json({ error: "Erro ao calcular dashboard" });
+  }
+});
 // Estoque
 app.post('/admin/inventory/adjust', async (req, res) => {
   const { productId, type, quantity, userName } = req.body;

@@ -74,6 +74,7 @@ export type OrderStatus =
   | 'Cancelado';
 
 export interface OrderLineItem {
+  quantidade: number;
   id: string;
   name: string;
   code?: string;
