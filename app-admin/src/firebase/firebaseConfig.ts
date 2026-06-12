@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage"; // <--- Importante
+import { getFirestore } from "firebase/firestore";
 
 // Suas chaves reais (Hardcoded para eliminar erro de .env por enquanto)
 const firebaseConfig = {
@@ -11,7 +12,7 @@ const firebaseConfig = {
   storageBucket: "hive-1874c.firebasestorage.app", // <--- O BUCKET ESTÁ AQUI
   messagingSenderId: "1092448042253",
   appId: "1:1092448042253:web:cfc51806019f3430074444",
-  measurementId: "G-MV7P0ZWK8R"
+  measurementId: "G-MV7P0ZWK8R",
 };
 
 // 1. Inicializa o App
@@ -20,3 +21,4 @@ const app = initializeApp(firebaseConfig);
 // 2. Exporta Auth e Storage prontos para uso
 export const auth = getAuth(app);
 export const storage = getStorage(app); // <--- Exportação Crucial
+export const db = getFirestore(app);
