@@ -1,15 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut as firebaseSignOut 
-} from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore'; // NOVOS IMPORTS
-import { auth } from '../firebaseConfig'; 
-import { toast } from 'react-hot-toast';
-import { apiClient } from '../services/apiService'; // Importante para o Backend
+import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
+} from "firebase/auth";
+import { getFirestore, doc, getDoc } from "firebase/firestore"; // NOVOS IMPORTS
+import { auth } from "../firebase/firebaseConfig";
+import { toast } from "react-hot-toast";
+import { apiClient } from "../services/apiService"; // Importante para o Backend
 
 interface AuthContextType {
   user: User | null;
@@ -35,7 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      
       // --- LÓGICA DO "GATEKEEPER" DINÂMICO ---
       if (currentUser && currentUser.email) {
         try {
@@ -45,7 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           // 2. Verificamos se existe e se está ativo
           if (userSnap.exists() && userSnap.data().active === true) {
-            
             // APROVADO:
             const data = userSnap.data();
             setUserData(data);
@@ -53,19 +51,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // 3. PEGAR O TOKEN E INJETAR NO AXIOS (CRUCIAL PARA O BACKEND)
             const token = await currentUser.getIdToken();
-            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
+            apiClient.defaults.headers.common["Authorization"] =
+              `Bearer ${token}`;
           } else {
             // REPROVADO (Não cadastrado ou inativo)
             toast.error("Acesso negado. Usuário não cadastrado na equipe.");
             await firebaseSignOut(auth);
-            
+
             // Limpa tudo
             setUser(null);
             setUserData(null);
-            delete apiClient.defaults.headers.common['Authorization'];
+            delete apiClient.defaults.headers.common["Authorization"];
           }
-
         } catch (error) {
           console.error("Erro ao validar usuário:", error);
           toast.error("Erro de conexão ao validar permissões.");
@@ -75,12 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Logout ou não logado
         setUser(null);
         setUserData(null);
-        delete apiClient.defaults.headers.common['Authorization'];
+        delete apiClient.defaults.headers.common["Authorization"];
       }
-      
+
       setLoading(false);
     });
-    
+
     return unsubscribe;
   }, []);
 
@@ -90,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
+      if (error.code !== "auth/popup-closed-by-user") {
         console.error("Erro login:", error);
         toast.error("Erro ao conectar com Google.");
       }
@@ -102,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
     setUser(null);
     setUserData(null);
-    delete apiClient.defaults.headers.common['Authorization'];
+    delete apiClient.defaults.headers.common["Authorization"];
   };
 
   const value = {
@@ -110,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userData,
     loading,
     signInWithGoogle,
-    logout
+    logout,
   };
 
   return (
