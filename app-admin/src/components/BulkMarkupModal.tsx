@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db, auth } from "../firebase/firebaseConfig";
-import { updateMarkupViaFirebase } from "../firebase/bulkUpdate";
+import { db, auth } from "../services/firebase/firebaseConfig";
+import { updateMarkupViaFirebase } from "../services/firebase/bulkUpdate";
 
 // PONTO 4: Criamos uma interface para tipar corretamente o ID e o Nome
 interface Category {

@@ -26,6 +26,7 @@ import { toast, Toaster } from "react-hot-toast";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { useReactToPrint } from "react-to-print";
 import { BulkMarkupModal } from "../components/BulkMarkupModal";
+import { updateStatusEmMassa } from "../services/firebase/bulkUpdate";
 
 // --- SERVIÇOS ---
 import {
@@ -64,7 +65,7 @@ export function ProdutosPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
 
-  // 🔥 ATUALIZADO: Agora aceita o campo lowStockThreshold
+  // campo lowStockThreshold
   const [storeConfig, setStoreConfig] = useState<{
     storeName: string;
     lowStockThreshold?: number;
@@ -282,6 +283,39 @@ export function ProdutosPage() {
     // Recarrega os dados para refletir as mudanças imediatamente
     await carregarDados();
   };
+
+  // ============================================================================
+  // Atualização de Status em Massa
+  const handleBulkStatusChange = async (novoStatus: "ativo" | "inativo") => {
+    // Trava de segurança extra
+    if (selectedIds.length === 0) {
+      toast.warning("Selecione pelo menos um produto para alterar.");
+      return;
+    }
+
+    try {
+      setLoading(true); // Reaproveitamos o seu state de loading para travar a tela
+
+      // 1. Manda pro motor!
+      const count = await updateStatusEmMassa(selectedIds, novoStatus);
+
+      // 2. Feedback de sucesso
+      toast.success(
+        `${count} produtos alterados para ${novoStatus.toUpperCase()}!`,
+      );
+
+      // 3. Atualiza a tabela com a foto nova do banco
+      await carregarDados();
+
+      // 4. UX de Ouro: Limpa as caixinhas selecionadas!
+      setSelectedIds([]);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao atualizar o status dos produtos.");
+    } finally {
+      setLoading(false);
+    }
+  };
   if (loading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -402,7 +436,7 @@ export function ProdutosPage() {
           {/* O Botão que abre o Modal */}
           <button
             onClick={() => setIsMarkupModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition"
+            className="px-6 py-3 bg-[#d19900] text-white rounded-xl hover:bg-[#b88600] hover:shadow-lg hover:shadow-[#d19900]/30 flex items-center gap-2 font-bold transition-all active:scale-95"
           >
             Atualizar Preços em Massa
           </button>
@@ -415,6 +449,30 @@ export function ProdutosPage() {
           />
         </div>
       </div>
+      {/* RENDERIZAÇÃO CONDICIONAL: Só aparece se tiver item marcado */}
+      {selectedIds.length > 0 && (
+        <div className="flex gap-2 items-center bg-gray-100 p-2 rounded-lg border border-gray-200">
+          <span className="text-sm font-semibold text-gray-600 px-2">
+            {selectedIds.length} selecionado(s):
+          </span>
+
+          <button
+            onClick={() => handleBulkStatusChange("ativo")}
+            disabled={loading}
+            className="bg-green-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-green-700 transition disabled:opacity-50"
+          >
+            Ativar Catálogo
+          </button>
+
+          <button
+            onClick={() => handleBulkStatusChange("inativo")}
+            disabled={loading}
+            className="bg-red-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-red-700 transition disabled:opacity-50"
+          >
+            Ocultar Catálogo
+          </button>
+        </div>
+      )}
 
       {/* BARRA DE FILTROS & BUSCA */}
       <div className="flex flex-col md:flex-row gap-4 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">

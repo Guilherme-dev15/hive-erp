@@ -69,3 +69,39 @@ export const updateMarkupViaFirebase = async (
     throw error;
   }
 };
+
+export const updateStatusEmMassa = async (
+  productIds: string[], // Agora recebemos um array com os IDs selecionados
+  novoStatus: "ativo" | "inativo", // O Typescript garante que só aceitaremos essas duas palavras
+) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    if (productIds.length === 0) return 0;
+    if (productIds.length > 500) {
+      throw new Error("O limite do Firebase é de 500 atualizações por vez.");
+    }
+
+    const batch = writeBatch(db);
+
+    // Iteramos diretamente sobre os IDs que o React nos passou
+    productIds.forEach((id) => {
+      // Como já temos o ID, vamos direto no "endereço" do documento
+      const docRef = doc(db, "products", id);
+
+      // Adicionamos no lote a instrução para mudar o status
+      batch.update(docRef, {
+        status: novoStatus,
+        updatedAt: new Date(),
+      });
+    });
+
+    // Executa tudo de uma vez
+    await batch.commit();
+    return productIds.length;
+  } catch (error) {
+    console.error("Falha ao atualizar status em lote:", error);
+    throw error;
+  }
+};
