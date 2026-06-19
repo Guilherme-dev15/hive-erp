@@ -472,7 +472,7 @@ export function ProdutosPage() {
             onClick={() => handleBulkStatusChange("ativo")}
             disabled={loading}
             // Dourado Sólido: Ação de destaque, traz o produto para a "luz"
-            className="bg-amber-500 text-stone-900 px-4 py-1.5 rounded text-sm font-bold hover:bg-amber-600 transition-all disabled:opacity-50 shadow-sm"
+            className="bg-amber-500 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-amber-600 transition-all disabled:opacity-50 shadow-sm"
           >
             Ativar Catálogo
           </button>
@@ -481,7 +481,7 @@ export function ProdutosPage() {
             onClick={() => handleBulkStatusChange("inativo")}
             disabled={loading}
             // Cinza Escuro/Chumbo: Ação de ocultar, remete a algo "apagado" ou "guardado no cofre"
-            className="bg-stone-800 text-amber-500 px-4 py-1.5 rounded text-sm font-bold hover:bg-stone-900 transition-all disabled:opacity-50 shadow-sm"
+            className="bg-stone-800 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-stone-900 transition-all disabled:opacity-50 shadow-sm"
           >
             Ocultar Catálogo
           </button>
