@@ -1,6 +1,6 @@
 import axios from "axios";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, storage } from "../firebase/firebaseConfig";
+import { auth, storage } from "./firebase/firebaseConfig";
 
 // --- TYPES & SCHEMAS ---
 import type {
@@ -46,7 +46,7 @@ apiClient.interceptors.request.use(async (config) => {
 // SERVIÇO DE UPLOAD (FIREBASE STORAGE)
 // ============================================================================
 
-export const uploadImage = async (file: File): Promise<string> => {
+export const uploadImage = async (file: File, p0?: string): Promise<string> => {
   if (!file) return "";
   try {
     const cleanName = file.name.replace(/[^a-z0-9.]/gi, "_").toLowerCase();

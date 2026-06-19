@@ -7,7 +7,7 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore"; // NOVOS IMPORTS
-import { auth } from "../firebase/firebaseConfig";
+import { auth } from "../services/firebase/firebaseConfig";
 import { toast } from "react-hot-toast";
 import { apiClient } from "../services/apiService"; // Importante para o Backend
 
