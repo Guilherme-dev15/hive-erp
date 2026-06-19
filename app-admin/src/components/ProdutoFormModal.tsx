@@ -804,7 +804,7 @@ export function ProdutoFormModal({
                       </div>
 
                       {/* EXIBIÇÃO DO LUCRO - AGORA BEM VISÍVEL */}
-                      <div className="mt-5 pt-4 border-t border-gray-200 flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="mt-5 pt-4 border-t border-gray-200 flex justify-between items-center bg-white p-3 rounded-lg border shadow-sm">
                         <div className="flex items-center gap-2 text-gray-500">
                           <TrendingUp size={16} />
                           <span className="text-[10px] font-bold uppercase tracking-tighter">
@@ -892,7 +892,7 @@ export function ProdutoFormModal({
                         <div className="col-span-3">Status</div>
                         <div className="col-span-1"></div>
                       </div>
-                      {variantesObs.map((v: any, index: number) => (
+                      {variantesObs.map((_v: any, index: number) => (
                         <div
                           key={index}
                           className="grid grid-cols-12 gap-3 items-center bg-white p-2 rounded-xl border border-gray-100 shadow-sm"
