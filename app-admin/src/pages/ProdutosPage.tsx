@@ -287,35 +287,47 @@ export function ProdutosPage() {
   // ============================================================================
   // Atualização de Status em Massa
   const handleBulkStatusChange = async (novoStatus: "ativo" | "inativo") => {
-    // Trava de segurança extra
+    // 1. Trava de segurança sempre vem na PRIMEIRA linha.
+    // Se estiver vazio, abortamos a missão aqui mesmo.
     if (selectedIds.length === 0) {
-      toast.warning("Selecione pelo menos um produto para alterar.");
+      toast("Selecione pelo menos um produto para alterar.", {
+        icon: "⚠️",
+      });
       return;
     }
 
     try {
-      setLoading(true); // Reaproveitamos o seu state de loading para travar a tela
+      // 2. Trava a tela para evitar cliques duplos
+      setLoading(true);
 
-      // 1. Manda pro motor!
+      // 3. Manda pro motor!
       const count = await updateStatusEmMassa(selectedIds, novoStatus);
 
-      // 2. Feedback de sucesso
+      // 4. Feedback de sucesso com tempo estendido
       toast.success(
         `${count} produtos alterados para ${novoStatus.toUpperCase()}!`,
+        {
+          duration: 4000,
+        },
       );
 
-      // 3. Atualiza a tabela com a foto nova do banco
+      // 5. O Truque Sênior de UX: Pausa de 1.5 segundos
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // 6. Atualiza a tabela com a foto nova do banco
       await carregarDados();
 
-      // 4. UX de Ouro: Limpa as caixinhas selecionadas!
+      // 7. UX de Ouro: Limpa as caixinhas selecionadas!
       setSelectedIds([]);
     } catch (error) {
       console.error(error);
       toast.error("Erro ao atualizar o status dos produtos.");
     } finally {
+      // 8. O finally garante que o loading seja desligado mesmo se der erro
       setLoading(false);
     }
   };
+
   if (loading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -459,7 +471,8 @@ export function ProdutosPage() {
           <button
             onClick={() => handleBulkStatusChange("ativo")}
             disabled={loading}
-            className="bg-green-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-green-700 transition disabled:opacity-50"
+            // Dourado Sólido: Ação de destaque, traz o produto para a "luz"
+            className="bg-amber-500 text-stone-900 px-4 py-1.5 rounded text-sm font-bold hover:bg-amber-600 transition-all disabled:opacity-50 shadow-sm"
           >
             Ativar Catálogo
           </button>
@@ -467,7 +480,8 @@ export function ProdutosPage() {
           <button
             onClick={() => handleBulkStatusChange("inativo")}
             disabled={loading}
-            className="bg-red-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-red-700 transition disabled:opacity-50"
+            // Cinza Escuro/Chumbo: Ação de ocultar, remete a algo "apagado" ou "guardado no cofre"
+            className="bg-stone-800 text-amber-500 px-4 py-1.5 rounded text-sm font-bold hover:bg-stone-900 transition-all disabled:opacity-50 shadow-sm"
           >
             Ocultar Catálogo
           </button>
