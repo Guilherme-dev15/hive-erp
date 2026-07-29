@@ -41,16 +41,17 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   const sig = req.headers['stripe-signature'];
   let event;
 
-  try {
-    // 1. Validação de Segurança
-    // Em produção com a CLI configurada, usaríamos:
-    // event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  // 1. Validação de Segurança
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripe || !webhookSecret) {
+    console.error("❌ ERRO: Stripe ou Webhook Secret não configurados no servidor.");
+    return res.status(500).send("Configuração de pagamento incompleta no servidor.");
+  }
 
-    // Para facilitar o desenvolvimento agora sem CLI obrigatória:
-    if (!stripe) throw new Error("Stripe não configurado");
-    event = JSON.parse(req.body.toString());
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error(`❌ Erro no Webhook: ${err.message}`);
+    console.error(`❌ Erro na validação do Webhook Stripe: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
