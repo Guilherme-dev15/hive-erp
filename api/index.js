@@ -378,25 +378,6 @@ app.patch('/admin/orders/:id/status', async (req, res) => {
   }
 });
 
-// ROTA PARA EXCLUIR PEDIDO (Cole isso perto das outras rotas /admin/orders)
-app.delete('/admin/orders/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // 1. Deleta o documento da coleção 'orders' no Firestore
-    await db.collection('orders').doc(id).delete();
-
-    console.log(`[BACKEND] Pedido ${id} removido com sucesso.`);
-
-    res.json({
-      success: true,
-      message: "Pedido excluído do sistema."
-    });
-  } catch (error) {
-    console.error("Erro ao excluir pedido:", error);
-    res.status(500).json({ error: "Erro interno ao processar a exclusão." });
-  }
-});
 // --- DASHBOARD ANALYTICS ---
 app.get('/admin/dashboard/stats', async (req, res) => {
   try {
@@ -498,16 +479,6 @@ app.post('/admin/config', async (req, res) => {
   }, { merge: true });
 
   res.json(req.body);
-});
-
-app.get('/admin/config', async (req, res) => {
-  // Busca configurações onde userId == req.user.uid
-  const snapshot = await db.collection(COLL.CONFIG).where('userId', '==', req.user.uid).limit(1).get();
-
-  if (snapshot.empty) {
-    return res.json({});
-  }
-  return res.json(snapshot.docs[0].data());
 });
 
 // Substitua ou adicione no final da seção ROTAS ADMIN
