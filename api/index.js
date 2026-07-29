@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-const Stripe = require('stripe');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,46 +29,7 @@ app.use(cors({
   }
 }));
 
-// Inicializa Stripe
-const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-// ============================================================================
-// 🚨 NOVO: ROTA DE WEBHOOK (Deve vir ANTES do express.json)
-// ============================================================================
-// O Stripe exige o corpo cru (raw) para validar a assinatura criptográfica.
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-
-  // 1. Validação de Segurança
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!stripe || !webhookSecret) {
-    console.error("❌ ERRO: Stripe ou Webhook Secret não configurados no servidor.");
-    return res.status(500).send("Configuração de pagamento incompleta no servidor.");
-  }
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch (err) {
-    console.error(`❌ Erro na validação do Webhook Stripe: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // 2. Processar o Evento
-  if (event.type === 'payment_intent.succeeded') {
-    const paymentIntent = event.data.object;
-    console.log('💰 Webhook: Pagamento Aprovado!', paymentIntent.id);
-
-    // Recupera o ID da loja que enviamos no metadata
-    const { storeId } = paymentIntent.metadata || {};
-    console.log('🏬 Loja beneficiária:', storeId);
-
-    // AQUI FUTURAMENTE: Atualizar status do pedido no Firebase para "Pago"
-  }
-
-  // 3. Confirmar recebimento para o Stripe
-  res.json({ received: true });
-});
 
 // ============================================================================
 // 2. MIDDLEWARES GERAIS (Agora vem o JSON)
@@ -490,41 +450,6 @@ app.get('/admin/config', async (req, res) => {
     return res.json({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
   } catch (e) {
     return res.status(500).json({ error: e.message });
-  }
-});
-// ============================================================================
-// 💰 ROTA DE PAGAMENTO (STRIPE) - ATUALIZADA COM METADATA
-// ============================================================================
-
-app.post('/create-payment-intent', async (req, res) => {
-  if (!stripe) {
-    return res.status(500).json({ error: "Stripe não configurado no servidor" });
-  }
-
-  const { amount, currency = 'brl', storeId } = req.body;
-
-  try {
-    // Cria a intenção de pagamento no Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe trabalha com centavos (R$10,00 = 1000)
-      currency: currency,
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: {
-        storeId: storeId, // 🚨 IMPORTANTE: Envia o ID da loja para o Webhook usar depois
-        integration: 'hive-erp'
-      }
-    });
-
-    // Retorna o "segredo" para o Frontend finalizar a compra
-    res.json({
-      clientSecret: paymentIntent.client_secret
-    });
-
-  } catch (error) {
-    console.error("Erro no Stripe:", error);
-    res.status(500).json({ error: error.message });
   }
 });
 
