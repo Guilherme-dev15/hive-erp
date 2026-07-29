@@ -205,8 +205,13 @@ app.post('/orders', async (req, res) => {
   try {
     let storeOwnerId = null;
     if (req.body.items?.length > 0) {
-      const firstProduct = await db.collection(COLL.PRODUCTS).doc(req.body.items[0].id).get();
-      if (firstProduct.exists) storeOwnerId = firstProduct.data().userId;
+      const firstProductRef = db.collection(COLL.PRODUCTS).doc(req.body.items[0].id);
+      const firstProduct = await firstProductRef.get();
+
+      if (!firstProduct.exists) {
+        return res.status(404).json({ error: "Um dos produtos no carrinho não foi encontrado." });
+      }
+      storeOwnerId = firstProduct.data().userId;
     }
     if (!storeOwnerId && req.body.storeId) storeOwnerId = req.body.storeId;
 
@@ -453,9 +458,10 @@ app.get('/admin/config', async (req, res) => {
   }
 });
 
-if (process.env.VERCEL_ENV !== 'production') {
+// Inicia o servidor apenas se este arquivo for executado diretamente
+if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`🚀 API SaaS (Coleção: ${COLL.CONFIG}) Rodando na porta ${PORT}`);
+    console.log(`🚀 API SaaS Rodando na porta ${PORT}`);
   });
 }
 
