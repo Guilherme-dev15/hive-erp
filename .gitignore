@@ -13,3 +13,7 @@ node_modules/
 dist/
 build/
 .vercel/.env
+
+# Arquivos de ambiente locais
+.env
+.env.*
