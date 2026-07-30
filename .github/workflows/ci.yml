@@ -70,9 +70,9 @@ jobs:
     - name: Deploy app-admin to Vercel
       env:
         VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
-      run: vercel --prod --yes --token "$VERCEL_TOKEN" --cwd ./app-admin
+      run: vercel --prod --yes --token "$VERCEL_TOKEN"
 
     - name: Deploy app-catalogo to Vercel
       env:
         VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CATALOGO }}
-      run: vercel --prod --yes --token "$VERCEL_TOKEN" --cwd ./app-catalogo
+      run: vercel --prod --yes --token "$VERCEL_TOKEN"
