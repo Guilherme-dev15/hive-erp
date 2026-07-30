@@ -48,7 +48,7 @@ const InputGroup = ({ label, children, description }: any) => (
 export function ConfiguracoesPage() {
   const [formData, setFormData] = useState({
     whatsappNumber: '', monthlyGoal: '',
-    storeName: 'HivePratas',
+    storeName: 'Hive ERP',
     slug: '', // LINK DA LOJA (IMPORTANTE)
     primaryColor: '#D4AF37', secondaryColor: '#343434',
     cardFee: '0', packagingCost: '0',
