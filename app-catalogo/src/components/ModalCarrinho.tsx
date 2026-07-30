@@ -11,7 +11,6 @@ import {
   TicketPercent,
   Loader2,
   User,
-  CreditCard,
   CheckCircle,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -19,7 +18,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 
 import { ItemCarrinho, ConfigPublica } from "../types";
-import { saveOrder, checkCoupon, createPaymentIntent } from "../services/api";
+import { saveOrder, checkCoupon } from "../services/api";
 import { formatCurrency } from "../utils/format";
 import { CheckoutForm } from "./CheckoutForm";
 
@@ -154,22 +153,23 @@ export function ModalCarrinho({
   };
 
   // --- INICIAR PAGAMENTO ONLINE (STRIPE) ---
-  const handleOnlinePayment = async () => {
-    if (!nome.trim() || !tel.trim())
-      return toast.error("Preencha Nome e WhatsApp antes de pagar.");
-
-    setLoading(true);
-    try {
-      const data = await createPaymentIntent(total, config.storeId || "");
-      setClientSecret(data.clientSecret);
-      setShowPayment(true);
-    } catch (error) {
-      console.error("Erro no pagamento:", error);
-      toast.error("Erro ao iniciar pagamento.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // (DESATIVADO: botão de cartão comentado no JSX abaixo)
+  // const handleOnlinePayment = async () => {
+  //   if (!nome.trim() || !tel.trim())
+  //     return toast.error("Preencha Nome e WhatsApp antes de pagar.");
+  //
+  //   setLoading(true);
+  //   try {
+  //     const data = await createPaymentIntent(total, config.storeId || "");
+  //     setClientSecret(data.clientSecret);
+  //     setShowPayment(true);
+  //   } catch (error) {
+  //     console.error("Erro no pagamento:", error);
+  //     toast.error("Erro ao iniciar pagamento.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
   const saveOrderToDb = async (paymentMethod: "whatsapp" | "credit_card") => {
