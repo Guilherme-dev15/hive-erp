@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-const Stripe = require('stripe');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,45 +29,7 @@ app.use(cors({
   }
 }));
 
-// Inicializa Stripe
-const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-// ============================================================================
-// 🚨 NOVO: ROTA DE WEBHOOK (Deve vir ANTES do express.json)
-// ============================================================================
-// O Stripe exige o corpo cru (raw) para validar a assinatura criptográfica.
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-
-  try {
-    // 1. Validação de Segurança
-    // Em produção com a CLI configurada, usaríamos:
-    // event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-
-    // Para facilitar o desenvolvimento agora sem CLI obrigatória:
-    if (!stripe) throw new Error("Stripe não configurado");
-    event = JSON.parse(req.body.toString());
-  } catch (err) {
-    console.error(`❌ Erro no Webhook: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // 2. Processar o Evento
-  if (event.type === 'payment_intent.succeeded') {
-    const paymentIntent = event.data.object;
-    console.log('💰 Webhook: Pagamento Aprovado!', paymentIntent.id);
-
-    // Recupera o ID da loja que enviamos no metadata
-    const { storeId } = paymentIntent.metadata || {};
-    console.log('🏬 Loja beneficiária:', storeId);
-
-    // AQUI FUTURAMENTE: Atualizar status do pedido no Firebase para "Pago"
-  }
-
-  // 3. Confirmar recebimento para o Stripe
-  res.json({ received: true });
-});
 
 // ============================================================================
 // 2. MIDDLEWARES GERAIS (Agora vem o JSON)
@@ -244,8 +205,13 @@ app.post('/orders', async (req, res) => {
   try {
     let storeOwnerId = null;
     if (req.body.items?.length > 0) {
-      const firstProduct = await db.collection(COLL.PRODUCTS).doc(req.body.items[0].id).get();
-      if (firstProduct.exists) storeOwnerId = firstProduct.data().userId;
+      const firstProductRef = db.collection(COLL.PRODUCTS).doc(req.body.items[0].id);
+      const firstProduct = await firstProductRef.get();
+
+      if (!firstProduct.exists) {
+        return res.status(404).json({ error: "Um dos produtos no carrinho não foi encontrado." });
+      }
+      storeOwnerId = firstProduct.data().userId;
     }
     if (!storeOwnerId && req.body.storeId) storeOwnerId = req.body.storeId;
 
@@ -377,25 +343,6 @@ app.patch('/admin/orders/:id/status', async (req, res) => {
   }
 });
 
-// ROTA PARA EXCLUIR PEDIDO (Cole isso perto das outras rotas /admin/orders)
-app.delete('/admin/orders/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // 1. Deleta o documento da coleção 'orders' no Firestore
-    await db.collection('orders').doc(id).delete();
-
-    console.log(`[BACKEND] Pedido ${id} removido com sucesso.`);
-
-    res.json({
-      success: true,
-      message: "Pedido excluído do sistema."
-    });
-  } catch (error) {
-    console.error("Erro ao excluir pedido:", error);
-    res.status(500).json({ error: "Erro interno ao processar a exclusão." });
-  }
-});
 // --- DASHBOARD ANALYTICS ---
 app.get('/admin/dashboard/stats', async (req, res) => {
   try {
@@ -499,16 +446,6 @@ app.post('/admin/config', async (req, res) => {
   res.json(req.body);
 });
 
-app.get('/admin/config', async (req, res) => {
-  // Busca configurações onde userId == req.user.uid
-  const snapshot = await db.collection(COLL.CONFIG).where('userId', '==', req.user.uid).limit(1).get();
-
-  if (snapshot.empty) {
-    return res.json({});
-  }
-  return res.json(snapshot.docs[0].data());
-});
-
 // Substitua ou adicione no final da seção ROTAS ADMIN
 app.get('/admin/config', async (req, res) => {
   try {
@@ -520,45 +457,11 @@ app.get('/admin/config', async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
-// ============================================================================
-// 💰 ROTA DE PAGAMENTO (STRIPE) - ATUALIZADA COM METADATA
-// ============================================================================
 
-app.post('/create-payment-intent', async (req, res) => {
-  if (!stripe) {
-    return res.status(500).json({ error: "Stripe não configurado no servidor" });
-  }
-
-  const { amount, currency = 'brl', storeId } = req.body;
-
-  try {
-    // Cria a intenção de pagamento no Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe trabalha com centavos (R$10,00 = 1000)
-      currency: currency,
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: {
-        storeId: storeId, // 🚨 IMPORTANTE: Envia o ID da loja para o Webhook usar depois
-        integration: 'hive-erp'
-      }
-    });
-
-    // Retorna o "segredo" para o Frontend finalizar a compra
-    res.json({
-      clientSecret: paymentIntent.client_secret
-    });
-
-  } catch (error) {
-    console.error("Erro no Stripe:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-if (process.env.VERCEL_ENV !== 'production') {
+// Inicia o servidor apenas se este arquivo for executado diretamente
+if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`🚀 API SaaS (Coleção: ${COLL.CONFIG}) Rodando na porta ${PORT}`);
+    console.log(`🚀 API SaaS Rodando na porta ${PORT}`);
   });
 }
 
