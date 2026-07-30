@@ -28,10 +28,11 @@ import { useReactToPrint } from "react-to-print";
 import { BulkMarkupModal } from "../components/BulkMarkupModal";
 import { updateStatusEmMassa } from "../services/firebase/bulkUpdate";
 
+// --- HOOKS ---
+import { useProducts } from "../hooks/useProducts";
+
 // --- SERVIÇOS ---
 import {
-  getAdminProdutos,
-  deleteAdminProduto,
   getFornecedores,
   getCategories,
   getConfig,
@@ -60,8 +61,14 @@ type ExtendedProdutoAdmin = Omit<
 };
 
 export function ProdutosPage() {
-  // 1. DADOS
-  const [produtos, setProdutos] = useState<ExtendedProdutoAdmin[]>([]);
+  const {
+    products: produtos,
+    isLoading: productsLoading,
+    deleteProduct,
+    refresh: refreshProducts,
+  } = useProducts();
+
+  // 1. DADOS LOCAIS (que ainda não foram movidos para hooks específicos)
   const [categories, setCategories] = useState<Category[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
 
@@ -133,19 +140,16 @@ export function ProdutosPage() {
   }, []);
 
   // ============================================================================
-  // CARREGAMENTO
+  // CARREGAMENTO DE DADOS AUXILIARES
   // ============================================================================
-  const carregarDados = async () => {
+  const carregarAuxiliares = async () => {
     try {
       setLoading(true);
-      const [prodsData, catsData, fornsData, configData] = await Promise.all([
-        getAdminProdutos(),
+      const [catsData, fornsData, configData] = await Promise.all([
         getCategories(),
         getFornecedores(),
         getConfig(),
       ]);
-
-      setProdutos(prodsData as unknown as ExtendedProdutoAdmin[]);
       setCategories(catsData);
       setFornecedores(fornsData);
       setStoreConfig(configData);
@@ -158,9 +162,13 @@ export function ProdutosPage() {
   };
 
   useEffect(() => {
-    carregarDados();
+    carregarAuxiliares();
   }, []);
 
+  // Função "refresh" unificada, usada em callbacks após mutações.
+  const carregarTudo = async () => {
+    await Promise.all([refreshProducts(), carregarAuxiliares()]);
+  };
   // ============================================================================
   // FILTROS
   // ============================================================================
@@ -236,13 +244,7 @@ export function ProdutosPage() {
   // ============================================================================
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este produto?")) return;
-    try {
-      await deleteAdminProduto(id);
-      setProdutos((prev) => prev.filter((p) => p.id !== id));
-      toast.success("Produto excluído com sucesso!");
-    } catch (e) {
-      toast.error("Erro ao excluir produto.");
-    }
+    deleteProduct(id);
   };
 
   const handleEdit = (prod: ExtendedProdutoAdmin) => {
@@ -261,34 +263,18 @@ export function ProdutosPage() {
   };
 
   const handleSaveSuccess = (prodSalvo: ProdutoAdmin) => {
-    const prodExt = prodSalvo as unknown as ExtendedProdutoAdmin;
-    setProdutos((prev) => {
-      const index = prev.findIndex((p) => p.id === prodExt.id);
-      if (index >= 0) {
-        const novaLista = [...prev];
-        novaLista[index] = prodExt;
-        return novaLista;
-      } else {
-        return [prodExt, ...prev];
-      }
-    });
     setIsModalOpen(false);
+    refreshProducts();
   };
   // Mensagem de Sucesso para Atualização em Massa
   const handleMarkupSuccess = async (updatedCount: number) => {
-    toast.success(
-      // feedback mais amigável e informativo
-      `${updatedCount} produtos foram atualizados com o novo markup!`,
-    );
-    // Recarrega os dados para refletir as mudanças imediatamente
-    await carregarDados();
+    toast.success(`${updatedCount} produtos foram atualizados com o novo markup!`);
+    await refreshProducts();
   };
 
   // ============================================================================
   // Atualização de Status em Massa
   const handleBulkStatusChange = async (novoStatus: "ativo" | "inativo") => {
-    // 1. Trava de segurança sempre vem na PRIMEIRA linha.
-    // Se estiver vazio, abortamos a missão aqui mesmo.
     if (selectedIds.length === 0) {
       toast("Selecione pelo menos um produto para alterar.", {
         icon: "⚠️",
@@ -297,38 +283,24 @@ export function ProdutosPage() {
     }
 
     try {
-      // 2. Trava a tela para evitar cliques duplos
       setLoading(true);
-
-      // 3. Manda pro motor!
       const count = await updateStatusEmMassa(selectedIds, novoStatus);
-
-      // 4. Feedback de sucesso com tempo estendido
       toast.success(
         `${count} produtos alterados para ${novoStatus.toUpperCase()}!`,
-        {
-          duration: 4000,
-        },
+        { duration: 4000 },
       );
-
-      // 5. O Truque Sênior de UX: Pausa de 1.5 segundos
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // 6. Atualiza a tabela com a foto nova do banco
-      await carregarDados();
-
-      // 7. UX de Ouro: Limpa as caixinhas selecionadas!
+      await refreshProducts();
       setSelectedIds([]);
     } catch (error) {
       console.error(error);
       toast.error("Erro ao atualizar o status dos produtos.");
     } finally {
-      // 8. O finally garante que o loading seja desligado mesmo se der erro
       setLoading(false);
     }
   };
 
-  if (loading)
+  if (loading || productsLoading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
         <Loader2 className="animate-spin text-[#d19900]" size={48} />
@@ -551,7 +523,7 @@ export function ProdutosPage() {
         </div>
 
         <button
-          onClick={carregarDados}
+          onClick={carregarTudo}
           className="p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-[#d19900] transition-colors"
           title="Recarregar"
         >
@@ -796,19 +768,19 @@ export function ProdutosPage() {
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onSuccess={carregarDados}
+        onSuccess={carregarTudo}
       />
 
       <NeonStudio
         isOpen={isNeonOpen}
         onClose={() => setIsNeonOpen(false)}
-        onSuccess={carregarDados}
+        onSuccess={carregarTudo}
       />
       <StockModal
         isOpen={isStockModalOpen}
         onClose={() => setIsStockModalOpen(false)}
         product={produtoEstoque}
-        onSuccess={carregarDados}
+        onSuccess={carregarTudo}
       />
     </div>
   );
