@@ -14,71 +14,65 @@ jobs:
         node-version: [20.x]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: '**/package-lock.json'
 
     - name: Install Dependencies (API)
-      run: npm install
       working-directory: ./api
+      run: npm install
 
     - name: Run Tests (API)
-      run: npm test
       working-directory: ./api
+      run: npm test
 
     - name: Install Dependencies (app-admin)
-      run: npm install
       working-directory: ./app-admin
+      run: npm install
 
     - name: Build (app-admin)
-      run: npm run build
       working-directory: ./app-admin
+      run: npm run build
 
     - name: Install Dependencies (app-catalogo)
-      run: npm install
       working-directory: ./app-catalogo
+      run: npm install
 
     - name: Build (app-catalogo)
-      run: npm run build
       working-directory: ./app-catalogo
+      run: npm run build
 
   deploy:
     needs: build_and_test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Install Vercel CLI
-      run: npm install -g vercel@latest
+    - name: Install Vercel CLI (pinned)
+      run: npm install -g vercel@34.3.0
 
     - name: Deploy API to Vercel
       env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
-      working-directory: ./api
+      run: vercel --prod --yes --token "$VERCEL_TOKEN"
 
     - name: Deploy app-admin to Vercel
       env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
-      working-directory: ./app-admin
+      run: vercel --prod --yes --token "$VERCEL_TOKEN" --cwd ./app-admin
 
     - name: Deploy app-catalogo to Vercel
       env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CATALOGO }}
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
-      working-directory: ./app-catalogo
+      run: vercel --prod --yes --token "$VERCEL_TOKEN" --cwd ./app-catalogo
