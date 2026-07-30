@@ -1,8 +1,15 @@
 require('dotenv').config();
 const admin = require('firebase-admin');
 
-// 🚨 COLOQUE SEU UID REAL AQUI 🚨
-const MEU_UID = "He8p0wAioIctG7ZBIIxG4C9YOmX2"; 
+// 1. LEIA O UID DA VARIÁVEL DE AMBIENTE
+const MEU_UID = process.env.TARGET_UID;
+
+// 2. Validação de segurança
+if (!MEU_UID) {
+  console.error("❌ ERRO: A variável de ambiente TARGET_UID não foi definida.");
+  console.error("Uso: TARGET_UID='seu-uid-aqui' node vincular_restante.js");
+  process.exit(1);
+}
 
 if (!admin.apps.length) {
   admin.initializeApp({
