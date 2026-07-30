@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import {
   User,
   onAuthStateChanged,
@@ -6,27 +6,22 @@ import {
   GoogleAuthProvider,
   signOut as firebaseSignOut,
 } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore"; // NOVOS IMPORTS
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { auth } from "../services/firebase/firebaseConfig";
 import { toast } from "react-hot-toast";
-import { apiClient } from "../services/apiService"; // Importante para o Backend
+import { apiClient } from "../services/apiService";
 
 interface AuthContextType {
   user: User | null;
-  userData: any | null; // Dados extras (cargo, ativo/inativo)
+  userData: any | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// Inicializa o Firestore
 const db = getFirestore();
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,30 +30,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      // --- LÓGICA DO "GATEKEEPER" DINÂMICO ---
       if (currentUser && currentUser.email) {
         try {
-          // 1. Buscamos o usuário no Firestore usando o email como ID
           const userRef = doc(db, "users", currentUser.email);
           const userSnap = await getDoc(userRef);
 
-          // 2. Verificamos se existe e se está ativo
           if (userSnap.exists() && userSnap.data().active === true) {
-            // APROVADO:
             const data = userSnap.data();
             setUserData(data);
             setUser(currentUser);
 
-            // 3. PEGAR O TOKEN E INJETAR NO AXIOS (CRUCIAL PARA O BACKEND)
             const token = await currentUser.getIdToken();
-            apiClient.defaults.headers.common["Authorization"] =
-              `Bearer ${token}`;
+            apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
           } else {
-            // REPROVADO (Não cadastrado ou inativo)
             toast.error("Acesso negado. Usuário não cadastrado na equipe.");
             await firebaseSignOut(auth);
-
-            // Limpa tudo
             setUser(null);
             setUserData(null);
             delete apiClient.defaults.headers.common["Authorization"];
@@ -69,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
       } else {
-        // Logout ou não logado
         setUser(null);
         setUserData(null);
         delete apiClient.defaults.headers.common["Authorization"];
@@ -81,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  // Função de Login
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
@@ -94,7 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Função de Logout
   const logout = async () => {
     await firebaseSignOut(auth);
     setUser(null);
@@ -102,13 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     delete apiClient.defaults.headers.common["Authorization"];
   };
 
-  const value = {
-    user,
-    userData,
-    loading,
-    signInWithGoogle,
-    logout,
-  };
+  const value = { user, userData, loading, signInWithGoogle, logout };
 
   return (
     <AuthContext.Provider value={value}>
