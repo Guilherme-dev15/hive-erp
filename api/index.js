@@ -4,6 +4,7 @@ const corsMiddleware = require('./src/config/cors');
 const authenticateUser = require('./src/middleware/auth.middleware');
 const publicRoutes = require('./src/routes/public.routes');
 const adminRoutes = require('./src/routes/admin.routes');
+require('./src/config/firebase'); // Apenas para garantir a inicialização
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,7 +18,6 @@ app.use('/', publicRoutes);
 app.use('/admin', authenticateUser, adminRoutes);
 
 // 3. Inicialização do Servidor
-// Inicia o servidor apenas se este arquivo for executado diretamente
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`🚀 API Hive ERP Rodando na porta ${PORT}`);
