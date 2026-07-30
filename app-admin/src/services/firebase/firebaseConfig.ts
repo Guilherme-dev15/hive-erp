@@ -1,24 +1,30 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage"; // <--- Importante
+import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
-// Suas chaves reais (Hardcoded para eliminar erro de .env por enquanto)
+// As chaves agora são lidas de forma segura do ambiente (.env local ou Vercel)
 const firebaseConfig = {
-  apiKey: "AIzaSyCDgt0KP6PkcKHDvob3p3DLJcGZU9mKWhE",
-  authDomain: "hive-1874c.firebaseapp.com",
-  databaseURL: "https://hive-1874c-default-rtdb.firebaseio.com",
-  projectId: "hive-1874c",
-  storageBucket: "hive-1874c.firebasestorage.app", // <--- O BUCKET ESTÁ AQUI
-  messagingSenderId: "1092448042253",
-  appId: "1:1092448042253:web:cfc51806019f3430074444",
-  measurementId: "G-MV7P0ZWK8R",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// 1. Inicializa o App
-const app = initializeApp(firebaseConfig);
+// Validação para quebrar o build se as variáveis não estiverem configuradas
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  throw new Error("As variáveis de ambiente do Firebase não foram configuradas corretamente no VITE. Verifique seu arquivo .env ou as configurações da Vercel.");
+}
 
-// 2. Exporta Auth e Storage prontos para uso
+// Inicializa os serviços do Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+// Exporta os serviços prontos para uso
 export const auth = getAuth(app);
-export const storage = getStorage(app); // <--- Exportação Crucial
+export const storage = getStorage(app);
 export const db = getFirestore(app);
