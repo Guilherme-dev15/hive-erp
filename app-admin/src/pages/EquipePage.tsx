@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Users, Plus, Trash2, Shield, ShieldCheck, Mail, Lock } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const db = getFirestore();
 
