@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowUpCircle, ArrowDownCircle, AlertTriangle, History, Save, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { adjustStock, getProductLogs } from '../services/apiService';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 interface StockModalProps {
   isOpen: boolean;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { Loader2, Lock } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 
