@@ -8,7 +8,8 @@ import {
 import { Toaster } from 'react-hot-toast';
 
 // Imports de Autenticação
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/LoginPage';
 
 // Importa as páginas
