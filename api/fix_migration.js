@@ -1,8 +1,15 @@
 require('dotenv').config();
 const admin = require('firebase-admin');
 
-// 1. 🚨 COLOQUE SEU UID REAL AQUI DENTRO DAS ASPAS 🚨
-const UID_CORRETO = "He8p0wAioIctG7ZBIIxG4C9YOmX2"; 
+// 1. LEIA O UID DA VARIÁVEL DE AMBIENTE
+const UID_CORRETO = process.env.TARGET_UID;
+
+// 2. Validação de segurança
+if (!UID_CORRETO) {
+  console.error("❌ ERRO: A variável de ambiente TARGET_UID não foi definida.");
+  console.error("Uso: TARGET_UID='seu-uid-aqui' node fix_migration.js");
+  process.exit(1);
+}
 
 // O erro que vamos caçar no banco
 const UID_ERRADO = "COLE_AQUI_O_UID_QUE_VOCE_COPIOU";
