@@ -18,9 +18,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       },
       manifest: {
-        name: 'HiveP ratas Admin',
+        name: 'Hive ERP Admin',
         short_name: 'Hive Admin',
-        description: 'Gestão HivePratas ERP',
+        description: 'Gestão Hive ERP',
         theme_color: '#343434',
         background_color: '#ffffff',
         display: 'standalone',

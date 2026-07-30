@@ -30,7 +30,7 @@ export function LoginPage() {
 
         <h1 className="text-2xl font-bold text-carvao mb-2">Área Restrita</h1>
         <p className="text-gray-500 mb-8">
-          Apenas pessoal autorizado da <span className="font-semibold text-dourado">HivePratas</span>.
+          Apenas pessoal autorizado da <span className="font-semibold text-dourado">Hive ERP</span>.
         </p>
 
         {/* Botão de Login Google */}
