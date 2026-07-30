@@ -1,0 +1,55 @@
+name: Hive ERP CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install Dependencies (API)
+      run: |
+        cd api
+        npm install
+
+    - name: Run Tests (API)
+      run: |
+        cd api
+        npm test
+
+    - name: Install Dependencies (app-admin)
+      run: |
+        cd app-admin
+        npm install
+
+    - name: Build (app-admin)
+      run: |
+        cd app-admin
+        npm run build
+
+    - name: Install Dependencies (app-catalogo)
+      run: |
+        cd app-catalogo
+        npm install
+
+    - name: Build (app-catalogo)
+      run: |
+        cd app-catalogo
+        npm run build
