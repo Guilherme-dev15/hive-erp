@@ -1,7 +1,20 @@
 {
-  "dependencies": {
-    "axios": "^1.13.2",
-    "framer-motion": "^12.23.26",
-    "lucide-react": "^0.562.0"
+  "name": "hive-erp-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "api",
+    "app-admin",
+    "app-catalogo"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=app-admin",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^5.5.3"
   }
 }
