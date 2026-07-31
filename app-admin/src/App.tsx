@@ -10,7 +10,7 @@ import { Toaster } from 'react-hot-toast';
 // Imports de Autenticação
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './hooks/useAuth';
-import { LoginPage } from './pages/LoginPage';
+import { LoginPage } from './pages/LoginPage.tsx';
 
 // Importa as páginas
 import { ProdutosPage } from './pages/ProdutosPage';
