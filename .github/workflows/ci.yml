@@ -21,34 +21,19 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: '**/package-lock.json'
+        cache-dependency-path: 'package-lock.json'
 
     - name: Install Dependencies (Root)
       run: npm install
 
-    - name: Install Dependencies (API)
-      working-directory: ./api
-      run: npm install
-
     - name: Run Tests (API)
-      working-directory: ./api
-      run: npm test
-
-    - name: Install Dependencies (app-admin)
-      working-directory: ./app-admin
-      run: npm install
+      run: npm test -w api
 
     - name: Build (app-admin)
-      working-directory: ./app-admin
-      run: npm run build
-
-    - name: Install Dependencies (app-catalogo)
-      working-directory: ./app-catalogo
-      run: npm install
+      run: npm run build -w app-admin
 
     - name: Build (app-catalogo)
-      working-directory: ./app-catalogo
-      run: npm run build
+      run: npm run build -w app-catalogo
 
   deploy:
     needs: build_and_test
