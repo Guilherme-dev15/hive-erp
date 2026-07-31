@@ -1,19 +1,21 @@
-import React, { createContext, useEffect, useState } from "react";
-import {
-  User,
-  onAuthStateChanged,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import React, { createContext, useState, useEffect, ReactNode } from "react";
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
+import { doc, getDoc, getFirestore } from "firebase/firestore";
 import { auth } from "../services/firebase/firebaseConfig";
-import { toast } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { apiClient } from "../services/apiService";
+
+interface UserData {
+  // Defina aqui a estrutura dos dados do usuário que vêm do Firestore
+  name: string;
+  role: 'admin' | 'editor' | 'viewer';
+  active: boolean;
+  // Adicione outros campos conforme necessário
+}
 
 interface AuthContextType {
   user: User | null;
-  userData: any | null;
+  userData: UserData | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -23,9 +25,13 @@ export const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 
 const db = getFirestore();
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<any | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,15 +42,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists() && userSnap.data().active === true) {
-            const data = userSnap.data();
+            const data = userSnap.data() as UserData;
             setUserData(data);
             setUser(currentUser);
-
             const token = await currentUser.getIdToken();
             apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
           } else {
-            toast.error("Acesso negado. Usuário não cadastrado na equipe.");
-            await firebaseSignOut(auth);
+            toast.error("Acesso negado. Usuário não cadastrado ou inativo.");
+            await signOut(auth);
             setUser(null);
             setUserData(null);
             delete apiClient.defaults.headers.common["Authorization"];
@@ -59,7 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserData(null);
         delete apiClient.defaults.headers.common["Authorization"];
       }
-
       setLoading(false);
     });
 
@@ -79,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await firebaseSignOut(auth);
+    await signOut(auth);
     setUser(null);
     setUserData(null);
     delete apiClient.defaults.headers.common["Authorization"];
