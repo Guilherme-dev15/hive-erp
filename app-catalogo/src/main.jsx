@@ -1,7 +1,7 @@
 /// <reference types="vite-plugin-pwa/client" />
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App'; // Importa o seu App principal
+import App from './App.jsx'; // Importa o seu App principal
 import './index.css';
 // --- PWA (Service Worker) ---
 import { registerSW } from 'virtual:pwa-register';
