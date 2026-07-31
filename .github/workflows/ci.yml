@@ -23,6 +23,9 @@ jobs:
         cache: 'npm'
         cache-dependency-path: '**/package-lock.json'
 
+    - name: Install Dependencies (Root)
+      run: npm install
+
     - name: Install Dependencies (API)
       working-directory: ./api
       run: npm install
