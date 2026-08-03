@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  X,
-  User,
-  Package,
-  Calendar,
-  FileText,
-  Printer,
-  CheckCircle,
-  Truck,
-  Clock,
-  CreditCard,
-  Phone,
-} from 'lucide-react';
+import { X, Package, Printer, Phone } from 'lucide-react';
 import { updateAdminOrderStatus } from '../services/apiService';
 import { toast } from 'react-hot-toast';
+import { Order, OrderItem } from '../types';
 
-export function DetalhePedidoModal({ isOpen, onClose, pedido, onUpdate }: any) {
+// Define a interface para as props do componente
+interface DetalhePedidoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pedido: Order | null;
+  onUpdate?: () => Promise<void>;
+}
+
+export function DetalhePedidoModal({
+  isOpen,
+  onClose,
+  pedido,
+  onUpdate,
+}: DetalhePedidoModalProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   if (!pedido) return null;
 
@@ -27,6 +29,7 @@ export function DetalhePedidoModal({ isOpen, onClose, pedido, onUpdate }: any) {
       toast.success('Status atualizado!');
       if (onUpdate) await onUpdate(); // AQUI ELE ATUALIZA A TELA DE PEDIDOS
     } catch (error) {
+      console.error("Erro ao atualizar status do pedido:", error);
       toast.error('Erro ao salvar.');
     } finally {
       setIsUpdating(false);
@@ -148,7 +151,7 @@ export function DetalhePedidoModal({ isOpen, onClose, pedido, onUpdate }: any) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {pedido.items?.map((item: any, i: number) => (
+                  {pedido.items?.map((item: OrderItem, i: number) => (
                     <tr key={i} className="text-sm">
                       <td className="p-4 font-bold text-gray-700">
                         {item.name}
