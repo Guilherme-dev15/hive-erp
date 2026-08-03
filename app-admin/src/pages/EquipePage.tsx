@@ -22,9 +22,16 @@ import { useAuth } from '../hooks/useAuth';
 
 const db = getFirestore();
 
+interface TeamMember {
+    email: string;
+    name: string;
+    role: 'owner' | 'vendedor';
+    active: boolean;
+}
+
 export function EquipePage() {
-  const { user, userData } = useAuth(); // userData tem o 'role' (owner/vendedor)
-  const [usersList, setUsersList] = useState<any[]>([]);
+  const { user, userData } = useAuth();
+  const [usersList, setUsersList] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form
@@ -32,7 +39,6 @@ export function EquipePage() {
   const [newName, setNewName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Verifica se quem está logado é o DONO
   const isOwner = userData?.role === 'owner';
 
   const loadUsers = async () => {
@@ -41,7 +47,7 @@ export function EquipePage() {
       const querySnapshot = await getDocs(collection(db, 'users'));
       const lista = querySnapshot.docs.map((d) => ({
         email: d.id,
-        ...d.data(),
+        ...(d.data() as Omit<TeamMember, 'email'>),
       }));
       setUsersList(lista);
     } catch (error) {
@@ -57,7 +63,7 @@ export function EquipePage() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isOwner) return toast.error('Apenas o dono pode adicionar membros.'); // Bloqueio lógico
+    if (!isOwner) return toast.error('Apenas o dono pode adicionar membros.');
     if (!newEmail || !newName) return;
 
     setIsSubmitting(true);
@@ -82,10 +88,9 @@ export function EquipePage() {
     }
   };
 
-  const handleDelete = async (targetUser: any) => {
+  const handleDelete = async (targetUser: TeamMember) => {
     if (!isOwner) return toast.error('Apenas o dono pode remover membros.');
 
-    // Ninguém pode deletar um OWNER (nem mesmo outro owner, por segurança básica nesta versão)
     if (targetUser.role === 'owner') {
       return toast.error('O Dono não pode ser removido.');
     }
@@ -117,7 +122,6 @@ export function EquipePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* FORMULÁRIO (SÓ APARECE PARA O DONO) */}
         {isOwner ? (
           <div className="md:col-span-1">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-6">
@@ -162,7 +166,6 @@ export function EquipePage() {
             </div>
           </div>
         ) : (
-          // SE NÃO FOR DONO, MOSTRA UM AVISO
           <div className="md:col-span-1">
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 text-center opacity-75">
               <Lock size={32} className="mx-auto text-gray-400 mb-2" />
@@ -174,7 +177,6 @@ export function EquipePage() {
           </div>
         )}
 
-        {/* LISTA */}
         <div className="md:col-span-2 space-y-4">
           {loading ? (
             <p>Carregando...</p>
@@ -204,7 +206,6 @@ export function EquipePage() {
                   </div>
                 </div>
 
-                {/* BOTÃO DE DELETE: Só aparece se EU for Owner E o alvo NÃO for Owner */}
                 {isOwner && u.role !== 'owner' && (
                   <button
                     onClick={() => handleDelete(u)}

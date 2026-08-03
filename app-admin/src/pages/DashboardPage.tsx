@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, ReactNode } from 'react';
 import {
   AreaChart,
   Area,
@@ -11,6 +10,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  TooltipProps,
 } from 'recharts';
 import {
   DollarSign,
@@ -24,6 +24,7 @@ import { motion } from 'framer-motion';
 // SERVIÇOS
 import { getAdminProdutos, getAdminOrders } from '../services/apiService';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
+import { Order, ProdutoAdmin } from '../types';
 
 // --- CONFIGURAÇÕES GLOBAIS ---
 const COLORS = [
@@ -35,15 +36,16 @@ const COLORS = [
   '#EC4899',
 ];
 
-// LÓGICA EXPERT: Status que NÃO são venda (O resto todo entra no gráfico)
 const statusIgnorados = ['aguardando pagamento', 'cancelado', ''];
 
-const parseDate = (d: any) => {
+type Timestamp = {
+    seconds: number;
+    nanoseconds: number;
+}
+const parseDate = (d: Timestamp | Date | string) => {
   if (!d) return new Date();
-  // Se for Firebase Timestamp
-  if (d && typeof d === 'object' && 'seconds' in d)
+  if (typeof d === 'object' && 'seconds' in d)
     return new Date(d.seconds * 1000);
-  // Se for string ou objeto Date
   const date = new Date(d);
   return isNaN(date.getTime()) ? new Date() : date;
 };
@@ -58,14 +60,26 @@ const itemVariants = {
   visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } },
 };
 
+// --- TIPOS ---
+type TimeRange = '7d' | '30d' | 'all';
+interface ChartData {
+    name: string;
+    vendas: number;
+    lucro: number;
+}
+interface CategoryData {
+    name: string;
+    value: number;
+}
+
 export function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('30d');
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
-  const [rawProducts, setRawProducts] = useState<any[]>([]);
-  const [rawOrders, setRawOrders] = useState<any[]>([]);
+  const [rawProducts, setRawProducts] = useState<ProdutoAdmin[]>([]);
+  const [rawOrders, setRawOrders] = useState<Order[]>([]);
 
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [kpi, setKpi] = useState({
@@ -77,9 +91,9 @@ export function DashboardPage() {
     produtosAtivos: 0,
   });
 
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [categoryData, setCategoryData] = useState<any[]>([]);
-  const [recentList, setRecentList] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
+  const [recentList, setRecentList] = useState<Order[]>([]);
 
   // 1. CARGA DE DADOS
   const loadData = useCallback(async () => {
@@ -118,13 +132,11 @@ export function DashboardPage() {
       { vendas: number; lucro: number; timestamp: number }
     > = {};
 
-    rawOrders.forEach((o: any) => {
+    rawOrders.forEach((o: Order) => {
       const oDate = parseDate(o.createdAt || o.date);
 
-      // Filtro de Data
       if (oDate < cutoffDate) return;
 
-      // Normaliza o status para comparação (remove espaços e põe em minúsculo)
       const statusFormatado = (o.status || '').trim().toLowerCase();
       const isVendaValida = !statusIgnorados.includes(statusFormatado);
 
@@ -149,7 +161,6 @@ export function DashboardPage() {
       }
     });
 
-    // Atualiza KPIs
     setKpi({
       faturamento: revenue,
       lucro: revenue * 0.7,
@@ -163,7 +174,6 @@ export function DashboardPage() {
       produtosAtivos: rawProducts.length,
     });
 
-    // Prepara Gráfico
     const sortedChart = Object.keys(dailyMap)
       .map((key) => ({
         name: key,
@@ -179,7 +189,6 @@ export function DashboardPage() {
         : [{ name: 'Sem vendas', vendas: 0, lucro: 0 }]
     );
 
-    // Mix de Produtos
     const catMap: Record<string, number> = {};
     rawProducts.forEach((p) => {
       const c = p.category || 'Outros';
@@ -192,7 +201,7 @@ export function DashboardPage() {
     setRecentList(rawOrders.slice(0, 5));
   }, [loading, timeRange, rawProducts, rawOrders]);
 
-  const openOrderDetails = (pedido: any) => {
+  const openOrderDetails = (pedido: Order) => {
     setSelectedOrder(pedido);
     setIsModalOpen(true);
   };
@@ -211,7 +220,6 @@ export function DashboardPage() {
       initial="hidden"
       animate="visible"
     >
-      {/* 1. HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 border-b border-gray-100 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
@@ -234,7 +242,7 @@ export function DashboardPage() {
             ].map((btn) => (
               <button
                 key={btn.id}
-                onClick={() => setTimeRange(btn.id as any)}
+                onClick={() => setTimeRange(btn.id as TimeRange)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === btn.id ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
               >
                 {btn.label}
@@ -247,7 +255,6 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* 2. CARDS DE KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatsCard
           title="Faturamento"
@@ -287,7 +294,6 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* 3. GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div
           variants={itemVariants}
@@ -387,7 +393,6 @@ export function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* 4. LISTA RECENTE */}
       <motion.div variants={itemVariants}>
         <h3 className="text-xl font-bold text-gray-900 mb-4">
           Extrato Recente
@@ -402,7 +407,7 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 text-sm">
-              {recentList.map((o: any) => (
+              {recentList.map((o: Order) => (
                 <TransactionRow
                   key={o.id}
                   desc={
@@ -435,7 +440,16 @@ export function DashboardPage() {
   );
 }
 
-// COMPONENTES UI (Mantidos Idênticos)
+interface StatsCardProps {
+    title: string;
+    value: number;
+    icon: ReactNode;
+    color: string;
+    iconColor?: string;
+    trend: string;
+    trendUp: boolean;
+    isCurrency?: boolean;
+}
 function StatsCard({
   title,
   value,
@@ -445,7 +459,7 @@ function StatsCard({
   trend,
   trendUp,
   isCurrency = true,
-}: any) {
+}: StatsCardProps) {
   const isSolid = color.includes('-600');
   return (
     <motion.div
@@ -485,7 +499,14 @@ function StatsCard({
   );
 }
 
-function TransactionRow({ desc, date, value, type, onClick }: any) {
+interface TransactionRowProps {
+    desc: string;
+    date: string;
+    value: number;
+    type: 'in' | 'out';
+    onClick: () => void;
+}
+function TransactionRow({ desc, date, value, type, onClick }: TransactionRowProps) {
   return (
     <tr
       onClick={onClick}
@@ -502,12 +523,12 @@ function TransactionRow({ desc, date, value, type, onClick }: any) {
   );
 }
 
-const CustomChartTooltip = ({ active, payload, label }: any) => {
+const CustomChartTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-gray-900/95 backdrop-blur-sm text-white p-4 rounded-xl shadow-2xl border border-gray-700 text-xs">
         <p className="font-bold mb-2 uppercase tracking-wider">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index) => (
           <div key={index} className="flex items-center gap-2 mb-1">
             <div
               className="w-2 h-2 rounded-full"
@@ -515,7 +536,7 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
             ></div>
             <span>
               {entry.name}:{' '}
-              {entry.value.toLocaleString('pt-BR', {
+              {entry.value?.toLocaleString('pt-BR', {
                 style: 'currency',
                 currency: 'BRL',
               })}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, ReactNode } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -22,6 +22,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  TooltipProps,
 } from 'recharts';
 
 import { apiClient } from '../services/apiService';
@@ -36,7 +37,6 @@ interface Transaction {
   category: string;
 }
 
-// Variantes de animação (Padrão Cascata)
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -52,21 +52,20 @@ export function FinanceiroPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Estado do Formulário
   const [newTrans, setNewTrans] = useState({
     description: '',
     amount: '',
-    type: 'despesa',
+    type: 'despesa' as 'receita' | 'despesa',
     category: 'Geral',
   });
 
-  // --- CARREGAMENTO ---
   const carregar = async () => {
     try {
       setLoading(true);
       const res = await apiClient.get('/admin/transactions');
       setTransactions(res.data);
     } catch (e) {
+      console.error("Erro ao carregar finanças:", e);
       toast.error('Erro ao carregar finanças');
     } finally {
       setLoading(false);
@@ -77,7 +76,6 @@ export function FinanceiroPage() {
     carregar();
   }, []);
 
-  // --- CÁLCULOS EM TEMPO REAL ---
   const stats = useMemo(() => {
     return transactions.reduce(
       (acc, t) => {
@@ -96,7 +94,6 @@ export function FinanceiroPage() {
     );
   }, [transactions]);
 
-  // --- DADOS PARA O GRÁFICO (Top 5 Categorias ou Simplificado) ---
   const chartData = useMemo(() => {
     return [
       { name: 'Entradas', value: stats.entradas, color: '#10b981' },
@@ -105,7 +102,6 @@ export function FinanceiroPage() {
     ];
   }, [stats]);
 
-  // --- FILTRO DE BUSCA ---
   const filteredTransactions = useMemo(() => {
     return transactions.filter(
       (t) =>
@@ -114,7 +110,6 @@ export function FinanceiroPage() {
     );
   }, [transactions, searchTerm]);
 
-  // --- AÇÕES ---
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTrans.description || !newTrans.amount) {
@@ -125,13 +120,12 @@ export function FinanceiroPage() {
     try {
       const payload = {
         ...newTrans,
-        amount: parseFloat(newTrans.amount.replace(',', '.')), // Garante formato number
+        amount: parseFloat(newTrans.amount.replace(',', '.')),
         date: new Date().toISOString(),
       };
 
       const res = await apiClient.post('/admin/transactions', payload);
 
-      // Atualização Otimista
       setTransactions((prev) => [
         { id: res.data.id, ...payload } as Transaction,
         ...prev,
@@ -144,6 +138,7 @@ export function FinanceiroPage() {
       });
       toast.success('Lançamento registrado!');
     } catch (e) {
+      console.error("Erro ao salvar transação:", e);
       toast.error('Erro ao salvar');
     }
   };
@@ -155,6 +150,7 @@ export function FinanceiroPage() {
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       toast.success('Excluído com sucesso');
     } catch (e) {
+      console.error("Erro ao excluir transação:", e);
       toast.error('Erro ao excluir');
     }
   };
@@ -277,7 +273,7 @@ export function FinanceiroPage() {
                   <select
                     value={newTrans.type}
                     onChange={(e) =>
-                      setNewTrans({ ...newTrans, type: e.target.value as any })
+                      setNewTrans({ ...newTrans, type: e.target.value as 'receita' | 'despesa' })
                     }
                     className="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm font-medium appearance-none cursor-pointer"
                   >
@@ -457,7 +453,16 @@ export function FinanceiroPage() {
   );
 }
 
-// Componente de Card Reutilizável com Design System
+interface StatsCardProps {
+    title: string;
+    value: number;
+    icon: ReactNode;
+    bgClass: string;
+    textClass: string;
+    subTextClass: string;
+    borderClass?: string;
+    iconBg?: string;
+}
 function StatsCard({
   title,
   value,
@@ -467,7 +472,7 @@ function StatsCard({
   subTextClass,
   borderClass,
   iconBg,
-}: any) {
+}: StatsCardProps) {
   return (
     <motion.div
       variants={itemVariants}
