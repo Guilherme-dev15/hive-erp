@@ -90,7 +90,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws);
 
-      const processed = data.map((row: any, index) => {
+      const processed = data.map((row: Record<string, string | number>, index) => {
         const catName = row['Categoria'] || row['category'] || '';
         const foundCat = categories.find(
           (c) => c.name.toLowerCase() === catName.toLowerCase()
@@ -126,7 +126,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     reader.readAsBinaryString(file);
   };
 
-  const updateRow = (id: string, field: keyof PreviewProduct, value: any) => {
+  const updateRow = (id: string, field: keyof PreviewProduct, value: string | number) => {
     setPreviewData((prev) =>
       prev.map((item) => {
         if (item.tempId !== id) return item;
@@ -162,6 +162,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
       );
       toast.success('Imagem anexada!');
     } catch (error) {
+      console.error('Erro ao subir imagem:', error);
       toast.error('Erro ao subir imagem.');
       setPreviewData((prev) =>
         prev.map((p) => (p.tempId === id ? { ...p, isUploading: false } : p))
@@ -185,6 +186,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
       onSuccess();
       onClose();
     } catch (error) {
+      console.error('Erro ao salvar lote de produtos:', error);
       toast.error('Erro ao salvar lote.');
     } finally {
       setLoading(false);

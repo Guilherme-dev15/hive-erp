@@ -20,6 +20,17 @@ import {
 } from '../services/apiService';
 import { formatCurrency } from '../utils/format';
 
+interface CampaignSimulation {
+  affectedProducts: number;
+  skippedProducts: number;
+  currentAvgMarkup: number;
+  projectedAvgMarkup: number;
+  currentRevenue: number;
+  projectedRevenue: number;
+  currentProfit: number;
+  projectedProfit: number;
+}
+
 export function CampanhasPage() {
   // Estados do Formulário
   const [discount, setDiscount] = useState(10); // Começa com 10%
@@ -28,7 +39,7 @@ export function CampanhasPage() {
 
   // Estados de Controle
   const [loading, setLoading] = useState(false);
-  const [simulation, setSimulation] = useState<any>(null);
+  const [simulation, setSimulation] = useState<CampaignSimulation | null>(null);
   const [mode, setMode] = useState<'simulation' | 'applied'>('simulation');
 
   // 1. FUNÇÃO DE SIMULAR

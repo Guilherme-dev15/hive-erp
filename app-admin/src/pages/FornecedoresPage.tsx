@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 
-// Imports Padronizados em Inglês
 import {
   getFornecedores,
   createFornecedor,
@@ -25,8 +24,13 @@ import {
 import type { Fornecedor } from '../types';
 import { fornecedorSchema, type FornecedorFormData } from '../types/schemas';
 
-// --- COMPONENTES AUXILIARES ---
-const Input = ({ label, name, register, error, placeholder }: any) => (
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+    name: keyof FornecedorFormData;
+    register: UseFormRegister<FornecedorFormData>;
+    error?: { message?: string };
+}
+const Input = ({ label, name, register, error, placeholder }: InputProps) => (
   <div className="mb-3">
     <label className="block text-sm font-medium text-gray-700 mb-1">
       {label}
@@ -40,19 +44,16 @@ const Input = ({ label, name, register, error, placeholder }: any) => (
   </div>
 );
 
-// --- PÁGINA PRINCIPAL ---
 export function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Controle do Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Fornecedor | null>(
     null
   );
 
-  // Carregar Dados
   useEffect(() => {
     carregarFornecedores();
   }, []);
@@ -69,12 +70,10 @@ export function FornecedoresPage() {
     }
   };
 
-  // Filtragem (Usando nomes em Inglês)
   const filtered = fornecedores.filter((f) =>
     f.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Deletar
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir?')) return;
     try {
@@ -82,11 +81,11 @@ export function FornecedoresPage() {
       setFornecedores((prev) => prev.filter((f) => f.id !== id));
       toast.success('Fornecedor removido.');
     } catch (e) {
+      console.error("Erro ao excluir fornecedor:", e);
       toast.error('Erro ao excluir.');
     }
   };
 
-  // Abrir Modal
   const openModal = (provider?: Fornecedor) => {
     setEditingProvider(provider || null);
     setIsModalOpen(true);
@@ -96,7 +95,6 @@ export function FornecedoresPage() {
     <div className="space-y-6">
       <Toaster position="top-right" />
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-2xl font-bold text-carvao">Fornecedores</h1>
@@ -124,7 +122,6 @@ export function FornecedoresPage() {
         </div>
       </div>
 
-      {/* Lista / Grid */}
       {loading ? (
         <div className="flex justify-center p-10">
           <Loader2 className="animate-spin text-gray-400" />
@@ -190,7 +187,6 @@ export function FornecedoresPage() {
         </div>
       )}
 
-      {/* Modal Interno */}
       <FornecedorModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -208,8 +204,13 @@ export function FornecedoresPage() {
   );
 }
 
-// --- COMPONENTE DO FORMULÁRIO (MODAL) ---
-function FornecedorModal({ isOpen, onClose, provider, onSuccess }: any) {
+interface FornecedorModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    provider: Fornecedor | null;
+    onSuccess: (p: Fornecedor) => void;
+}
+function FornecedorModal({ isOpen, onClose, provider, onSuccess }: FornecedorModalProps) {
   const {
     register,
     handleSubmit,
@@ -219,7 +220,6 @@ function FornecedorModal({ isOpen, onClose, provider, onSuccess }: any) {
     resolver: zodResolver(fornecedorSchema),
   });
 
-  // Preencher form ao editar
   React.useEffect(() => {
     if (isOpen) {
       reset({
@@ -245,6 +245,7 @@ function FornecedorModal({ isOpen, onClose, provider, onSuccess }: any) {
       }
       onSuccess(result);
     } catch (e) {
+      console.error("Erro ao salvar fornecedor:", e);
       toast.error('Erro ao salvar.');
     }
   };

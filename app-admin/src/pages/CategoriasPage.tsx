@@ -5,7 +5,6 @@ import {
   X,
   ShoppingBag,
   MessageCircle,
-  ChevronRight,
   ArrowRight,
   Package,
   Ruler,
@@ -16,24 +15,19 @@ import {
   getCategories,
   getConfig,
 } from '../services/apiService';
-import type { ProdutoAdmin, Category } from '../types';
+import type { ProdutoAdmin, Category, ConfigFormData, ProdutoVariante } from '../types';
 
 // Interface estendida para ler as variantes
 interface ProdutoStore extends ProdutoAdmin {
-  variantes?: {
-    medida: string;
-    valor_ajuste: number;
-    estoque: number;
-    sob_consulta: boolean;
-  }[];
+  variantes?: ProdutoVariante[];
   subcategory?: string;
 }
 
-export function CatalogoPage() {
+export function CategoriasPage() {
   const [produtos, setProdutos] = useState<ProdutoStore[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [storeConfig, setStoreConfig] = useState<any>(null);
+  const [storeConfig, setStoreConfig] = useState<ConfigFormData | null>(null);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,7 +39,7 @@ export function CatalogoPage() {
   );
 
   // Estado da Variante Selecionada (Grade)
-  const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProdutoVariante | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -56,7 +50,7 @@ export function CatalogoPage() {
           getConfig(),
         ]);
         // Filtra apenas produtos ativos para o catálogo
-        setProdutos(p.filter((i: any) => i.status === 'ativo'));
+        setProdutos(p.filter((i: ProdutoStore) => i.status === 'ativo'));
         setCategories(c);
         setStoreConfig(conf);
       } catch (err) {
@@ -100,7 +94,7 @@ export function CatalogoPage() {
   const handleWhatsApp = () => {
     if (!selectedProduct) return;
 
-    const phone = storeConfig?.whatsapp?.replace(/\D/g, '') || '';
+    const phone = storeConfig?.whatsappNumber?.replace(/\D/g, '') || '';
     if (!phone) return alert('WhatsApp da loja não configurado.');
 
     let message = `Olá! Tenho interesse no produto: *${selectedProduct.name}*`;

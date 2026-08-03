@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, {
   useState,
   useEffect,
   useMemo,
   useRef,
   useCallback,
+  ReactNode,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
@@ -24,6 +24,16 @@ import {
   DollarSign,
   CheckCircle2,
 } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  TooltipProps,
+} from 'recharts';
 
 import { type Order, type OrderStatus, type FirestoreDate } from '../types';
 import {
@@ -37,7 +47,7 @@ import { type ConfigFormData } from '../types/schemas';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
 import { CertificadoImpressao } from '../components/CertificadoImpressao';
 
-// --- CONFIGURAÇÃO VISUAL ORIGINAL ---
+// --- CONFIGURAÇÃO VISUAL ---
 const statusConfig: Record<
   OrderStatus,
   { icon: React.ReactNode; color: string; bg: string; border: string }
@@ -111,11 +121,12 @@ const formatDate = (date: FirestoreDate | undefined): string => {
       minute: '2-digit',
     });
   } catch (e) {
+    console.error("Erro ao formatar data:", e);
     return '-';
   }
 };
 
-const formatCurrency = (value: any): string => {
+const formatCurrency = (value: number | undefined | null): string => {
   if (value === undefined || value === null || isNaN(Number(value)))
     return 'R$ 0,00';
   return Number(value).toLocaleString('pt-BR', {
@@ -124,10 +135,30 @@ const formatCurrency = (value: any): string => {
   });
 };
 
-// --- COMPONENTE DE ESTATÍSTICA (P-5 ORIGINAL) ---
-function StatCard({ title, value, icon, sub, color }: any) {
+// --- TIPOS E INTERFACES ---
+type TimeRange = 'all' | '7days' | '30days';
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: ReactNode;
+  sub: string;
+  color: string;
+}
+interface TransactionRowProps {
+    desc: string;
+    date: string;
+    value: number;
+    type: 'in' | 'out';
+    onClick: () => void;
+}
+
+// --- COMPONENTES VISUAIS ---
+function StatCard({ title, value, icon, sub, color }: StatCardProps) {
   return (
-    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-start justify-between hover:shadow-md transition-shadow">
+    <motion.div
+      variants={itemVariants}
+      className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-start justify-between hover:shadow-md transition-shadow"
+    >
       <div>
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
           {title}
@@ -140,9 +171,53 @@ function StatCard({ title, value, icon, sub, color }: any) {
           className: color.replace('bg-', 'text-'),
         })}
       </div>
-    </div>
+    </motion.div>
   );
 }
+
+const CustomChartTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-900/95 backdrop-blur-sm text-white p-4 rounded-xl shadow-2xl border border-gray-700 text-xs">
+          <p className="font-bold mb-2 uppercase tracking-wider">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-2 mb-1">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              ></div>
+              <span>
+                {entry.name}:{' '}
+                {entry.value?.toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                })}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+function TransactionRow({ desc, date, value, type, onClick }: TransactionRowProps) {
+    return (
+      <tr
+        onClick={onClick}
+        className="hover:bg-gray-50/80 transition-colors cursor-pointer group text-sm"
+      >
+        <td className="p-4 pl-6 font-semibold text-gray-700">{desc}</td>
+        <td className="p-4 text-gray-500">{date}</td>
+        <td
+          className={`p-4 pr-6 text-right font-bold ${type === 'in' ? 'text-emerald-600' : 'text-rose-600'}`}
+        >
+          R$ {Number(value).toFixed(2)}
+        </td>
+      </tr>
+    );
+  }
+
 
 export function PedidosPage() {
   const [pedidos, setPedidos] = useState<Order[]>([]);
@@ -158,9 +233,7 @@ export function PedidosPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
-  const [dateFilter, setDateFilter] = useState<'all' | '7days' | '30days'>(
-    'all'
-  );
+  const [dateFilter, setDateFilter] = useState<TimeRange>('all');
 
   const [config, setConfig] = useState<ConfigFormData | null>(null);
   const [pedidoParaCertificado, setPedidoParaCertificado] =
@@ -184,7 +257,7 @@ export function PedidosPage() {
         getConfig(),
       ]);
       const sortedPedidos = pedidosData
-        .filter((p: any) => p && p.id)
+        .filter((p: Order) => p && p.id)
         .sort(
           (a: Order, b: Order) =>
             getDateSeconds(b.createdAt) - getDateSeconds(a.createdAt)
@@ -193,6 +266,7 @@ export function PedidosPage() {
       setPedidos(sortedPedidos);
       if (configData) setConfig(configData);
     } catch (err) {
+      console.error("Erro ao carregar dados dos pedidos:", err);
       setError('Falha ao carregar dados.');
     } finally {
       setLoading(false);
@@ -214,6 +288,7 @@ export function PedidosPage() {
       atualizarEstadoPedido(pedidoId, novoStatus);
       toast.success('Status atualizado!', { id: tid });
     } catch (err) {
+      console.error("Erro ao atualizar status:", err);
       toast.error('Erro ao atualizar.', { id: tid });
     } finally {
       setUpdatingId(null);
@@ -228,12 +303,13 @@ export function PedidosPage() {
       setPedidos((prev) => prev.filter((p) => p.id !== id));
       toast.success('Pedido excluído!');
     } catch (error) {
+      console.error("Erro ao excluir pedido:", error);
       toast.error('Erro ao excluir.');
     }
   };
 
   const handlePrintCertificado = useReactToPrint({
-    contentRef: certificadoRef,
+    content: () => certificadoRef.current,
     documentTitle: 'Certificado_Garantia',
   });
 
@@ -391,7 +467,7 @@ export function PedidosPage() {
               />
               <select
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value as any)}
+                onChange={(e) => setDateFilter(e.target.value as TimeRange)}
                 className="w-full pl-10 pr-8 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-600 outline-none appearance-none cursor-pointer"
               >
                 <option value="all">Todo o período</option>
@@ -569,14 +645,7 @@ export function PedidosPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         pedido={pedidoSelecionado}
-        onUpdate={(novoStatus: string) => {
-          if (pedidoSelecionado) {
-            atualizarEstadoPedido(
-              pedidoSelecionado.id,
-              novoStatus as OrderStatus
-            );
-          }
-        }}
+        onUpdate={() => carregarDados(true)}
       />
 
       <CertificadoImpressao

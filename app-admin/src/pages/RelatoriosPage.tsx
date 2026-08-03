@@ -5,26 +5,20 @@ import {
   Package,
   AlertTriangle,
   TrendingUp,
+  DollarSign,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { getAdminProdutos } from '../services/apiService';
+import { ProdutoAdmin } from '../types';
 
 // Tipos
-interface Produto {
-  id: string;
-  name: string;
-  quantity: number;
-  salePrice: number;
-  [key: string]: any; // Permite outras propriedades que não estamos usando diretamente
-}
-
 interface ResumoEstoque {
   totalItens: number;
   valorTotal: number;
   produtosZerados: number;
 }
 
-interface ProdutoCurva extends Produto {
+interface ProdutoCurva extends ProdutoAdmin {
   valorEstoque: number;
   classificacao: 'A' | 'B' | 'C';
 }
@@ -34,16 +28,17 @@ const formatCurrency = (val: number): string =>
   val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function RelatoriosPage() {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function carregarDados() {
       try {
         setLoading(true);
-        const data: Produto[] = await getAdminProdutos();
+        const data: ProdutoAdmin[] = await getAdminProdutos();
         setProdutos(data);
       } catch (e) {
+        console.error("Erro ao carregar dados para relatórios:", e);
         toast.error('Erro ao carregar dados.');
       } finally {
         setLoading(false);
@@ -52,7 +47,6 @@ export function RelatoriosPage() {
     carregarDados();
   }, []);
 
-  // --- CÁLCULOS (Engine de Relatórios) ---
   const { curvaABC, resumoEstoque } = useMemo(() => {
     if (produtos.length === 0) {
       return {
@@ -61,7 +55,6 @@ export function RelatoriosPage() {
       };
     }
 
-    // 1. Resumo de Estoque
     const resumo: ResumoEstoque = produtos.reduce(
       (acc, p) => {
         const qtd = Number(p.quantity) || 0;
@@ -74,15 +67,13 @@ export function RelatoriosPage() {
       { totalItens: 0, valorTotal: 0, produtosZerados: 0 }
     );
 
-    // 2. Curva ABC (Simulada baseada em Estoque x Preço, idealmente seria Vendas)
-    // Ordena por valor total em estoque (Potencial de Venda)
     const sorted = [...produtos].sort((a, b) => {
       const valA = (a.salePrice || 0) * (a.quantity || 0);
       const valB = (b.salePrice || 0) * (b.quantity || 0);
       return valB - valA;
     });
 
-    const totalValor = resumo.valorTotal || 1; // Evita divisão por zero
+    const totalValor = resumo.valorTotal || 1;
     let acumulado = 0;
     const abc: ProdutoCurva[] = sorted.map((p) => {
       const valorEstoque = (p.salePrice || 0) * (p.quantity || 0);
@@ -125,7 +116,6 @@ export function RelatoriosPage() {
         </button>
       </div>
 
-      {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
@@ -137,7 +127,7 @@ export function RelatoriosPage() {
             </p>
           </div>
           <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-            <DollarSignIcon />
+            <DollarSign size={24}/>
           </div>
         </div>
 
@@ -170,7 +160,6 @@ export function RelatoriosPage() {
         </div>
       </div>
 
-      {/* Tabela Curva ABC */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b">
           <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -224,21 +213,3 @@ export function RelatoriosPage() {
     </div>
   );
 }
-
-// Icon Helper
-const DollarSignIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <line x1="12" y1="1" x2="12" y2="23"></line>
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-  </svg>
-);

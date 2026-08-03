@@ -5,14 +5,18 @@ import {
   ProdutoAdmin,
   Categoria,
   Fornecedor,
-  PedidoAdmin,
+  Order as PedidoAdmin, // Renomeando para consistência
   Transacao,
   Cupom,
-  Config,
-  CampaignData,
-  CampaignSimulation,
+  ConfigFormData as Config,
   StockAdjustment,
-} from '../types/schemas';
+  StockLog,
+  ProdutoFormData,
+  DashboardStats,
+  DashboardCharts,
+  ABCReport,
+} from '../types';
+
 
 // ============================================================================
 // CONFIGURAÇÃO DA CONEXÃO
@@ -23,7 +27,6 @@ export const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// Interceptor para injetar o Token do Firebase em todas as chamadas
 apiClient.interceptors.request.use(
   async (config) => {
     const user = auth.currentUser;
@@ -60,7 +63,6 @@ export const uploadImage = async (file: File): Promise<string> => {
 // ============================================================================
 export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
   const { data } = await apiClient.get<ProdutoAdmin[]>('/admin/products');
-  // Mapeamento de segurança para garantir integridade da UI
   return data.map((prod) => ({
     ...prod,
     variantes: prod.variantes || [],
@@ -69,14 +71,14 @@ export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
   }));
 };
 export const createAdminProduto = async (
-  productData: Omit<ProdutoAdmin, 'id' | 'createdAt' | 'updatedAt'>
+  productData: ProdutoFormData
 ): Promise<ProdutoAdmin> => {
   const { data } = await apiClient.post('/admin/products', productData);
   return data;
 };
 export const updateAdminProduto = async (
   id: string,
-  productData: Partial<ProdutoAdmin>
+  productData: Partial<ProdutoFormData>
 ): Promise<ProdutoAdmin> => {
   const { data } = await apiClient.put(`/admin/products/${id}`, productData);
   return data;
@@ -85,7 +87,7 @@ export const deleteAdminProduto = async (id: string): Promise<void> => {
   await apiClient.delete(`/admin/products/${id}`);
 };
 export const importProductsBulk = async (
-  products: any[]
+  products: Partial<ProdutoAdmin>[]
 ): Promise<{ count: number }> => {
   const { data } = await apiClient.post('/admin/products/bulk', products);
   return data;
@@ -150,7 +152,7 @@ export const adjustStock = async (
   );
   return data;
 };
-export const getProductLogs = async (productId: string): Promise<any[]> => {
+export const getProductLogs = async (productId: string): Promise<StockLog[]> => {
   const { data } = await apiClient.get(`/admin/inventory/logs/${productId}`);
   return data;
 };
@@ -204,7 +206,7 @@ export const getCoupons = async (): Promise<Cupom[]> => {
   return data;
 };
 export const createCoupon = async (
-  couponData: Omit<Cupom, 'id'>
+  couponData: Omit<Cupom, 'id' | 'status'>
 ): Promise<Cupom> => {
   const { data } = await apiClient.post('/admin/coupons', couponData);
   return data;
@@ -214,37 +216,41 @@ export const deleteCoupon = async (id: string): Promise<void> => {
 };
 
 export const simulateCampaign = async (
-  campaignData: CampaignData
-): Promise<CampaignSimulation> => {
+  discount: number,
+  minMarkup: number
+): Promise<any> => { // TODO: Criar tipo para CampaignSimulation
   const { data } = await apiClient.post(
     '/admin/campaign/simulate',
-    campaignData
+    { discount, minMarkup }
   );
   return data;
 };
 export const applyCampaign = async (
-  campaignData: CampaignData & { campaignName: string }
+  discount: number,
+  minMarkup: number,
+  campaignName: string
 ): Promise<{ count: number }> => {
-  const { data } = await apiClient.post('/admin/campaign/apply', campaignData);
+  const { data } = await apiClient.post('/admin/campaign/apply', { discount, minMarkup, campaignName });
   return data;
 };
-export const revertCampaign = async (): Promise<{ count: number }> => {
+export const revertCampaign = async (): Promise<{ message: string }> => {
   const { data } = await apiClient.post('/admin/campaign/revert');
   return data;
 };
 
+
 // ============================================================================
 // DOMÍNIO: DASHBOARD & CONFIGURAÇÕES GLOBAIS
 // ============================================================================
-export const getDashboardStats = async (): Promise<any> => {
+export const getDashboardStats = async (): Promise<DashboardStats> => {
   const { data } = await apiClient.get('/admin/dashboard-stats');
   return data;
 };
-export const getDashboardCharts = async (): Promise<any> => {
+export const getDashboardCharts = async (): Promise<DashboardCharts> => {
   const { data } = await apiClient.get('/admin/dashboard-charts');
   return data;
 };
-export const getABCReport = async (): Promise<any> => {
+export const getABCReport = async (): Promise<ABCReport> => {
   const { data } = await apiClient.get('/admin/reports/abc');
   return data;
 };

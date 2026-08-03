@@ -29,7 +29,7 @@ export function VariantsManager({ variantes, onChange }: VariantsManagerProps) {
   const handleChange = (
     index: number,
     field: keyof ProdutoVariante,
-    value: any
+    value: string | number | boolean
   ) => {
     const novas = [...variantes];
     novas[index] = { ...novas[index], [field]: value };

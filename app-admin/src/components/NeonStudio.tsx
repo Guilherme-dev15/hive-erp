@@ -21,7 +21,7 @@ import {
   getCategories,
   getFornecedores,
 } from '../services/apiService';
-import { ProdutoVariante } from '../types';
+import { ProdutoVariante, Category, Fornecedor } from '../types';
 
 interface NeonStudioProps {
   isOpen: boolean;
@@ -29,12 +29,41 @@ interface NeonStudioProps {
   onSuccess: () => void;
 }
 
+interface ItemData {
+  description: string;
+  price: string;
+  cm: string;
+  mm: string;
+  categoryId: string;
+  subcategory: string;
+  supplierId: string;
+  stock: string;
+  variantes: ProdutoVariante[];
+}
+
+interface ItemEdit {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+interface StudioItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  selected: boolean;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  data: ItemData;
+  edit: ItemEdit;
+}
+
 export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
-  const [items, setItems] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [items, setItems] = useState<StudioItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Fornecedor[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [] = useState({ current: 0, total: 0 });
+  const [setActiveSupplierRules] = useState<any>(null); // TODO: Type this based on supplier rules definition
+  const [globalGramPrice, setGlobalGramPrice] = useState<number>(0);
 
   // Configurações Globais
   const [globalSettings, setGlobalSettings] = useState({
@@ -47,8 +76,6 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
 
   // Calculadora de Metal
   const [showMetalCalc, setShowMetalCalc] = useState(false);
-  const [, setActiveSupplierRules] = useState<any>(null);
-  const [globalGramPrice, setGlobalGramPrice] = useState<number>(0);
 
   // Inicialização
   useEffect(() => {
@@ -91,7 +118,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
-    const newItems = files.map((file) => ({
+    const newItems: StudioItem[] = files.map((file) => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
       previewUrl: URL.createObjectURL(file),
@@ -106,7 +133,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
         subcategory: globalSettings.subcategory,
         supplierId: globalSettings.supplierId,
         stock: globalSettings.stock,
-        variantes: [] as ProdutoVariante[],
+        variantes: [],
       },
       edit: { scale: 1, x: 0, y: 0 },
     }));
@@ -114,13 +141,13 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   };
 
   // Funções de Update do Item
-  const updateItem = (id: string, field: string, value: any) =>
+  const updateItem = (id: string, field: keyof ItemData, value: string | ProdutoVariante[]) =>
     setItems((prev) =>
       prev.map((i) =>
         i.id === id ? { ...i, data: { ...i.data, [field]: value } } : i
       )
     );
-  const updateEdit = (id: string, field: string, value: any) =>
+  const updateEdit = (id: string, field: keyof ItemEdit, value: number) =>
     setItems((prev) =>
       prev.map((i) =>
         i.id === id ? { ...i, edit: { ...i.edit, [field]: value } } : i
@@ -157,7 +184,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
     itemId: string,
     index: number,
     field: keyof ProdutoVariante,
-    value: any
+    value: string | number | boolean
   ) => {
     setItems((prev) =>
       prev.map((item) => {
@@ -174,7 +201,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
       prev.map((item) => {
         if (item.id !== itemId) return item;
         const novas = item.data.variantes.filter(
-          (_: any, i: number) => i !== index
+          (_: ProdutoVariante, i: number) => i !== index
         );
         return { ...item, data: { ...item.data, variantes: novas } };
       })
@@ -198,7 +225,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   };
 
   // Gerador de Crop Final
-  const generateFinalCrop = async (item: any): Promise<Blob> => {
+  const generateFinalCrop = async (item: StudioItem): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.src = item.previewUrl;
@@ -243,7 +270,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
       return toast.error('Selecione itens para enviar.');
 
     setIsUploading(true);
-    const successList: any[] = [];
+    const successList: object[] = [];
     const activeMarkup = Number(globalSettings.markup) || 2.0;
 
     for (let i = 0; i < toUpload.length; i++) {
@@ -289,7 +316,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
         const finalSalePrice = costPrice * activeMarkup;
 
         // Variantes
-        const variantesCalculadas = item.data.variantes.map((v: any) => {
+        const variantesCalculadas = item.data.variantes.map((v: ProdutoVariante) => {
           let vCusto = 0;
           const vValorInput = Number(v.valor_ajuste) || 0;
 
@@ -312,7 +339,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
           quantity:
             item.data.variantes.length > 0
               ? item.data.variantes.reduce(
-                  (acc: number, v: any) => acc + Number(v.estoque),
+                  (acc: number, v: ProdutoVariante) => acc + Number(v.estoque),
                   0
                 )
               : Number(item.data.stock) || 0,
@@ -336,7 +363,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
           )
         );
       } catch (error) {
-        console.error(error);
+        console.error("Erro ao processar item:", item.id, error);
         setItems((prev) =>
           prev.map((it) =>
             it.id === item.id ? { ...it, status: 'error' } : it
@@ -393,7 +420,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
                     <option value="" className="bg-black">
                       Selecione...
                     </option>
-                    {suppliers.map((s: any) => (
+                    {suppliers.map((s: Fornecedor) => (
                       <option key={s.id} value={s.id} className="bg-black">
                         {s.name}
                       </option>
@@ -543,6 +570,24 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
 }
 
 // --- CARD DO PRODUTO (ATUALIZADO COM CAMPO DE SUBCATEGORIA) ---
+interface ProductCardProps {
+    item: StudioItem;
+    categories: Category[];
+    suppliers: Fornecedor[];
+    onUpdate: (id: string, field: keyof ItemData, value: string | ProdutoVariante[]) => void;
+    onEdit: (id: string, field: keyof ItemEdit, value: number) => void;
+    onToggle: (id: string) => void;
+    onRemove: (id: string) => void;
+    onAddVariante: (itemId: string, type: 'cm' | 'aro') => void;
+    onUpdateVariante: (itemId: string, index: number, field: keyof ProdutoVariante, value: string | number | boolean) => void;
+    onRemoveVariante: (itemId: string, index: number) => void;
+    generateSmartCode: (categoryId: string, supplierId: string) => string;
+    activeMarkup: string;
+    isByWeight: boolean;
+    lotPrice: number;
+}
+
+
 function ProductCard({
   item,
   categories,
@@ -558,7 +603,7 @@ function ProductCard({
   activeMarkup,
   isByWeight,
   lotPrice,
-}: any) {
+}: ProductCardProps) {
   const isSelected = item.selected;
   const smartCodePreview = generateSmartCode(
     item.data.categoryId,
@@ -609,7 +654,7 @@ function ProductCard({
         <CssImageEditor
           src={item.previewUrl}
           edit={item.edit}
-          onChange={(k: string, v: any) => onEdit(item.id, k, v)}
+          onChange={(k: keyof ItemEdit, v: number) => onEdit(item.id, k, v)}
         />
       </div>
 
@@ -766,7 +811,7 @@ function ProductCard({
             className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[9px] text-gray-400 outline-none"
           >
             <option value="">Cat...</option>
-            {categories.map((c: any) => (
+            {categories.map((c: Category) => (
               <option key={c.id} value={c.id} className="bg-black">
                 {c.name}
               </option>
@@ -778,7 +823,7 @@ function ProductCard({
             className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[9px] text-gray-400 outline-none"
           >
             <option value="">Forn...</option>
-            {suppliers.map((s: any) => (
+            {suppliers.map((s: Fornecedor) => (
               <option key={s.id} value={s.id} className="bg-black">
                 {s.name}
               </option>
@@ -791,7 +836,12 @@ function ProductCard({
 }
 
 // EDITOR CSS
-function CssImageEditor({ src, edit, onChange }: any) {
+interface CssImageEditorProps {
+  src: string;
+  edit: ItemEdit;
+  onChange: (key: keyof ItemEdit, value: number) => void;
+}
+function CssImageEditor({ src, edit, onChange }: CssImageEditorProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
   const handleMouseDown = (e: React.MouseEvent) => {
