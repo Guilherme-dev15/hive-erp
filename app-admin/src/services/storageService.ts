@@ -1,15 +1,15 @@
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "./firebase/firebaseConfig";
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from './firebase/firebaseConfig';
 
 export const uploadImageToFirebase = async (
   file: File,
-  folder: string = "produtos",
+  folder: string = 'produtos'
 ): Promise<string> => {
-  if (!file) throw new Error("Nenhum ficheiro fornecido.");
+  if (!file) throw new Error('Nenhum ficheiro fornecido.');
 
   // 1. Cria um nome único para o ficheiro (timestamp + nome original limpo)
   // Ex: 1715000000000_anel-prata.jpg
-  const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+  const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
   const fileName = `${Date.now()}_${cleanName}`;
 
   // 2. Cria a referência (o caminho onde vai ficar salvo no Google)
@@ -24,7 +24,7 @@ export const uploadImageToFirebase = async (
 
     return downloadURL;
   } catch (error) {
-    console.error("Erro no upload:", error);
-    throw new Error("Falha ao fazer upload da imagem para o Firebase.");
+    console.error('Erro no upload:', error);
+    throw new Error('Falha ao fazer upload da imagem para o Firebase.');
   }
 };

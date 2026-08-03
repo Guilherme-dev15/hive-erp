@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "react-hot-toast";
+import React, { useEffect, useMemo, useState } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import {
   X,
   DollarSign,
@@ -22,26 +22,26 @@ import {
   Layers,
   RefreshCw,
   TrendingUp,
-} from "lucide-react";
-import { z } from "zod";
+} from 'lucide-react';
+import { z } from 'zod';
 
-import { CategoryModal } from "./CategoryModal";
+import { CategoryModal } from './CategoryModal';
 import {
   type Fornecedor,
   type ProdutoAdmin,
   type Category,
   type ProdutoVariante,
-} from "../types";
-import { produtoSchema, type ConfigFormData } from "../types/schemas";
+} from '../types';
+import { produtoSchema, type ConfigFormData } from '../types/schemas';
 import {
   createAdminProduto,
   updateAdminProduto,
   uploadImage,
-} from "../services/apiService";
+} from '../services/apiService';
 
 // --- SCHEMA DE VARIANTES ---
 const varianteSchema = z.object({
-  medida: z.string().min(1, "Obrigatório"),
+  medida: z.string().min(1, 'Obrigatório'),
   valor_ajuste: z.coerce.number(),
   estoque: z.coerce.number(),
   sob_consulta: z.boolean().optional(),
@@ -51,7 +51,7 @@ const varianteSchema = z.object({
 // --- SCHEMA PRINCIPAL ESTENDIDO ---
 const extendedProdutoSchema = produtoSchema.extend({
   subcategory: z.string().optional(),
-  markup: z.coerce.number().min(1, "Mínimo 1.0").optional(),
+  markup: z.coerce.number().min(1, 'Mínimo 1.0').optional(),
   weight: z.coerce.number().optional(),
   gramPrice: z.coerce.number().optional(),
   cm: z.string().optional(),
@@ -63,7 +63,7 @@ type ExtendedProdutoFormData = z.infer<typeof extendedProdutoSchema>;
 
 type ExtendedProdutoAdmin = Omit<
   ProdutoAdmin,
-  "subcategory" | "weight" | "gramPrice"
+  'subcategory' | 'weight' | 'gramPrice'
 > & {
   subcategory?: string;
   weight?: number;
@@ -127,10 +127,10 @@ const FormInput: React.FC<FormInputProps> = ({
           block w-full px-3 py-2.5 bg-white border rounded-xl text-sm font-medium transition-all duration-200
           ${
             error
-              ? "border-red-300 focus:ring-red-200 focus:border-red-500"
-              : "border-gray-200 hover:border-gray-300 focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10"
+              ? 'border-red-300 focus:ring-red-200 focus:border-red-500'
+              : 'border-gray-200 hover:border-gray-300 focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10'
           } 
-          ${icon ? "pl-10" : ""} disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed placeholder:text-gray-400 text-gray-800
+          ${icon ? 'pl-10' : ''} disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed placeholder:text-gray-400 text-gray-800
         `}
       />
     </div>
@@ -183,10 +183,10 @@ const FormSelect: React.FC<FormSelectProps> = ({
           block w-full px-3 py-2.5 bg-white border rounded-xl text-sm font-medium transition-all duration-200 appearance-none
           ${
             error
-              ? "border-red-300 focus:ring-red-200 focus:border-red-500"
-              : "border-gray-200 hover:border-gray-300 focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10"
+              ? 'border-red-300 focus:ring-red-200 focus:border-red-500'
+              : 'border-gray-200 hover:border-gray-300 focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10'
           } 
-          ${icon ? "pl-10" : ""} disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed text-gray-800
+          ${icon ? 'pl-10' : ''} disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed text-gray-800
         `}
       >
         {children}
@@ -236,88 +236,88 @@ export function ProdutoFormModal({
   } = useForm<ExtendedProdutoFormData>({
     resolver: zodResolver(extendedProdutoSchema),
     defaultValues: {
-      name: "",
+      name: '',
       costPrice: 0,
       salePrice: 0,
       markup: 2.0,
       quantity: 0,
-      supplierId: "",
-      category: "",
-      subcategory: "",
-      code: "",
-      imageUrl: "",
-      status: "ativo",
-      description: "",
+      supplierId: '',
+      category: '',
+      subcategory: '',
+      code: '',
+      imageUrl: '',
+      status: 'ativo',
+      description: '',
       weight: 0,
       gramPrice: 0,
-      cm: "",
-      mm: "",
+      cm: '',
+      mm: '',
       variantes: [],
     },
   });
 
-  const custoObs = watch("costPrice");
-  const vendaObs = watch("salePrice");
-  const markupObs = watch("markup");
-  const pesoObs = watch("weight");
-  const gramaObs = watch("gramPrice");
-  const fornecedorObs = watch("supplierId");
-  const variantesObs = watch("variantes");
+  const custoObs = watch('costPrice');
+  const vendaObs = watch('salePrice');
+  const markupObs = watch('markup');
+  const pesoObs = watch('weight');
+  const gramaObs = watch('gramPrice');
+  const fornecedorObs = watch('supplierId');
+  const variantesObs = watch('variantes');
 
   // --- FUNÇÕES DE VARIANTES ---
   const addVariante = () => {
-    const atuais = getValues("variantes") || [];
-    const precoBase = getValues("salePrice") || 0;
-    setValue("variantes", [
+    const atuais = getValues('variantes') || [];
+    const precoBase = getValues('salePrice') || 0;
+    setValue('variantes', [
       ...atuais,
-      { medida: "", valor_ajuste: precoBase, estoque: 1, sob_consulta: false },
+      { medida: '', valor_ajuste: precoBase, estoque: 1, sob_consulta: false },
     ]);
   };
 
   const removeVariante = (index: number) => {
-    const atuais = getValues("variantes") || [];
+    const atuais = getValues('variantes') || [];
     setValue(
-      "variantes",
-      atuais.filter((_, i) => i !== index),
+      'variantes',
+      atuais.filter((_, i) => i !== index)
     );
   };
 
   const updateTotalStock = () => {
-    const atuais = getValues("variantes") || [];
+    const atuais = getValues('variantes') || [];
     const total = atuais.reduce(
       (acc: number, v: { estoque: number }) => acc + (Number(v.estoque) || 0),
-      0,
+      0
     );
     if (total > 0) {
-      setValue("quantity", total);
+      setValue('quantity', total);
       toast.success(`Estoque geral atualizado para ${total} un.`);
     }
   };
 
   const applyBasePriceToAll = () => {
-    const currentPrice = getValues("salePrice") || 0;
-    const currentVariants = getValues("variantes") || [];
+    const currentPrice = getValues('salePrice') || 0;
+    const currentVariants = getValues('variantes') || [];
 
     if (currentVariants.length === 0)
-      return toast.error("Adicione variantes primeiro.");
+      return toast.error('Adicione variantes primeiro.');
 
     const updatedVariants = currentVariants.map((v) => ({
       ...v,
       valor_ajuste: currentPrice,
     }));
 
-    setValue("variantes", updatedVariants);
+    setValue('variantes', updatedVariants);
     toast.success(
-      `Preço R$ ${currentPrice.toFixed(2)} aplicado em todas as grades!`,
+      `Preço R$ ${currentPrice.toFixed(2)} aplicado em todas as grades!`
     );
   };
 
   const generateAutoCode = (catName: string, supId: string) => {
-    const catPart = catName ? catName.substring(0, 3).toUpperCase() : "GEN";
+    const catPart = catName ? catName.substring(0, 3).toUpperCase() : 'GEN';
     const supObj = fornecedores.find((f) => f.id === supId);
-    let supPart = "XX";
+    let supPart = 'XX';
     if (supObj) {
-      const clean = supObj.name.replace(/[^a-zA-Z]/g, "");
+      const clean = supObj.name.replace(/[^a-zA-Z]/g, '');
       supPart = clean.substring(0, 2).toUpperCase();
     }
     const random = Math.floor(Math.random() * 9000) + 1000;
@@ -334,9 +334,9 @@ export function ProdutoFormModal({
         if (
           !isEditMode &&
           forn.rules.lots.length > 0 &&
-          !getValues("gramPrice")
+          !getValues('gramPrice')
         ) {
-          setValue("gramPrice", forn.rules.lots[0].price);
+          setValue('gramPrice', forn.rules.lots[0].price);
         }
       } else {
         setActiveSupplierRules(null);
@@ -351,8 +351,8 @@ export function ProdutoFormModal({
     const g = Number(gramaObs) || 0;
     if (p > 0 && g > 0) {
       const custoCalculado = parseFloat((p * g).toFixed(2));
-      if (Math.abs(Number(getValues("costPrice")) - custoCalculado) > 0.01) {
-        setValue("costPrice", custoCalculado);
+      if (Math.abs(Number(getValues('costPrice')) - custoCalculado) > 0.01) {
+        setValue('costPrice', custoCalculado);
       }
     }
   }, [pesoObs, gramaObs, showMetalCalc, setValue, getValues]);
@@ -362,8 +362,8 @@ export function ProdutoFormModal({
     const m = Number(markupObs) || 0;
     if (c > 0 && m > 0) {
       const vendaCalculada = parseFloat((c * m).toFixed(2));
-      if (Math.abs(Number(getValues("salePrice")) - vendaCalculada) > 0.01) {
-        setValue("salePrice", vendaCalculada);
+      if (Math.abs(Number(getValues('salePrice')) - vendaCalculada) > 0.01) {
+        setValue('salePrice', vendaCalculada);
       }
     }
   }, [custoObs, markupObs, setValue, getValues]);
@@ -397,7 +397,7 @@ export function ProdutoFormModal({
         reset({
           name: p.name,
           category: p.category,
-          subcategory: p.subcategory || "",
+          subcategory: p.subcategory || '',
           markup: parseFloat(mk.toFixed(2)) || 2.0,
           weight: p.weight || 0,
           gramPrice: p.gramPrice || 0,
@@ -409,26 +409,26 @@ export function ProdutoFormModal({
           imageUrl: p.imageUrl,
           status: p.status,
           description: p.description,
-          cm: p.cm || "",
-          mm: p.mm || "",
+          cm: p.cm || '',
+          mm: p.mm || '',
           variantes: p.variantes || [],
         });
         setPreviewImage(p.imageUrl || null);
       } else {
         reset({
-          name: "",
+          name: '',
           costPrice: 0,
           salePrice: 0,
           markup: 2.0,
           quantity: 0,
-          category: "",
-          subcategory: "",
-          code: "",
-          status: "ativo",
+          category: '',
+          subcategory: '',
+          code: '',
+          status: 'ativo',
           weight: 0,
           gramPrice: 0,
-          cm: "",
-          mm: "",
+          cm: '',
+          mm: '',
           variantes: [],
         });
         setPreviewImage(null);
@@ -442,12 +442,12 @@ export function ProdutoFormModal({
     if (!file) return;
     setIsUploading(true);
     try {
-      const url = await uploadImage(file, "products");
+      const url = await uploadImage(file, 'products');
       setPreviewImage(URL.createObjectURL(file));
-      setValue("imageUrl", url);
-      toast.success("Foto carregada!");
+      setValue('imageUrl', url);
+      toast.success('Foto carregada!');
     } catch {
-      toast.error("Erro no upload");
+      toast.error('Erro no upload');
     } finally {
       setIsUploading(false);
     }
@@ -455,12 +455,12 @@ export function ProdutoFormModal({
 
   const onSubmit: SubmitHandler<ExtendedProdutoFormData> = async (data) => {
     try {
-      let finalDesc = data.description || "";
+      let finalDesc = data.description || '';
       const specs = [];
       if (data.cm) specs.push(`Comprimento: ${data.cm}cm`);
       if (data.mm) specs.push(`Espessura: ${data.mm}mm`);
       if (specs.length > 0) {
-        const specsStr = specs.join(" | ");
+        const specsStr = specs.join(' | ');
         if (!finalDesc.includes(specsStr))
           finalDesc = `${finalDesc}\n${specsStr}`.trim();
       }
@@ -468,15 +468,15 @@ export function ProdutoFormModal({
       let finalCode = data.code;
       if (!isEditMode && !finalCode) {
         finalCode = generateAutoCode(
-          data.category || "",
-          data.supplierId || "",
+          data.category || '',
+          data.supplierId || ''
         );
       }
 
       const payload = {
         ...data,
         code: finalCode,
-        subcategory: data.subcategory?.toUpperCase() || "",
+        subcategory: data.subcategory?.toUpperCase() || '',
         weight: Number(data.weight),
         gramPrice: Number(data.gramPrice),
         description: finalDesc,
@@ -498,13 +498,11 @@ export function ProdutoFormModal({
       onProdutoSalvo(res); // Envia o objeto completo para a lista atualizar
       onClose();
       toast.success(
-        isEditMode
-          ? "Produto Atualizado!"
-          : `Produto Criado! SKU: ${finalCode}`,
+        isEditMode ? 'Produto Atualizado!' : `Produto Criado! SKU: ${finalCode}`
       );
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao salvar.");
+      toast.error('Erro ao salvar.');
     }
   };
 
@@ -529,7 +527,7 @@ export function ProdutoFormModal({
             <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-white sticky top-0 z-20">
               <div>
                 <h2 className="text-2xl font-black text-[#4a4a4a] tracking-tight flex items-center gap-3">
-                  {isEditMode ? "Editar Produto" : "Novo Cadastro"}
+                  {isEditMode ? 'Editar Produto' : 'Novo Cadastro'}
                   {isEditMode && produtoParaEditar && (
                     <span className="text-[10px] font-bold text-[#d19900] bg-yellow-50 px-2 py-1 rounded-lg uppercase tracking-widest">
                       ID: {produtoParaEditar.id.slice(0, 6)}
@@ -550,7 +548,7 @@ export function ProdutoFormModal({
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <form onSubmit={handleSubmit(onSubmit)} className="p-8">
-                <input type="hidden" {...register("imageUrl")} />
+                <input type="hidden" {...register('imageUrl')} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                   {/* --- COLUNA ESQUERDA: DADOS --- */}
@@ -615,7 +613,7 @@ export function ProdutoFormModal({
                           </label>
                           <div className="flex gap-2">
                             <select
-                              {...register("category")}
+                              {...register('category')}
                               className="block w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none text-gray-700"
                             >
                               <option value="">Selecione...</option>
@@ -696,18 +694,18 @@ export function ProdutoFormModal({
                         <button
                           type="button"
                           onClick={() => setShowMetalCalc(!showMetalCalc)}
-                          className={`text-[9px] font-black uppercase px-3 py-1 rounded-full transition-all ${showMetalCalc ? "bg-purple-600 text-white shadow-lg shadow-purple-200" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
+                          className={`text-[9px] font-black uppercase px-3 py-1 rounded-full transition-all ${showMetalCalc ? 'bg-purple-600 text-white shadow-lg shadow-purple-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
                         >
                           {showMetalCalc
-                            ? "Modo Peso Ativado"
-                            : "Ativar Modo Peso"}
+                            ? 'Modo Peso Ativado'
+                            : 'Ativar Modo Peso'}
                         </button>
                       </div>
                       <AnimatePresence>
                         {showMetalCalc && (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
+                            animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                           >
@@ -721,7 +719,7 @@ export function ProdutoFormModal({
                                     className="w-full text-xs border-purple-200 rounded-xl p-2.5 font-bold text-purple-900 bg-white outline-none focus:ring-4 focus:ring-purple-500/10"
                                     onChange={(e) => {
                                       const v = Number(e.target.value);
-                                      if (v > 0) setValue("gramPrice", v);
+                                      if (v > 0) setValue('gramPrice', v);
                                     }}
                                   >
                                     <option value="">
@@ -785,7 +783,7 @@ export function ProdutoFormModal({
                             <input
                               type="number"
                               step="0.1"
-                              {...register("markup")}
+                              {...register('markup')}
                               className="block w-full px-3 py-2.5 bg-white border border-gray-200 hover:border-gray-300 rounded-xl text-sm font-medium text-center focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none transition-all pl-9 text-gray-800"
                             />
                           </div>
@@ -797,7 +795,7 @@ export function ProdutoFormModal({
                           <input
                             type="number"
                             step="0.01"
-                            {...register("salePrice")}
+                            {...register('salePrice')}
                             className="block w-full px-3 py-2.5 bg-white border border-gray-300 hover:border-gray-400 rounded-xl text-sm font-black text-right text-[#4a4a4a] focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none transition-all"
                           />
                         </div>
@@ -813,7 +811,7 @@ export function ProdutoFormModal({
                         </div>
                         <div className="text-right">
                           <span
-                            className={`text-sm font-black px-2 py-1 rounded-md ${indicadores.lucro > 0 ? "text-green-700 bg-green-50" : "text-red-600 bg-red-50"}`}
+                            className={`text-sm font-black px-2 py-1 rounded-md ${indicadores.lucro > 0 ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}
                           >
                             R$ {indicadores.lucro.toFixed(2)}
                           </span>
@@ -864,7 +862,7 @@ export function ProdutoFormModal({
                         className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-xl flex items-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200"
                         title="Copia o 'Preço de Venda Final' para todas as variantes"
                       >
-                        <RefreshCw size={14} /> Aplicar Preço Base (R${" "}
+                        <RefreshCw size={14} /> Aplicar Preço Base (R${' '}
                         {Number(vendaObs).toFixed(2)}) em Tudo
                       </button>
 
@@ -963,7 +961,7 @@ export function ProdutoFormModal({
                     Descrição Técnica e Notas
                   </label>
                   <textarea
-                    {...register("description")}
+                    {...register('description')}
                     rows={3}
                     className="w-full bg-white border border-gray-200 rounded-2xl p-4 text-sm font-medium focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10 outline-none resize-none transition-all text-gray-700"
                     placeholder="Especifique materiais, banho, tamanho e outros detalhes cruciais..."
@@ -988,7 +986,7 @@ export function ProdutoFormModal({
                     ) : (
                       <Plus size={18} className="text-[#d19900]" />
                     )}
-                    {isEditMode ? "Atualizar Produto" : "Salvar Produto"}
+                    {isEditMode ? 'Atualizar Produto' : 'Salvar Produto'}
                   </button>
                 </div>
               </form>
@@ -1001,7 +999,7 @@ export function ProdutoFormModal({
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         setCategories={setCategories}
-        onCategoryCreated={(cat) => setValue("category", cat.name)}
+        onCategoryCreated={(cat) => setValue('category', cat.name)}
       />
     </AnimatePresence>
   );

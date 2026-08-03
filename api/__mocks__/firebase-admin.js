@@ -13,7 +13,7 @@ const mockDoc = {
   update: mockFirestore.update,
   collection: mockFirestore.collection,
   // Adiciona um ID para referências
-  id: 'mock-doc-id'
+  id: 'mock-doc-id',
 };
 
 mockFirestore.collection.mockReturnValue(mockFirestore);
@@ -37,7 +37,9 @@ const admin = {
   },
   firestore: () => mockFirestore,
   auth: () => ({
-    verifyIdToken: jest.fn(() => Promise.resolve({ uid: 'test-uid', email: 'test@test.com' })),
+    verifyIdToken: jest.fn(() =>
+      Promise.resolve({ uid: 'test-uid', email: 'test@test.com' })
+    ),
   }),
 };
 

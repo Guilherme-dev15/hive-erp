@@ -20,7 +20,7 @@ export function useProducts() {
       const data = await getAdminProdutos();
       setProducts(data);
     } catch (error) {
-      toast.error("Erro ao carregar produtos.");
+      toast.error('Erro ao carregar produtos.');
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -36,10 +36,10 @@ export function useProducts() {
     try {
       const newProduct = await createAdminProduto(data);
       setProducts((prev) => [newProduct, ...prev]); // Adiciona no topo da lista
-      toast.success("Produto criado com sucesso!");
+      toast.success('Produto criado com sucesso!');
       return newProduct;
     } catch (error) {
-      toast.error("Erro ao criar produto.");
+      toast.error('Erro ao criar produto.');
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -53,10 +53,10 @@ export function useProducts() {
       setProducts((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...updatedProduct } : p))
       );
-      toast.success("Produto atualizado!");
+      toast.success('Produto atualizado!');
       return updatedProduct;
     } catch (error) {
-      toast.error("Erro ao atualizar produto.");
+      toast.error('Erro ao atualizar produto.');
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -67,9 +67,9 @@ export function useProducts() {
     try {
       await deleteAdminProduto(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
-      toast.success("Produto removido.");
+      toast.success('Produto removido.');
     } catch (error) {
-      toast.error("Erro ao remover produto.");
+      toast.error('Erro ao remover produto.');
       console.error(error);
     }
   };
@@ -78,10 +78,10 @@ export function useProducts() {
     setIsSubmitting(true);
     try {
       await importProductsBulk(productsData);
-      toast.success("Produtos importados em massa!");
+      toast.success('Produtos importados em massa!');
       await fetchProducts(); // Recarrega a lista após importação
     } catch (error) {
-      toast.error("Erro na importação em massa.");
+      toast.error('Erro na importação em massa.');
       console.error(error);
     } finally {
       setIsSubmitting(false);

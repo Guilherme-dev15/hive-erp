@@ -1,5 +1,5 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
 
 // Inicializa o app do Firebase Admin uma única vez.
 if (admin.apps.length === 0) {
@@ -12,8 +12,9 @@ const db = admin.firestore();
  * Atualiza as estatísticas agregadas do dashboard de um usuário.
  * Acionada sempre que um pedido é criado, atualizado ou deletado.
  */
-exports.updateDashboardStats = functions.region('southamerica-east1')
-  .firestore.document("orders/{orderId}")
+exports.updateDashboardStats = functions
+  .region('southamerica-east1')
+  .firestore.document('orders/{orderId}')
   .onWrite(async (change, context) => {
     const orderId = context.params.orderId;
     console.log(`Processando mudança no pedido: ${orderId}`);
@@ -23,24 +24,27 @@ exports.updateDashboardStats = functions.region('southamerica-east1')
 
     // Se não há dados antes nem depois (caso raro), não faz nada.
     if (!dataAntes && !dataDepois) {
-      console.log("Nenhum dado no pedido. Encerrando função.");
+      console.log('Nenhum dado no pedido. Encerrando função.');
       return null;
     }
 
     // Determina o userId (do estado novo ou antigo)
     const userId = (dataDepois || dataAntes).userId;
     if (!userId) {
-      console.log("Pedido sem userId. Não é possível atualizar estatísticas.");
+      console.log('Pedido sem userId. Não é possível atualizar estatísticas.');
       return null;
     }
 
-    const statsRef = db.collection("dashboard_stats").doc(userId);
+    const statsRef = db.collection('dashboard_stats').doc(userId);
 
     // Determina o valor a ser incrementado/decrementado
     let faturamentoChange = 0;
     let pedidosChange = 0;
 
-    const isPago = (status) => ['pago', 'paid', 'approved', 'sep', 'env'].some(s => (status || '').toLowerCase().includes(s));
+    const isPago = (status) =>
+      ['pago', 'paid', 'approved', 'sep', 'env'].some((s) =>
+        (status || '').toLowerCase().includes(s)
+      );
 
     const statusAntes = dataAntes ? isPago(dataAntes.status) : false;
     const statusDepois = dataDepois ? isPago(dataDepois.status) : false;
@@ -50,33 +54,36 @@ exports.updateDashboardStats = functions.region('southamerica-east1')
     // Lógica de incremento/decremento
     if (statusAntes !== statusDepois) {
       // O status de pagamento mudou
-      if (statusDepois) { // Tornou-se pago
+      if (statusDepois) {
+        // Tornou-se pago
         faturamentoChange += valorDepois;
         pedidosChange += 1;
-      } else { // Deixou de ser pago
+      } else {
+        // Deixou de ser pago
         faturamentoChange -= valorAntes;
         pedidosChange -= 1;
       }
     } else if (statusDepois && valorAntes !== valorDepois) {
       // O status continuou pago, mas o valor do pedido mudou
-      faturamentoChange += (valorDepois - valorAntes);
+      faturamentoChange += valorDepois - valorAntes;
     } else if (!dataAntes && dataDepois && statusDepois) {
-        // Pedido criado já como pago
-        faturamentoChange += valorDepois;
-        pedidosChange += 1;
+      // Pedido criado já como pago
+      faturamentoChange += valorDepois;
+      pedidosChange += 1;
     } else if (dataAntes && !dataDepois && statusAntes) {
-        // Pedido pago foi deletado
-        faturamentoChange -= valorAntes;
-        pedidosChange -= 1;
+      // Pedido pago foi deletado
+      faturamentoChange -= valorAntes;
+      pedidosChange -= 1;
     }
 
-
     if (faturamentoChange === 0 && pedidosChange === 0) {
-      console.log("Nenhuma mudança relevante nas estatísticas. Encerrando.");
+      console.log('Nenhuma mudança relevante nas estatísticas. Encerrando.');
       return null;
     }
 
-    console.log(`Mudança a ser aplicada: Faturamento: ${faturamentoChange}, Pedidos: ${pedidosChange}`);
+    console.log(
+      `Mudança a ser aplicada: Faturamento: ${faturamentoChange}, Pedidos: ${pedidosChange}`
+    );
 
     // Executa a atualização dentro de uma transação para segurança
     return db.runTransaction(async (transaction) => {
@@ -84,7 +91,7 @@ exports.updateDashboardStats = functions.region('southamerica-east1')
 
       if (!statsDoc.exists) {
         // Se o documento de estatísticas não existe, cria um novo
-        console.log("Documento de estatísticas não existe. Criando um novo.");
+        console.log('Documento de estatísticas não existe. Criando um novo.');
         transaction.set(statsRef, {
           totalRevenue: faturamentoChange,
           totalOrders: pedidosChange,

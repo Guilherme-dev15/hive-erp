@@ -2,9 +2,9 @@ name: Hive ERP CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build_and_test:
@@ -13,27 +13,27 @@ jobs:
       matrix:
         node-version: [20.x]
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        cache-dependency-path: 'package-lock.json'
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
 
-    - name: Install Dependencies (Root)
-      run: npm install
+      - name: Install Dependencies (Root)
+        run: npm install
 
-    - name: Run Tests (API)
-      run: npm test -w api
+      - name: Run Tests (API)
+        run: npm test -w api
 
-    - name: Build (app-admin)
-      run: npm run build -w app-admin
+      - name: Build (app-admin)
+        run: npm run build -w app-admin
 
-    - name: Build (app-catalogo)
-      run: npm run build -w app-catalogo
+      - name: Build (app-catalogo)
+        run: npm run build -w app-catalogo
 
   deploy:
     needs: build_and_test
@@ -44,23 +44,23 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install Vercel CLI (pinned)
-      run: npm install -g vercel@latest
+      - name: Install Vercel CLI (pinned)
+        run: npm install -g vercel@latest
 
-    - name: Deploy API to Vercel
-      env:
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
-      run: vercel --prod --yes --token "$VERCEL_TOKEN"
+      - name: Deploy API to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
+        run: vercel --prod --yes --token "$VERCEL_TOKEN"
 
-    - name: Deploy app-admin to Vercel
-      env:
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
-      run: vercel --prod --yes --token "$VERCEL_TOKEN"
+      - name: Deploy app-admin to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
+        run: vercel --prod --yes --token "$VERCEL_TOKEN"
 
-    - name: Deploy app-catalogo to Vercel
-      env:
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CATALOGO }}
-      run: vercel --prod --yes --token "$VERCEL_TOKEN"
+      - name: Deploy app-catalogo to Vercel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CATALOGO }}
+        run: vercel --prod --yes --token "$VERCEL_TOKEN"
