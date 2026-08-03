@@ -53,7 +53,10 @@ exports.validateCoupon = async (req, res) => {
         type: cupom.type || 'percentage',
         code: cupom.code
       });
-    } catch (e) { res.status(500).json({ valid: false, message: "Erro interno" }); }
+    } catch (e) {
+      console.error('Erro ao validar cupom:', e);
+      res.status(500).json({ valid: false, message: 'Erro interno' });
+    }
 };
 
 exports.getPublicProducts = async (req, res) => {
@@ -70,7 +73,10 @@ exports.getPublicProducts = async (req, res) => {
         quantity: parseInt(doc.data().quantity || 0)
       }));
       res.json(products);
-    } catch (error) { res.status(500).json([]); }
+    } catch (error) {
+      console.error('Erro ao buscar produtos públicos:', error);
+      res.status(500).json([]);
+    }
 };
 
 exports.getPublicCategories = async (req, res) => {
@@ -80,7 +86,10 @@ exports.getPublicCategories = async (req, res) => {
       if (req.query.storeId) query = query.where('userId', '==', req.query.storeId);
       const s = await query.orderBy('name').get();
       res.json(s.docs.map(d => d.data().name));
-    } catch (e) { res.json([]); }
+    } catch (e) {
+      console.error('Erro ao buscar categorias públicas:', e);
+      res.json([]);
+    }
 };
 
 exports.createOrder = async (req, res) => {
