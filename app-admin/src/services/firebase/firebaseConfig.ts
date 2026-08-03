@@ -1,8 +1,8 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage";
-import { getFirestore } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
+import { getFirestore } from 'firebase/firestore';
+import { getAnalytics } from 'firebase/analytics';
 
 // As chaves agora são lidas de forma segura do ambiente (.env local ou Vercel)
 const firebaseConfig = {
@@ -25,13 +25,14 @@ const requiredVars = [
   'VITE_FIREBASE_APP_ID',
 ];
 
-const missingVars = requiredVars.filter(key => !import.meta.env[key]);
+const missingVars = requiredVars.filter((key) => !import.meta.env[key]);
 
 const placeholderVars = requiredVars
-  .filter(key => import.meta.env[key]) // Apenas as que existem
-  .filter(key =>
-    import.meta.env[key].includes('AIzaSy...') ||
-    import.meta.env[key].includes('seu-projeto')
+  .filter((key) => import.meta.env[key]) // Apenas as que existem
+  .filter(
+    (key) =>
+      import.meta.env[key].includes('AIzaSy...') ||
+      import.meta.env[key].includes('seu-projeto')
   );
 
 if (missingVars.length > 0 || placeholderVars.length > 0) {
