@@ -12,7 +12,9 @@ export function LoginPage() {
           <div className="w-16 h-16 bg-dourado rounded-full flex items-center justify-center text-carvao font-bold text-3xl mb-4">
             H
           </div>
-          <h1 className="text-2xl font-bold text-carvao">Bem-vindo ao HIVE ERP</h1>
+          <h1 className="text-2xl font-bold text-carvao">
+            Bem-vindo ao HIVE ERP
+          </h1>
           <p className="text-gray-600 mt-2">
             Faça login para gerenciar seu negócio.
           </p>

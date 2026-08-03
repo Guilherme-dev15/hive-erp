@@ -13,7 +13,7 @@ export interface ProdutoCatalogo {
   imageUrl?: string;
   quantity?: number;
   subcategory?: string;
-  promotionalPrice?: number; 
+  promotionalPrice?: number;
   isOnSale?: boolean;
 }
 

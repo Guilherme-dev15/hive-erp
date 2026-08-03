@@ -5,25 +5,25 @@ import {
   getDocs,
   writeBatch,
   doc,
-} from "firebase/firestore";
-import { db, auth } from "./firebaseConfig";
+} from 'firebase/firestore';
+import { db, auth } from './firebaseConfig';
 
 export const updateMarkupViaFirebase = async (
   newMarkup: number,
-  category: string,
+  category: string
 ) => {
   try {
     const user = auth.currentUser;
-    if (!user) throw new Error("Usuário não autenticado");
+    if (!user) throw new Error('Usuário não autenticado');
 
     const batch = writeBatch(db);
-    const productsRef = collection(db, "products");
+    const productsRef = collection(db, 'products');
 
     // Busca restrita e segura
     const q = query(
       productsRef,
-      where("category", "==", category),
-      where("userId", "==", user.uid),
+      where('category', '==', category),
+      where('userId', '==', user.uid)
     );
 
     const snapshot = await getDocs(q);
@@ -31,7 +31,7 @@ export const updateMarkupViaFirebase = async (
 
     snapshot.forEach((productDoc) => {
       const data = productDoc.data();
-      const docRef = doc(db, "products", productDoc.id);
+      const docRef = doc(db, 'products', productDoc.id);
 
       // Mantém o preço antigo como segurança caso nenhuma regra bata
       let newSalePrice = data.salePrice;
@@ -65,22 +65,22 @@ export const updateMarkupViaFirebase = async (
     await batch.commit();
     return updatedCount;
   } catch (error) {
-    console.error("Falha crítica no Batch do Firestore:", error);
+    console.error('Falha crítica no Batch do Firestore:', error);
     throw error;
   }
 };
 
 export const updateStatusEmMassa = async (
   productIds: string[], // Agora recebemos um array com os IDs selecionados
-  novoStatus: "ativo" | "inativo", // O Typescript garante que só aceitaremos essas duas palavras
+  novoStatus: 'ativo' | 'inativo' // O Typescript garante que só aceitaremos essas duas palavras
 ) => {
   try {
     const user = auth.currentUser;
-    if (!user) throw new Error("Usuário não autenticado");
+    if (!user) throw new Error('Usuário não autenticado');
 
     if (productIds.length === 0) return 0;
     if (productIds.length > 500) {
-      throw new Error("O limite do Firebase é de 500 atualizações por vez.");
+      throw new Error('O limite do Firebase é de 500 atualizações por vez.');
     }
 
     const batch = writeBatch(db);
@@ -88,7 +88,7 @@ export const updateStatusEmMassa = async (
     // Iteramos diretamente sobre os IDs que o React nos passou
     productIds.forEach((id) => {
       // Como já temos o ID, vamos direto no "endereço" do documento
-      const docRef = doc(db, "products", id);
+      const docRef = doc(db, 'products', id);
 
       // Adicionamos no lote a instrução para mudar o status
       batch.update(docRef, {
@@ -101,7 +101,7 @@ export const updateStatusEmMassa = async (
     await batch.commit();
     return productIds.length;
   } catch (error) {
-    console.error("Falha ao atualizar status em lote:", error);
+    console.error('Falha ao atualizar status em lote:', error);
     throw error;
   }
 };

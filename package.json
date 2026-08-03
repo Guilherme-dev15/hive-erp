@@ -11,10 +11,14 @@
     "dev": "npm run dev --workspace=app-admin",
     "build": "npm run build --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:check": "eslint . --ext .js,.jsx",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "@typescript-eslint/eslint-plugin": "^8.66.0",
+    "@typescript-eslint/parser": "^8.66.0",
     "typescript": "^5.5.3"
   }
 }

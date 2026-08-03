@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart,
   Package,
@@ -12,15 +12,15 @@ import {
   Loader2,
   User,
   CheckCircle,
-} from "lucide-react";
-import { toast } from "react-hot-toast";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements } from "@stripe/react-stripe-js";
+} from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 
-import { ItemCarrinho, ConfigPublica } from "../types";
-import { saveOrder, checkCoupon } from "../services/api";
-import { formatCurrency } from "../utils/format";
-import { CheckoutForm } from "./CheckoutForm";
+import { ItemCarrinho, ConfigPublica } from '../types';
+import { saveOrder, checkCoupon } from '../services/api';
+import { formatCurrency } from '../utils/format';
+import { CheckoutForm } from './CheckoutForm';
 
 // Carrega o Stripe usando a chave pública do .env
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -44,12 +44,12 @@ export function ModalCarrinho({
   whatsappNumber,
   config,
 }: ModalCarrinhoProps) {
-  const [nome, setNome] = useState("");
-  const [tel, setTel] = useState("");
-  const [obs, setObs] = useState("");
+  const [nome, setNome] = useState('');
+  const [tel, setTel] = useState('');
+  const [obs, setObs] = useState('');
 
   // Cupom
-  const [couponCode, setCouponCode] = useState("");
+  const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
     discountValue: number;
@@ -62,22 +62,22 @@ export function ModalCarrinho({
 
   // --- STRIPE STATES ---
   const [showPayment, setShowPayment] = useState(false);
-  const [clientSecret, setClientSecret] = useState("");
+  const [clientSecret, setClientSecret] = useState('');
 
   // --- SUCESSO STATES (NOVO) ---
   const [orderSuccess, setOrderSuccess] = useState(false);
-  const [lastOrderId, setLastOrderId] = useState("");
+  const [lastOrderId, setLastOrderId] = useState('');
 
   // --- CÁLCULOS ---
   const { subtotal, desconto, total } = useMemo(() => {
     const sub = itens.reduce(
       (acc, i) => acc + (i.produto.salePrice || 0) * i.quantidade,
-      0,
+      0
     );
     let desc = 0;
 
     if (appliedCoupon) {
-      if (appliedCoupon.type === "percentage") {
+      if (appliedCoupon.type === 'percentage') {
         desc = sub * (appliedCoupon.discountValue / 100);
       } else {
         desc = appliedCoupon.discountValue;
@@ -99,10 +99,10 @@ export function ModalCarrinho({
       setCheckingCoupon(true);
       const storeId =
         config?.storeId ||
-        new URLSearchParams(window.location.search).get("storeId");
+        new URLSearchParams(window.location.search).get('storeId');
 
       if (!storeId) {
-        toast.error("Erro técnico: ID da loja não identificado.");
+        toast.error('Erro técnico: ID da loja não identificado.');
         return;
       }
 
@@ -116,11 +116,11 @@ export function ModalCarrinho({
         });
         toast.success(`Cupom ${couponCode.toUpperCase()} aplicado!`);
       } else {
-        toast.error(res.message || "Cupom inválido.");
+        toast.error(res.message || 'Cupom inválido.');
       }
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao validar cupom.");
+      toast.error('Erro ao validar cupom.');
     } finally {
       setCheckingCoupon(false);
     }
@@ -132,7 +132,7 @@ export function ModalCarrinho({
       if (!item) return prev;
       const nova = item.quantidade + d;
       if (d > 0 && nova > (item.produto.quantity || 999)) {
-        toast.error("Estoque limite atingido");
+        toast.error('Estoque limite atingido');
         return prev;
       }
       if (nova <= 0) {
@@ -172,13 +172,13 @@ export function ModalCarrinho({
   // };
 
   // --- FINALIZAR PEDIDO (SALVAR NO BANCO) ---
-  const saveOrderToDb = async (paymentMethod: "whatsapp" | "credit_card") => {
+  const saveOrderToDb = async (paymentMethod: 'whatsapp' | 'credit_card') => {
     const paymentInfo =
-      paymentMethod === "credit_card"
-        ? " [PAGO VIA CARTÃO]"
-        : " [VIA WHATSAPP]";
+      paymentMethod === 'credit_card'
+        ? ' [PAGO VIA CARTÃO]'
+        : ' [VIA WHATSAPP]';
     const statusInicial =
-      paymentMethod === "credit_card" ? "Em Separação" : "Aguardando Pagamento";
+      paymentMethod === 'credit_card' ? 'Em Separação' : 'Aguardando Pagamento';
 
     const orderPayload: any = {
       customerName: nome,
@@ -193,46 +193,46 @@ export function ModalCarrinho({
       subtotal,
       discount: desconto,
       total,
-      notes: (obs || "") + paymentInfo,
+      notes: (obs || '') + paymentInfo,
       storeId: config.storeId,
       status: statusInicial,
     };
 
-    console.log("📦 Enviando pedido com status:", orderPayload.status);
+    console.log('📦 Enviando pedido com status:', orderPayload.status);
     const res = await saveOrder(orderPayload);
-    return res.id || "NOVO";
+    return res.id || 'NOVO';
   };
 
   const finalizarWhatsApp = async () => {
-    if (!whatsappNumber) return toast.error("Loja sem WhatsApp configurado");
+    if (!whatsappNumber) return toast.error('Loja sem WhatsApp configurado');
     if (!nome.trim() || !tel.trim())
-      return toast.error("Preencha Nome e WhatsApp");
+      return toast.error('Preencha Nome e WhatsApp');
 
     setLoading(true);
     try {
-      const orderId = await saveOrderToDb("whatsapp");
+      const orderId = await saveOrderToDb('whatsapp');
 
       const msg =
         `🧾 *PEDIDO #${String(orderId).substring(0, 5).toUpperCase()}*\n` +
         `👤 ${nome}\n` +
         `📞 ${tel}\n\n` +
-        itens.map((i) => `${i.quantidade}x ${i.produto.name}`).join("\n") +
+        itens.map((i) => `${i.quantidade}x ${i.produto.name}`).join('\n') +
         `\n\nSubtotal: ${formatCurrency(subtotal)}` +
         (desconto > 0
           ? `\nDesconto (${appliedCoupon?.code}): -${formatCurrency(desconto)}`
-          : "") +
+          : '') +
         `\n*Total: ${formatCurrency(total)}*` +
-        (obs ? `\nObs: ${obs}` : "");
+        (obs ? `\nObs: ${obs}` : '');
 
       const linkZap = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
-      window.open(linkZap, "_blank");
+      window.open(linkZap, '_blank');
 
       setCarrinho({});
       onClose();
-      toast.success("Pedido enviado com sucesso!");
+      toast.success('Pedido enviado com sucesso!');
     } catch (e) {
       console.error(e);
-      toast.error("Erro ao processar pedido.");
+      toast.error('Erro ao processar pedido.');
     } finally {
       setLoading(false);
     }
@@ -242,7 +242,7 @@ export function ModalCarrinho({
   const onPaymentSuccess = async () => {
     try {
       // 1. Salva no banco e pega o ID
-      const orderId = await saveOrderToDb("credit_card");
+      const orderId = await saveOrderToDb('credit_card');
 
       // 2. Define o ID e ativa a tela de sucesso
       setLastOrderId(String(orderId));
@@ -253,9 +253,9 @@ export function ModalCarrinho({
 
       // NÃO FECHAMOS O MODAL (onClose) PARA O CLIENTE VER A TELA VERDE
     } catch (error) {
-      console.error("Erro ao salvar pedido pago:", error);
+      console.error('Erro ao salvar pedido pago:', error);
       toast.error(
-        "Pagamento aprovado, mas erro ao salvar pedido. Contate a loja.",
+        'Pagamento aprovado, mas erro ao salvar pedido. Contate a loja.'
       );
     }
   };
@@ -267,7 +267,7 @@ export function ModalCarrinho({
     setTimeout(() => {
       setOrderSuccess(false);
       setShowPayment(false);
-      setClientSecret("");
+      setClientSecret('');
     }, 300);
   };
 
@@ -284,10 +284,10 @@ export function ModalCarrinho({
           />
           <motion.div
             className="fixed inset-y-0 right-0 z-[90] w-full max-w-md bg-white shadow-2xl flex flex-col h-full"
-            initial={{ x: "100%" }}
+            initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           >
             {/* HEADER */}
             <div className="p-5 flex justify-between items-center bg-gray-50/80 border-b backdrop-blur-sm sticky top-0 z-10">
@@ -297,7 +297,7 @@ export function ModalCarrinho({
                 ) : (
                   <ShoppingCart size={22} />
                 )}
-                {orderSuccess ? "Sucesso!" : "Carrinho"}
+                {orderSuccess ? 'Sucesso!' : 'Carrinho'}
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -320,10 +320,10 @@ export function ModalCarrinho({
                     Pedido Confirmado!
                   </h2>
                   <p className="text-gray-600 mb-6">
-                    Seu pedido{" "}
+                    Seu pedido{' '}
                     <span className="font-mono font-bold text-gray-900">
                       #{lastOrderId.slice(-6).toUpperCase()}
-                    </span>{" "}
+                    </span>{' '}
                     foi recebido com sucesso.
                   </p>
 
@@ -377,12 +377,12 @@ export function ModalCarrinho({
                             stripe={stripePromise}
                             options={{
                               clientSecret,
-                              appearance: { theme: "stripe" },
+                              appearance: { theme: 'stripe' },
                             }}
                           >
                             <CheckoutForm
                               amount={total}
-                              storeId={config.storeId || ""}
+                              storeId={config.storeId || ''}
                               onSuccess={onPaymentSuccess}
                               onCancel={() => setShowPayment(false)}
                             />
@@ -499,19 +499,19 @@ export function ModalCarrinho({
                                 appliedCoupon
                                   ? () => {
                                       setAppliedCoupon(null);
-                                      setCouponCode("");
+                                      setCouponCode('');
                                     }
                                   : handleCoupon
                               }
                               disabled={checkingCoupon}
-                              className={`px-5 rounded-xl font-bold text-xs transition-all ${appliedCoupon ? "bg-red-50 text-red-600" : "bg-gray-900 text-white"}`}
+                              className={`px-5 rounded-xl font-bold text-xs transition-all ${appliedCoupon ? 'bg-red-50 text-red-600' : 'bg-gray-900 text-white'}`}
                             >
                               {checkingCoupon ? (
                                 <Loader2 className="animate-spin" size={16} />
                               ) : appliedCoupon ? (
-                                "REMOVER"
+                                'REMOVER'
                               ) : (
-                                "APLICAR"
+                                'APLICAR'
                               )}
                             </button>
                           </div>
@@ -549,7 +549,7 @@ export function ModalCarrinho({
                     onClick={finalizarWhatsApp}
                     disabled={itens.length === 0 || loading}
                     className="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: "#25D366" }}
+                    style={{ backgroundColor: '#25D366' }}
                   >
                     {loading ? (
                       <Loader2 className="animate-spin" />

@@ -19,27 +19,41 @@ interface TransacaoEditModalProps {
   // A transação que queremos editar
   transacaoParaEditar: Transacao | null;
   // Função para atualizar a lista na página principal
-  onTransacaoSalva: (transacaoAtualizada: Transacao) => void; 
+  onTransacaoSalva: (transacaoAtualizada: Transacao) => void;
 }
 
 // ============================================================================
 // Input Reutilizável
 // ============================================================================
-type FormInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name'> & {
+type FormInputProps = Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'name'
+> & {
   label: string;
   name: keyof TransacaoFormData;
-  register: ReturnType<typeof useForm<TransacaoFormData>>["register"];
+  register: ReturnType<typeof useForm<TransacaoFormData>>['register'];
   error?: string;
 };
 
-const FormInput: React.FC<FormInputProps> = ({ label, name, register, error, ...props }) => (
+const FormInput: React.FC<FormInputProps> = ({
+  label,
+  name,
+  register,
+  error,
+  ...props
+}) => (
   <div>
-    <label htmlFor={String(name)} className="block text-sm font-medium text-gray-700">{label}</label>
+    <label
+      htmlFor={String(name)}
+      className="block text-sm font-medium text-gray-700"
+    >
+      {label}
+    </label>
     <input
       id={String(name)}
       {...props}
       {...register(name)}
-      className={`mt-1 block w-full px-3 py-2 border ${error ? "border-red-500" : "border-gray-300"} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+      className={`mt-1 block w-full px-3 py-2 border ${error ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
     />
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
   </div>
@@ -54,7 +68,6 @@ export function TransacaoEditModal({
   transacaoParaEditar,
   onTransacaoSalva,
 }: TransacaoEditModalProps) {
-
   // Este hook não deve "crashar" se o seu ambiente foi corrigido
   const {
     register,
@@ -68,11 +81,14 @@ export function TransacaoEditModal({
   // 'useEffect' para preencher o formulário quando o modal abre
   useEffect(() => {
     if (transacaoParaEditar && isOpen) {
-      
       let dataFormatada = '';
 
       // Lógica para lidar com datas (Timestamp do Firebase ou String)
-      if (transacaoParaEditar.date && typeof transacaoParaEditar.date === 'object' && transacaoParaEditar.date.seconds) {
+      if (
+        transacaoParaEditar.date &&
+        typeof transacaoParaEditar.date === 'object' &&
+        transacaoParaEditar.date.seconds
+      ) {
         // É um Timestamp, converte para "YYYY-MM-DD"
         dataFormatada = new Date(transacaoParaEditar.date.seconds * 1000)
           .toISOString()
@@ -81,7 +97,7 @@ export function TransacaoEditModal({
         // É uma string (ex: "2025-11-02"), apenas a usamos
         dataFormatada = transacaoParaEditar.date.split('T')[0]; // Garante que não tem hora
       }
-          
+
       reset({
         ...transacaoParaEditar,
         date: dataFormatada, // Usa a string formatada
@@ -91,33 +107,30 @@ export function TransacaoEditModal({
     }
   }, [isOpen, transacaoParaEditar, reset]);
 
-
   // Função 'onSubmit' para ATUALIZAR
   const onSubmit: SubmitHandler<TransacaoFormData> = (data) => {
-    
     if (!transacaoParaEditar) return; // Segurança
 
     // Re-aplicamos o sinal negativo se for uma despesa
-    const amountCorrigido = data.type === 'despesa' 
-      ? -Math.abs(data.amount) 
-      : Math.abs(data.amount);
+    const amountCorrigido =
+      data.type === 'despesa' ? -Math.abs(data.amount) : Math.abs(data.amount);
 
     const dadosParaSalvar = {
       ...data,
       amount: amountCorrigido,
       date: data.date.split('T')[0], // Garante o formato
     };
-    
-    const promise = updateTransacao(transacaoParaEditar.id, dadosParaSalvar); 
+
+    const promise = updateTransacao(transacaoParaEditar.id, dadosParaSalvar);
 
     toast.promise(promise, {
-      loading: "A atualizar transação...",
+      loading: 'A atualizar transação...',
       success: (transacaoSalva) => {
         onTransacaoSalva(transacaoSalva); // Atualiza a UI na página
         onClose(); // Fecha o modal
-        return "Transação atualizada!";
+        return 'Transação atualizada!';
       },
-      error: (err) => err.message || "Erro ao atualizar.",
+      error: (err) => err.message || 'Erro ao atualizar.',
     });
   };
 
@@ -152,23 +165,29 @@ export function TransacaoEditModal({
             </div>
 
             {/* Formulário */}
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="p-6 space-y-4"
-            >
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               {/* Dropdown de Tipo */}
               <div>
-                <label htmlFor="type" className="block text-sm font-medium text-gray-700">Tipo</label>
+                <label
+                  htmlFor="type"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Tipo
+                </label>
                 <select
                   id="type"
-                  {...register("type")}
-                  className={`mt-1 block w-full px-3 py-2 border ${errors.type ? "border-red-500" : "border-gray-300"} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
+                  {...register('type')}
+                  className={`mt-1 block w-full px-3 py-2 border ${errors.type ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-dourado focus:border-dourado`}
                 >
                   <option value="venda">Venda</option>
                   <option value="despesa">Despesa</option>
                   <option value="capital">Injeção de Capital</option>
                 </select>
-                {errors.type && <p className="mt-1 text-xs text-red-600">{errors.type.message}</p>}
+                {errors.type && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.type.message}
+                  </p>
+                )}
               </div>
 
               <FormInput
@@ -177,7 +196,7 @@ export function TransacaoEditModal({
                 register={register}
                 error={errors.description?.message}
               />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormInput
                   label="Valor (R$)"
@@ -203,7 +222,7 @@ export function TransacaoEditModal({
                   disabled={isSubmitting}
                   className="bg-carvao text-white px-5 py-2 rounded-lg shadow-md hover:bg-gray-700 transition-all duration-200 disabled:opacity-50"
                 >
-                  {isSubmitting ? "A atualizar..." : "Atualizar Transação"}
+                  {isSubmitting ? 'A atualizar...' : 'Atualizar Transação'}
                 </button>
               </div>
             </form>

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Search,
@@ -21,39 +21,39 @@ import {
   ChevronRight,
   QrCode,
   AlertTriangle,
-} from "lucide-react";
-import { toast, Toaster } from "react-hot-toast";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { useReactToPrint } from "react-to-print";
-import { BulkMarkupModal } from "../components/BulkMarkupModal";
-import { updateStatusEmMassa } from "../services/firebase/bulkUpdate";
+} from 'lucide-react';
+import { toast, Toaster } from 'react-hot-toast';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { useReactToPrint } from 'react-to-print';
+import { BulkMarkupModal } from '../components/BulkMarkupModal';
+import { updateStatusEmMassa } from '../services/firebase/bulkUpdate';
 
 // --- HOOKS ---
-import { useProducts } from "../hooks/useProducts";
+import { useProducts } from '../hooks/useProducts';
 
 // --- SERVIÇOS ---
 import {
   getFornecedores,
   getCategories,
   getConfig,
-} from "../services/apiService";
+} from '../services/apiService';
 
 // --- COMPONENTES ---
-import { ImportModal } from "../components/ImportModal";
-import { ProdutoFormModal } from "../components/ProdutoFormModal";
-import { CategoryModal } from "../components/CategoryModal";
-import { CatalogPDF } from "../components/CatologPDF";
-import { EtiquetaImpressao } from "../components/EtiquetaImpressao";
-import { StockModal } from "../components/StockModal";
-import { NeonStudio } from "../components/NeonStudio";
+import { ImportModal } from '../components/ImportModal';
+import { ProdutoFormModal } from '../components/ProdutoFormModal';
+import { CategoryModal } from '../components/CategoryModal';
+import { CatalogPDF } from '../components/CatologPDF';
+import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
+import { StockModal } from '../components/StockModal';
+import { NeonStudio } from '../components/NeonStudio';
 
 // --- TIPOS ---
-import type { ProdutoAdmin, Category, Fornecedor } from "../types";
+import type { ProdutoAdmin, Category, Fornecedor } from '../types';
 
 // Tipo Estendido
 type ExtendedProdutoAdmin = Omit<
   ProdutoAdmin,
-  "subcategory" | "weight" | "gramPrice"
+  'subcategory' | 'weight' | 'gramPrice'
 > & {
   subcategory?: string;
   weight?: number;
@@ -80,8 +80,8 @@ export function ProdutosPage() {
 
   // 2. CONTROLE
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("Todas");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('Todas');
 
   // 3. SELEÇÃO & PDF
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -91,8 +91,8 @@ export function ProdutosPage() {
   const etiquetaRef = useRef<HTMLDivElement>(null);
   const handlePrintEtiquetas = useReactToPrint({
     contentRef: etiquetaRef,
-    documentTitle: "Etiquetas_Produtos",
-    onAfterPrint: () => toast.success("Impressão enviada!"),
+    documentTitle: 'Etiquetas_Produtos',
+    onAfterPrint: () => toast.success('Impressão enviada!'),
   });
 
   // 5. MODAIS
@@ -101,11 +101,11 @@ export function ProdutosPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isNeonOpen, setIsNeonOpen] = useState(false);
   const [produtoEditando, setProdutoEditando] = useState<ProdutoAdmin | null>(
-    null,
+    null
   );
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [produtoEstoque, setProdutoEstoque] = useState<ProdutoAdmin | null>(
-    null,
+    null
   );
 
   // State para controlar se o modal está visível (começa falso/escondido)
@@ -116,26 +116,26 @@ export function ProdutosPage() {
   // ============================================================================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const qrFromUrl = params.get("q");
-    const qrFromCache = localStorage.getItem("pending_qr_scan");
+    const qrFromUrl = params.get('q');
+    const qrFromCache = localStorage.getItem('pending_qr_scan');
     const finalQuery = qrFromUrl || qrFromCache;
 
     if (finalQuery) {
       setSearchTerm(finalQuery);
 
-      toast("Produto localizado via QR Code", {
-        icon: "📷",
+      toast('Produto localizado via QR Code', {
+        icon: '📷',
         style: {
-          borderRadius: "10px",
-          background: "#4a4a4a",
-          color: "#d19900",
-          fontWeight: "bold",
-          border: "1px solid #d19900",
+          borderRadius: '10px',
+          background: '#4a4a4a',
+          color: '#d19900',
+          fontWeight: 'bold',
+          border: '1px solid #d19900',
         },
       });
 
-      window.history.replaceState({}, "", window.location.pathname);
-      localStorage.removeItem("pending_qr_scan");
+      window.history.replaceState({}, '', window.location.pathname);
+      localStorage.removeItem('pending_qr_scan');
     }
   }, []);
 
@@ -155,7 +155,7 @@ export function ProdutosPage() {
       setStoreConfig(configData);
     } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao conectar com o servidor.");
+      toast.error('Erro ao conectar com o servidor.');
     } finally {
       setLoading(false);
     }
@@ -175,14 +175,14 @@ export function ProdutosPage() {
   const produtosFiltrados = useMemo(() => {
     return produtos.filter((p) => {
       const termo = searchTerm.toLowerCase().trim();
-      const sub = p.subcategory ? p.subcategory.toLowerCase() : "";
-      const code = p.code ? p.code.toLowerCase() : "";
-      const name = p.name ? p.name.toLowerCase() : "";
+      const sub = p.subcategory ? p.subcategory.toLowerCase() : '';
+      const code = p.code ? p.code.toLowerCase() : '';
+      const name = p.name ? p.name.toLowerCase() : '';
 
       const matchTexto =
         name.includes(termo) || code.includes(termo) || sub.includes(termo);
       const matchCategoria =
-        filterCategory === "Todas" || p.category === filterCategory;
+        filterCategory === 'Todas' || p.category === filterCategory;
       return matchTexto && matchCategoria;
     });
   }, [produtos, searchTerm, filterCategory]);
@@ -204,7 +204,7 @@ export function ProdutosPage() {
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id]
     );
     setIsGeneratingPdf(false);
   };
@@ -222,7 +222,7 @@ export function ProdutosPage() {
     if (
       selectedIds.length === 0 &&
       !confirm(
-        "Nenhum produto selecionado. Deseja gerar o catálogo com TODOS os produtos filtrados?",
+        'Nenhum produto selecionado. Deseja gerar o catálogo com TODOS os produtos filtrados?'
       )
     ) {
       return;
@@ -233,7 +233,7 @@ export function ProdutosPage() {
   const onPrintClick = () => {
     if (selectedIds.length === 0) {
       return toast.error(
-        "Selecione pelo menos um produto para imprimir a etiqueta.",
+        'Selecione pelo menos um produto para imprimir a etiqueta.'
       );
     }
     handlePrintEtiquetas();
@@ -243,7 +243,7 @@ export function ProdutosPage() {
   // CRUD
   // ============================================================================
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este produto?")) return;
+    if (!confirm('Tem certeza que deseja excluir este produto?')) return;
     deleteProduct(id);
   };
 
@@ -268,16 +268,18 @@ export function ProdutosPage() {
   };
   // Mensagem de Sucesso para Atualização em Massa
   const handleMarkupSuccess = async (updatedCount: number) => {
-    toast.success(`${updatedCount} produtos foram atualizados com o novo markup!`);
+    toast.success(
+      `${updatedCount} produtos foram atualizados com o novo markup!`
+    );
     await refreshProducts();
   };
 
   // ============================================================================
   // Atualização de Status em Massa
-  const handleBulkStatusChange = async (novoStatus: "ativo" | "inativo") => {
+  const handleBulkStatusChange = async (novoStatus: 'ativo' | 'inativo') => {
     if (selectedIds.length === 0) {
-      toast("Selecione pelo menos um produto para alterar.", {
-        icon: "⚠️",
+      toast('Selecione pelo menos um produto para alterar.', {
+        icon: '⚠️',
       });
       return;
     }
@@ -287,14 +289,14 @@ export function ProdutosPage() {
       const count = await updateStatusEmMassa(selectedIds, novoStatus);
       toast.success(
         `${count} produtos alterados para ${novoStatus.toUpperCase()}!`,
-        { duration: 4000 },
+        { duration: 4000 }
       );
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await refreshProducts();
       setSelectedIds([]);
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao atualizar o status dos produtos.");
+      toast.error('Erro ao atualizar o status dos produtos.');
     } finally {
       setLoading(false);
     }
@@ -329,7 +331,7 @@ export function ProdutosPage() {
                 {selectedIds.length} selecionados
               </span>
             ) : (
-              "Gerencie seu inventário, preços e catálogo digital."
+              'Gerencie seu inventário, preços e catálogo digital.'
             )}
           </p>
         </div>
@@ -338,7 +340,7 @@ export function ProdutosPage() {
           <div className="flex bg-gray-50 p-1.5 rounded-xl border border-gray-100 gap-1">
             <button
               onClick={onPrintClick}
-              className={`p-2.5 rounded-lg text-gray-500 hover:text-[#d19900] hover:bg-white hover:shadow-sm transition-all ${selectedIds.length > 0 ? "text-[#d19900] bg-white shadow-sm" : ""}`}
+              className={`p-2.5 rounded-lg text-gray-500 hover:text-[#d19900] hover:bg-white hover:shadow-sm transition-all ${selectedIds.length > 0 ? 'text-[#d19900] bg-white shadow-sm' : ''}`}
               title="Imprimir Etiquetas"
             >
               <Tag size={18} />
@@ -350,14 +352,14 @@ export function ProdutosPage() {
                   document={
                     <CatalogPDF
                       produtos={produtosParaPdf as unknown as ProdutoAdmin[]}
-                      storeName={storeConfig?.storeName || "Catálogo"}
+                      storeName={storeConfig?.storeName || 'Catálogo'}
                     />
                   }
                   fileName="catalogo_produtos.pdf"
                   className="flex items-center gap-2 text-[#d19900] font-bold text-xs"
                 >
                   {/* @ts-ignore */}
-                  {({ loading }) => (loading ? "Gerando..." : "Baixar PDF")}
+                  {({ loading }) => (loading ? 'Gerando...' : 'Baixar PDF')}
                 </PDFDownloadLink>
                 <button
                   onClick={() => setIsGeneratingPdf(false)}
@@ -414,7 +416,7 @@ export function ProdutosPage() {
             onClick={handleNew}
             className="px-6 py-3 bg-[#d19900] text-white rounded-xl hover:bg-[#b88600] hover:shadow-lg hover:shadow-[#d19900]/30 flex items-center gap-2 font-bold transition-all active:scale-95"
           >
-            <Plus size={20} />{" "}
+            <Plus size={20} />{' '}
             <span className="hidden sm:inline">Novo Produto</span>
           </button>
           {/* O Botão que abre o Modal */}
@@ -441,7 +443,7 @@ export function ProdutosPage() {
           </span>
 
           <button
-            onClick={() => handleBulkStatusChange("ativo")}
+            onClick={() => handleBulkStatusChange('ativo')}
             disabled={loading}
             // Dourado Sólido: Ação de destaque, traz o produto para a "luz"
             className="bg-amber-500 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-amber-600 transition-all disabled:opacity-50 shadow-sm"
@@ -450,7 +452,7 @@ export function ProdutosPage() {
           </button>
 
           <button
-            onClick={() => handleBulkStatusChange("inativo")}
+            onClick={() => handleBulkStatusChange('inativo')}
             disabled={loading}
             // Cinza Escuro/Chumbo: Ação de ocultar, remete a algo "apagado" ou "guardado no cofre"
             className="bg-stone-800 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-stone-900 transition-all disabled:opacity-50 shadow-sm"
@@ -469,8 +471,8 @@ export function ProdutosPage() {
                 ${
                   selectedIds.length > 0 &&
                   selectedIds.length === produtosFiltrados.length
-                    ? "bg-[#d19900]/10 text-[#d19900] border border-[#d19900]/20"
-                    : "bg-white hover:bg-gray-50 text-gray-600 border border-transparent"
+                    ? 'bg-[#d19900]/10 text-[#d19900] border border-[#d19900]/20'
+                    : 'bg-white hover:bg-gray-50 text-gray-600 border border-transparent'
                 }
             `}
         >
@@ -546,7 +548,7 @@ export function ProdutosPage() {
                 O código "{searchTerm}" não retornou resultados.
               </p>
               <button
-                onClick={() => setSearchTerm("")}
+                onClick={() => setSearchTerm('')}
                 className="mt-4 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-200"
               >
                 Limpar Busca
@@ -588,10 +590,10 @@ export function ProdutosPage() {
                   transition={{ duration: 0.2 }}
                   className={`
                     group bg-white rounded-3xl shadow-sm overflow-hidden flex flex-col relative transition-all duration-300
-                    ${isSelected ? "ring-2 ring-[#d19900] shadow-xl shadow-[#d19900]/10" : "border border-gray-100 hover:shadow-xl hover:border-gray-200"}
+                    ${isSelected ? 'ring-2 ring-[#d19900] shadow-xl shadow-[#d19900]/10' : 'border border-gray-100 hover:shadow-xl hover:border-gray-200'}
                   `}
                   onClick={(e) => {
-                    if ((e.target as HTMLElement).closest("button")) return;
+                    if ((e.target as HTMLElement).closest('button')) return;
                     toggleSelection(p.id);
                   }}
                 >
@@ -599,7 +601,7 @@ export function ProdutosPage() {
                     <div
                       className={`
                         w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm
-                        ${isSelected ? "bg-[#d19900] text-white" : "bg-white/90 backdrop-blur text-gray-300 border border-gray-100 hover:border-[#d19900]"}
+                        ${isSelected ? 'bg-[#d19900] text-white' : 'bg-white/90 backdrop-blur text-gray-300 border border-gray-100 hover:border-[#d19900]'}
                     `}
                     >
                       {isSelected ? (
@@ -628,13 +630,13 @@ export function ProdutosPage() {
 
                     <div className="absolute bottom-3 left-3 flex flex-col gap-1 items-start max-w-[80%]">
                       <span className="bg-white/90 backdrop-blur-md text-[#4a4a4a] text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow-sm border border-white/20">
-                        {p.category || "Geral"}
+                        {p.category || 'Geral'}
                       </span>
                       {p.subcategory && (
                         <span className="bg-[#4a4a4a]/90 backdrop-blur-md text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow-sm flex items-center gap-1">
                           <span className="opacity-70 text-[8px] text-[#d19900]">
                             ▶
-                          </span>{" "}
+                          </span>{' '}
                           {p.subcategory}
                         </span>
                       )}
@@ -678,11 +680,11 @@ export function ProdutosPage() {
                     <div>
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 font-mono tracking-wide">
-                          {p.code || "SEM SKU"}
+                          {p.code || 'SEM SKU'}
                         </span>
                         {p.weight && (
                           <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#d19900]"></span>{" "}
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#d19900]"></span>{' '}
                             {p.weight}g
                           </span>
                         )}
@@ -715,10 +717,10 @@ export function ProdutosPage() {
                           className={`font-bold text-sm px-2 py-0.5 rounded-lg flex items-center gap-1
                             ${
                               isOut
-                                ? "bg-red-50 text-red-600"
+                                ? 'bg-red-50 text-red-600'
                                 : isLow
-                                  ? "bg-orange-50 text-orange-600 border border-orange-100"
-                                  : "bg-green-50 text-green-700"
+                                  ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                  : 'bg-green-50 text-green-700'
                             }
                           `}
                         >

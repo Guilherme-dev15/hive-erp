@@ -3,7 +3,8 @@
 // ============================================================================
 
 // Tipo auxiliar para lidar com datas que podem vir como String (JSON), Date (JS) ou Timestamp (Firestore)
-export type FirestoreDate = string | Date | { seconds: number; nanoseconds: number };
+export type FirestoreDate =
+  string | Date | { seconds: number; nanoseconds: number };
 
 // ============================================================================
 // 1. DASHBOARD & GRÁFICOS (Essencial para a DashboardPage)
@@ -34,21 +35,20 @@ export interface ProdutoAdmin {
   category: string;
   description?: string;
   imageUrl?: string;
-  
-  
+
   // Financeiro
   costPrice: number;
   salePrice: number;
   marginPercent?: number;
-  
+
   // Estoque e Status
   quantity: number;
   status: 'ativo' | 'inativo';
-  
+
   // Fornecedor
   supplierId?: string;
   supplierProductUrl?: string;
-  
+
   // Metadados
   createdAt?: FirestoreDate;
 }
@@ -59,17 +59,17 @@ export interface ProdutoVariante {
   valor_ajuste: number; // Valor a somar ou o preço cheio da variante
   medida: string; // 40cm, 50cm, ou Número 18
   estoque: number;
-  sob_consulta: boolean; 
+  sob_consulta: boolean;
 }
 // ============================================================================
 // 3. PEDIDOS (Orders)
 // ============================================================================
 
-export type OrderStatus = 
-  | 'Aguardando Pagamento' 
-  | 'Em Produção' 
-  | 'Em Separação' 
-  | 'Enviado' 
+export type OrderStatus =
+  | 'Aguardando Pagamento'
+  | 'Em Produção'
+  | 'Em Separação'
+  | 'Enviado'
   | 'Concluído'
   | 'Cancelado';
 
@@ -87,17 +87,17 @@ export interface Order {
   id: string;
   createdAt: FirestoreDate;
   status: OrderStatus;
-  
+
   // Cliente
   customerName: string;
   customerPhone: string;
-  
+
   // Carrinho e Totais
   items: OrderLineItem[];
   subtotal: number;
   discount: number;
   total: number;
-  
+
   // Detalhes
   notes?: string;
   financialRegistered?: boolean;
@@ -109,7 +109,7 @@ export interface Order {
 
 export interface Transacao {
   id: string;
-  type: 'venda' | 'despesa' | 'capital'; 
+  type: 'venda' | 'despesa' | 'capital';
   date: FirestoreDate;
   amount: number;
   description: string;
@@ -148,7 +148,7 @@ export interface Coupon {
 // ============================================================================
 
 export interface ABCProduct extends ProdutoAdmin {
-  revenue: number;      // Faturamento total deste produto
-  unitsSold: number;    // Unidades vendidas
+  revenue: number; // Faturamento total deste produto
+  unitsSold: number; // Unidades vendidas
   classification: 'A' | 'B' | 'C';
 }

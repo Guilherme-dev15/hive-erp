@@ -13,7 +13,7 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    errorInfo: ''
+    errorInfo: '',
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    console.error('Uncaught error:', error, errorInfo);
   }
 
   public render() {
@@ -32,24 +32,27 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="bg-red-50 p-4 rounded-full mb-4">
             <AlertTriangle className="text-red-500 w-10 h-10" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Ops! Algo correu mal.</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">
+            Ops! Algo correu mal.
+          </h2>
           <p className="text-gray-500 mb-6 max-w-md">
-            Houve um erro ao carregar esta página. Não se preocupe, os seus dados estão seguros.
+            Houve um erro ao carregar esta página. Não se preocupe, os seus
+            dados estão seguros.
           </p>
-          
+
           <button
             onClick={() => {
-                this.setState({ hasError: false });
-                window.location.reload(); 
+              this.setState({ hasError: false });
+              window.location.reload();
             }}
             className="flex items-center gap-2 px-6 py-3 bg-carvao text-white rounded-lg hover:bg-gray-800 transition-colors"
           >
             <RefreshCcw size={18} />
             Recarregar Página
           </button>
-          
+
           <div className="mt-8 p-3 bg-gray-100 rounded text-xs text-gray-500 font-mono text-left w-full max-w-lg overflow-auto">
-             Erro técnico: {this.state.errorInfo}
+            Erro técnico: {this.state.errorInfo}
           </div>
         </div>
       );

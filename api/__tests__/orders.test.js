@@ -26,19 +26,16 @@ describe('POST /orders', () => {
       storeId: 'store-owner-123',
     };
 
-    const response = await request(app)
-      .post('/orders')
-      .send(orderPayload);
+    const response = await request(app).post('/orders').send(orderPayload);
 
     expect(response.status).toBe(201);
     expect(response.body.id).toBeDefined();
     expect(response.body.userId).toBe('store-owner-123');
     expect(response.body.status).toBe('Aguardando Pagamento');
 
-    expect(batch.update).toHaveBeenCalledWith(
-      expect.anything(),
-      { quantity: "increment(-2)" }
-    );
+    expect(batch.update).toHaveBeenCalledWith(expect.anything(), {
+      quantity: 'increment(-2)',
+    });
     expect(batch.commit).toHaveBeenCalled();
   });
 
@@ -51,12 +48,12 @@ describe('POST /orders', () => {
       total: 50,
     };
 
-    const response = await request(app)
-      .post('/orders')
-      .send(orderPayload);
+    const response = await request(app).post('/orders').send(orderPayload);
 
     expect(response.status).toBe(404); // <-- Corrigido de 500 para 404
-    expect(response.body.error).toBe("Um dos produtos no carrinho não foi encontrado.");
+    expect(response.body.error).toBe(
+      'Um dos produtos no carrinho não foi encontrado.'
+    );
   });
 
   it('should return 500 if batch commit fails', async () => {
@@ -65,18 +62,18 @@ describe('POST /orders', () => {
       exists: true,
       data: () => ({ userId: 'store-owner-123' }),
     });
-    firestoreMock.batch().commit.mockRejectedValue(new Error("Firestore commit failed"));
+    firestoreMock
+      .batch()
+      .commit.mockRejectedValue(new Error('Firestore commit failed'));
 
     const orderPayload = {
       items: [{ id: 'product-1', quantidade: 1 }],
       total: 50,
     };
 
-    const response = await request(app)
-      .post('/orders')
-      .send(orderPayload);
+    const response = await request(app).post('/orders').send(orderPayload);
 
     expect(response.status).toBe(500);
-    expect(response.body.error).toBe("Firestore commit failed");
+    expect(response.body.error).toBe('Firestore commit failed');
   });
 });
