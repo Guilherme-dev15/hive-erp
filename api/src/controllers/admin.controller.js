@@ -96,6 +96,7 @@ exports.deleteOrder = async (req, res) => {
         await db.collection('orders').doc(req.params.id).delete();
         res.json({ success: true, message: "Pedido excluído do sistema." });
     } catch (error) {
+        console.error("Erro ao excluir pedido:", error);
         res.status(500).json({ error: "Erro interno ao processar a exclusão." });
     }
 };
