@@ -45,7 +45,7 @@ export function CategoryModal({
       const nameUpper = newCategoryName.trim().toUpperCase();
 
       // 1. Manda criar no servidor
-      const createResponse: any = await createCategory({ name: nameUpper });
+      const createResponse = await createCategory({ name: nameUpper });
 
       // 2. O SEGREDO: Em vez de adicionar manualmente, baixamos a lista nova do banco
       // Isso elimina qualquer hipótese de duplicação visual ou IDs errados.
@@ -56,7 +56,7 @@ export function CategoryModal({
         setCategories(listaOficial);
 
         // Tenta achar a categoria nova na lista atualizada para selecionar ela automaticamente
-        const novaNaLista = listaOficial.find((c: any) => c.name === nameUpper);
+        const novaNaLista = listaOficial.find((c) => c.name === nameUpper);
 
         if (novaNaLista) {
           onCategoryCreated(novaNaLista);
@@ -70,7 +70,7 @@ export function CategoryModal({
       setNewCategoryName('');
       toast.dismiss(toastId);
       toast.success('Categoria criada!');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao criar categoria:', error);
       toast.dismiss(toastId);
       const msg = error.response?.data?.message || 'Erro ao criar categoria.';
