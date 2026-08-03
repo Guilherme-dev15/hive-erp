@@ -7,8 +7,14 @@ interface CertificadoProps {
   config: ConfigFormData | null;
 }
 
+// Tipo para o timestamp do Firestore
+type FirestoreTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+};
+
 // Utilitário de Data
-const formatDate = (timestamp: any) => {
+const formatDate = (timestamp: FirestoreTimestamp | Date | null) => {
   if (!timestamp) return new Date().toLocaleDateString('pt-BR');
   if (timestamp.seconds)
     return new Date(timestamp.seconds * 1000).toLocaleDateString('pt-BR');
