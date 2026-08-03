@@ -103,36 +103,36 @@ exports.deleteOrder = async (req, res) => {
 // Dashboard
 exports.getDashboardStats = async (req, res) => {
     try {
-        const snapshot = await db.collection(COLLECTIONS.ORDERS).where('userId', '==', req.user.uid).get();
-        let totalFaturamento = 0;
-        let pedidosHoje = 0;
-        let totalPedidos = 0;
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
+        const statsRef = db.collection("dashboard_stats").doc(req.user.uid);
+        const statsDoc = await statsRef.get();
 
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const statusValidos = ['pago', 'paid', 'approved', 'sep', 'env'];
-            const statusAtual = (data.status || '').toLowerCase();
+        if (!statsDoc.exists) {
+            // Se o documento ainda não foi criado pela Cloud Function, retorna zero.
+            return res.json({
+                revenue: 0,
+                ordersToday: 0, // Este dado não é mais calculado aqui. Pode ser um novo campo na agregação.
+                totalOrders: 0,
+                averageTicket: 0
+            });
+        }
 
-            if (statusValidos.some(s => statusAtual.includes(s))) {
-                totalFaturamento += Number(data.total) || 0;
-                totalPedidos++;
-                let dataPedido = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
-                if (dataPedido >= hoje) {
-                    pedidosHoje++;
-                }
-            }
-        });
-        const ticketMedio = totalPedidos > 0 ? (totalFaturamento / totalPedidos) : 0;
+        const statsData = statsDoc.data();
+        const totalRevenue = statsData.totalRevenue || 0;
+        const totalOrders = statsData.totalOrders || 0;
+        const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
+
+        // O campo 'pedidosHoje' foi simplificado. A lógica para isso pode ser adicionada
+        // na Cloud Function ou calculada de forma diferente se ainda for necessária.
         res.json({
-            revenue: totalFaturamento,
-            ordersToday: pedidosHoje,
-            totalOrders: totalPedidos,
-            averageTicket: ticketMedio
+            revenue: totalRevenue,
+            ordersToday: 0, // Placeholder
+            totalOrders: totalOrders,
+            averageTicket: averageTicket
         });
+
     } catch (error) {
-        res.status(500).json({ error: "Erro ao calcular dashboard" });
+        console.error("Erro ao buscar estatísticas do dashboard:", error);
+        res.status(500).json({ error: "Erro ao buscar estatísticas do dashboard" });
     }
 };
 
