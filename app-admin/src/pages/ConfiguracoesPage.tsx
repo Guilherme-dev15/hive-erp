@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ElementType, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { toast, Toaster } from 'react-hot-toast';
 import {
@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
+import { ConfigFormData } from '../types';
 
 // --- VARIANTES DE ANIMAÇÃO ---
 const containerVariants = {
@@ -33,9 +34,12 @@ const itemVariants = {
 };
 
 // --- COMPONENTES VISUAIS ---
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const SectionHeader = ({ icon: Icon, title, description }: any) => (
+interface SectionHeaderProps {
+    icon: ElementType;
+    title: string;
+    description: string;
+}
+const SectionHeader = ({ icon: Icon, title, description }: SectionHeaderProps) => (
   <div className="flex items-start gap-4 mb-6">
     <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
       <Icon size={24} />
@@ -47,8 +51,12 @@ const SectionHeader = ({ icon: Icon, title, description }: any) => (
   </div>
 );
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const InputGroup = ({ label, children, description }: any) => (
+interface InputGroupProps {
+    label: string;
+    children: ReactNode;
+    description?: string;
+}
+const InputGroup = ({ label, children, description }: InputGroupProps) => (
   <div className="space-y-1.5 w-full">
     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1">
       {label}
@@ -61,18 +69,19 @@ const InputGroup = ({ label, children, description }: any) => (
 );
 
 export function ConfiguracoesPage() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ConfigFormData>({
     whatsappNumber: '',
-    monthlyGoal: '',
+    monthlyGoal: 0,
     storeName: 'Hive ERP',
-    slug: '', // LINK DA LOJA (IMPORTANTE)
+    slug: '',
     primaryColor: '#D4AF37',
     secondaryColor: '#343434',
-    cardFee: '0',
-    packagingCost: '0',
+    cardFee: 0,
+    packagingCost: 0,
     warrantyText: '',
-    lowStockThreshold: '5',
-    bannerUrl: '', // URL DO BANNER UNICO
+    lowStockThreshold: 5,
+    bannerUrl: '',
+    banners: [],
   });
 
   const [loading, setLoading] = useState(true);
@@ -83,7 +92,6 @@ export function ConfiguracoesPage() {
       try {
         const data = await getConfig();
         if (data) {
-          // Se tiver array de banners, pega o primeiro, senão pega a string bannerUrl
           const bannerAtual =
             Array.isArray(data.banners) && data.banners.length > 0
               ? data.banners[0]
@@ -91,20 +99,17 @@ export function ConfiguracoesPage() {
 
           setFormData({
             whatsappNumber: data.whatsappNumber || '',
-            monthlyGoal: data.monthlyGoal?.toString() || '',
+            monthlyGoal: data.monthlyGoal || 0,
             storeName: data.storeName || 'Minha Loja',
-            slug: data.slug || '', // Carrega o slug salvo
+            slug: data.slug || '',
             primaryColor: data.primaryColor || '#D4AF37',
             secondaryColor: data.secondaryColor || '#343434',
-            cardFee: (data.cardFeePercent ?? data.cardFee ?? 0).toString(),
-            packagingCost: (
-              data.packingCost ??
-              data.packagingCost ??
-              0
-            ).toString(),
+            cardFee: data.cardFeePercent ?? data.cardFee ?? 0,
+            packagingCost: data.packingCost ?? data.packagingCost ?? 0,
             warrantyText: data.warrantyText || '',
-            lowStockThreshold: data.lowStockThreshold?.toString() || '5',
+            lowStockThreshold: data.lowStockThreshold || 5,
             bannerUrl: bannerAtual,
+            banners: data.banners || [],
           });
         }
       } catch (error) {
@@ -121,9 +126,7 @@ export function ConfiguracoesPage() {
   ) => {
     const { name, value } = e.target;
 
-    // Tratamento especial para o Slug (Link da loja)
     if (name === 'slug') {
-      // Força minúsculo e troca espaços por hifens
       const formattedSlug = value
         .toLowerCase()
         .replace(/\s+/g, '-')
@@ -144,20 +147,10 @@ export function ConfiguracoesPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        whatsappNumber: formData.whatsappNumber,
-        storeName: formData.storeName,
-        slug: formData.slug, // SALVA O SLUG
-        primaryColor: formData.primaryColor,
-        secondaryColor: formData.secondaryColor,
-        warrantyText: formData.warrantyText,
-        bannerUrl: formData.bannerUrl,
-        banners: [formData.bannerUrl], // Mantém compatibilidade com array
-        monthlyGoal: Number(formData.monthlyGoal) || 0,
-        cardFee: Number(formData.cardFee) || 0,
+        ...formData,
+        banners: [formData.bannerUrl],
         cardFeePercent: Number(formData.cardFee) || 0,
-        packagingCost: Number(formData.packagingCost) || 0,
         packingCost: Number(formData.packagingCost) || 0,
-        lowStockThreshold: Number(formData.lowStockThreshold) || 5,
       };
 
       await saveConfig(payload);
@@ -198,7 +191,6 @@ export function ConfiguracoesPage() {
         </div>
         {formData.slug && (
           <a
-            // AQUI: Mudamos de ?slug= para ?loja=
             href={`https://hiveerp-catalogo.vercel.app/?loja=${formData.slug}`}
             target="_blank"
             rel="noreferrer"
@@ -242,7 +234,6 @@ export function ConfiguracoesPage() {
                 </div>
               </InputGroup>
 
-              {/* CAMPO NOVO: SLUG */}
               <InputGroup
                 label="Link Personalizado (Slug)"
                 description="O endereço da sua loja na internet."
@@ -261,7 +252,6 @@ export function ConfiguracoesPage() {
                 </div>
               </InputGroup>
 
-              {/* CAMPO NOVO: BANNER */}
               <InputGroup
                 label="URL do Banner (Topo)"
                 description="Link da imagem de fundo do topo da loja."

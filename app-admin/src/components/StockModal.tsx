@@ -5,18 +5,28 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   AlertTriangle,
-  History,
   Save,
   Loader2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { adjustStock, getProductLogs } from '../services/apiService';
 import { useAuth } from '../hooks/useAuth';
+import { ProdutoAdmin } from '../types';
+
+interface StockLog {
+    id: string;
+    type: 'entry' | 'exit' | 'loss';
+    change: number;
+    newQuantity: number;
+    reason: string;
+    user: string;
+    createdAt: string;
+}
 
 interface StockModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product: any;
+  product: ProdutoAdmin | null;
   onSuccess: () => void;
 }
 
@@ -28,7 +38,7 @@ export function StockModal({
 }: StockModalProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'adjust' | 'history'>('adjust');
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<StockLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -50,12 +60,13 @@ export function StockModal({
   }, [isOpen, product]);
 
   const loadHistory = async () => {
+    if (!product) return;
     setLoadingLogs(true);
     try {
       const data = await getProductLogs(product.id);
       setLogs(data);
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao carregar histórico de estoque:", e);
     } finally {
       setLoadingLogs(false);
     }
@@ -65,6 +76,7 @@ export function StockModal({
     e.preventDefault();
     if (!quantity || Number(quantity) <= 0)
       return toast.error('Quantidade inválida');
+    if (!product) return;
 
     setSubmitting(true);
     try {
@@ -79,6 +91,7 @@ export function StockModal({
       onSuccess(); // Atualiza a lista pai
       onClose(); // Fecha modal
     } catch (e) {
+      console.error("Erro ao ajustar estoque:", e);
       toast.error('Erro ao atualizar estoque');
     } finally {
       setSubmitting(false);

@@ -83,7 +83,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error: any) {
+    } catch (error) {
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error('Erro login:', error);
         toast.error('Erro ao conectar com Google.');
