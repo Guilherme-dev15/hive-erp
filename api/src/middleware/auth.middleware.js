@@ -16,6 +16,7 @@ const authenticateUser = async (req, res, next) => {
     req.user = { uid: decodedToken.uid, email: decodedToken.email };
     next();
   } catch (error) {
+    console.error("Erro de autenticação, token inválido:", error.code);
     return res.status(403).json({ message: 'Acesso negado. Token inválido.' });
   }
 };
