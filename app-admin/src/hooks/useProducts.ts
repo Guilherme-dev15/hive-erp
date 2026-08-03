@@ -74,7 +74,7 @@ export function useProducts() {
     }
   };
 
-  const bulkImport = async (productsData: any[]) => {
+  const bulkImport = async (productsData: ProdutoFormData[]) => {
     setIsSubmitting(true);
     try {
       await importProductsBulk(productsData);
