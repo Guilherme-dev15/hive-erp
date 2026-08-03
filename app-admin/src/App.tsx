@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, ElementType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogOut,
@@ -67,7 +67,7 @@ function Navbar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Configuração do Menu com Ícones e Labels
-  const menuItems: { id: Pagina; label: string; icon: any }[] = [
+  const menuItems: { id: Pagina; label: string; icon: ElementType }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pedidos', label: 'Pedidos', icon: ShoppingBag },
     { id: 'produtos', label: 'Produtos', icon: Package },
