@@ -20,3 +20,7 @@ build/
 # Arquivos de ambiente locais
 .env
 .env.*
+
+# Ignorar artefatos de build dentro do código-fonte
+**/src/**/*.js
+**/src/**/*.jsx
