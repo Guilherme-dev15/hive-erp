@@ -81,6 +81,7 @@ export const BulkMarkupModal: React.FC<BulkMarkupModalProps> = ({
       onSuccess(updatedCount);
       onClose();
     } catch (error) {
+      console.error('Falha na atualização de markup em massa:', error);
       setErrorMessage('Erro grave ao atualizar preços. Tente novamente.');
     } finally {
       setIsProcessing(false);
