@@ -1,7 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// Importa o tipo do outro arquivo de tipos
+import { ProdutoVariante } from '../../app-admin/src/types';
+
 export interface ProdutoCatalogo {
-  [x: string]: any;
-  variantes: any;
+  variantes: ProdutoVariante[];
   id: string;
   name: string;
   code?: string;
