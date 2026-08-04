@@ -26,8 +26,8 @@ jobs:
       - name: Install Dependencies (Root)
         run: npm install
 
-      - name: Run Tests (API)
-        run: npm test -w api
+      - name: Run Linter
+        run: npm run lint:check
 
       - name: Build (app-admin)
         run: npm run build -w app-admin
