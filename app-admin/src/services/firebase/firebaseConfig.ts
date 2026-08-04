@@ -15,6 +15,9 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+// NOTA DE SEGURANÇA: A validação abaixo é crítica para evitar que a aplicação
+// rode com credenciais de placeholder ou ausentes. Esta é uma contramedida
+// direta a um risco de segurança onde chaves foram expostas no passado.
 // Validação aprimorada para quebrar o build com uma mensagem clara
 const requiredVars = [
   'VITE_FIREBASE_API_KEY',
