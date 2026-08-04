@@ -22,6 +22,7 @@ export function CuponsPage() {
       const data = await getCoupons();
       setCoupons(data);
     } catch (error) {
+      console.error('Erro ao carregar Cupons:', error);
       toast.error('Erro ao carregar Cupons.');
     } finally {
       setLoading(false);
@@ -44,6 +45,7 @@ export function CuponsPage() {
       setNewPercent('');
       toast.success('Cupom criado!');
     } catch (error) {
+      console.error('Erro ao criar Cupom:', error);
       toast.error('Erro ao criar Cupom. Verifique se já existe.');
     } finally {
       setIsSubmitting(false);
@@ -57,6 +59,7 @@ export function CuponsPage() {
       setCoupons(coupons.filter((c) => c.id !== id));
       toast.success('Cupom apagado.');
     } catch (error) {
+      console.error('Erro ao excluir Cupom:', error);
       toast.error('Erro ao apagar.');
     }
   };
