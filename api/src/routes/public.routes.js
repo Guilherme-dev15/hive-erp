@@ -1,20 +1,17 @@
 const express = require('express');
-const {
-  getConfigBySlug,
-  getPublicConfig,
-  validateCoupon,
-  getPublicProducts,
-  getPublicCategories,
-  createOrder
-} = require('../controllers/public.controller');
 
-const router = express.Router();
+function createPublicRoutes(db) {
+  const router = express.Router();
+  const publicController = require('../controllers/public.controller')(db);
 
-router.get('/config-by-slug', getConfigBySlug);
-router.get('/config-public', getPublicConfig);
-router.post('/validate-coupon', validateCoupon);
-router.get('/products-public', getPublicProducts);
-router.get('/categories-public', getPublicCategories);
-router.post('/orders', createOrder);
+  router.get('/config-by-slug', publicController.getConfigBySlug);
+  router.get('/config-public', publicController.getPublicConfig);
+  router.post('/validate-coupon', publicController.validateCoupon);
+  router.get('/products-public', publicController.getPublicProducts);
+  router.get('/categories-public', publicController.getPublicCategories);
+  router.post('/orders', publicController.createOrder);
 
-module.exports = router;
+  return router;
+}
+
+module.exports = createPublicRoutes;
