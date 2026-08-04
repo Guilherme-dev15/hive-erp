@@ -62,7 +62,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Fornecedor[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [setActiveSupplierRules] = useState<any>(null); // TODO: Type this based on supplier rules definition
+  const [setActiveSupplierRules] = useState<Record<string, unknown> | null>(null); // TODO: Type this based on supplier rules definition
   const [globalGramPrice, setGlobalGramPrice] = useState<number>(0);
 
   // Configurações Globais
