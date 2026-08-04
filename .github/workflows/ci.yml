@@ -29,6 +29,10 @@ jobs:
       - name: Run Linter
         run: npm run lint:check
 
+      - name: Run Tests
+        run: npm test
+
+
       - name: Build (app-admin)
         run: npm run build -w app-admin
 
