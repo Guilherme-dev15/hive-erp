@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingDown,
+  AlertTriangle,
+  ShieldCheck,
+  Zap,
   RotateCcw,
   Loader2,
   DollarSign,
@@ -27,17 +30,14 @@ interface CampaignSimulation {
 }
 
 export function CampanhasPage() {
-  // Estados do Formulário
-  const [discount, setDiscount] = useState(10); // Começa com 10%
-  const [minMarkup, setMinMarkup] = useState(1.2); // Padrão: 20% acima do custo
+  const [discount, setDiscount] = useState(10);
+  const [minMarkup, setMinMarkup] = useState(1.2);
   const [campaignName, setCampaignName] = useState('Promoção Relâmpago');
 
-  // Estados de Controle
   const [loading, setLoading] = useState(false);
   const [simulation, setSimulation] = useState<CampaignSimulation | null>(null);
   const [mode, setMode] = useState<'simulation' | 'applied'>('simulation');
 
-  // 1. FUNÇÃO DE SIMULAR
   const handleSimulate = async () => {
     setLoading(true);
     try {
@@ -45,14 +45,13 @@ export function CampanhasPage() {
       setSimulation(stats);
       toast.success('Cenário calculado com sucesso!');
     } catch (error) {
-      console.error('Erro ao simular:', error);
+      console.error('Erro ao simular campanha:', error);
       toast.error('Erro ao simular.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. FUNÇÃO DE APLICAR
   const handleApply = async () => {
     if (
       !confirm(
@@ -74,7 +73,6 @@ export function CampanhasPage() {
     }
   };
 
-  // 3. FUNÇÃO DE REVERTER
   const handleRevert = async () => {
     if (
       !confirm(
@@ -99,7 +97,6 @@ export function CampanhasPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 pb-20">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
@@ -126,13 +123,11 @@ export function CampanhasPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* === COLUNA 1: CONTROLES === */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6 h-fit">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
             <TrendingDown size={20} /> Configurar Desconto
           </h2>
 
-          {/* Slider de Desconto */}
           <div className="space-y-2">
             <div className="flex justify-between font-bold">
               <span>Desconto Global</span>
@@ -155,7 +150,6 @@ export function CampanhasPage() {
             </div>
           </div>
 
-          {/* Trava de Segurança */}
           <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 space-y-3">
             <div className="flex items-center gap-2 text-orange-800 font-bold text-sm">
               <ShieldCheck size={16} /> Trava de Segurança (Markup)
@@ -178,7 +172,6 @@ export function CampanhasPage() {
             </div>
           </div>
 
-          {/* Nome da Campanha */}
           <div>
             <label className="text-xs font-bold text-gray-400 uppercase">
               Nome da Campanha
@@ -207,7 +200,6 @@ export function CampanhasPage() {
           </button>
         </div>
 
-        {/* === COLUNA 2 e 3: RESULTADOS === */}
         <div className="lg:col-span-2 space-y-6">
           {!simulation ? (
             <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
@@ -222,7 +214,6 @@ export function CampanhasPage() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              {/* 1. Resumo do Impacto */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                   <p className="text-xs text-gray-400 uppercase font-bold">
@@ -261,13 +252,11 @@ export function CampanhasPage() {
                 </div>
               </div>
 
-              {/* 2. Gráfico de Barras Financeiro */}
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
                   <DollarSign size={18} /> Projeção Financeira
                 </h3>
 
-                {/* Faturamento */}
                 <div className="mb-6">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-500">
@@ -278,9 +267,7 @@ export function CampanhasPage() {
                     </span>
                   </div>
                   <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex relative">
-                    {/* Barra Atual (Fundo) */}
                     <div className="absolute top-0 left-0 h-full bg-gray-300 w-full opacity-30"></div>
-                    {/* Barra Projetada */}
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{
@@ -297,7 +284,6 @@ export function CampanhasPage() {
                   </p>
                 </div>
 
-                {/* Lucro Líquido */}
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-500">
@@ -325,7 +311,6 @@ export function CampanhasPage() {
                 </div>
               </div>
 
-              {/* 3. AÇÃO FINAL */}
               {mode === 'simulation' ? (
                 <div className="flex justify-end pt-4">
                   <button
