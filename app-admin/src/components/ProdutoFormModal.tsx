@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { useForm, type SubmitHandler, UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -61,18 +61,6 @@ const extendedProdutoSchema = produtoSchema.extend({
 
 type ExtendedProdutoFormData = z.infer<typeof extendedProdutoSchema>;
 
-type ExtendedProdutoAdmin = Omit<
-  ProdutoAdmin,
-  'subcategory' | 'weight' | 'gramPrice'
-> & {
-  subcategory?: string;
-  weight?: number;
-  gramPrice?: number;
-  cm?: string;
-  mm?: string;
-  variantes?: ProdutoVariante[];
-};
-
 interface ProdutoFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -89,8 +77,8 @@ interface ProdutoFormModalProps {
 // ----------------------------------------------------------------------
 interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
-  name: string;
-  register: any;
+  name: keyof ExtendedProdutoFormData;
+  register: UseFormRegister<ExtendedProdutoFormData>;
   error?: string;
   icon?: React.ReactNode;
 }
@@ -129,7 +117,7 @@ const FormInput: React.FC<FormInputProps> = ({
             error
               ? 'border-red-300 focus:ring-red-200 focus:border-red-500'
               : 'border-gray-200 hover:border-gray-300 focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10'
-          } 
+          }
           ${icon ? 'pl-10' : ''} disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed placeholder:text-gray-400 text-gray-800
         `}
       />
@@ -144,8 +132,8 @@ const FormInput: React.FC<FormInputProps> = ({
 
 interface FormSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
-  name: string;
-  register: any;
+  name: keyof ExtendedProdutoFormData;
+  register: UseFormRegister<ExtendedProdutoFormData>;
   error?: string;
   icon?: React.ReactNode;
 }
@@ -185,7 +173,7 @@ const FormSelect: React.FC<FormSelectProps> = ({
             error
               ? 'border-red-300 focus:ring-red-200 focus:border-red-500'
               : 'border-gray-200 hover:border-gray-300 focus:border-[#d19900] focus:ring-4 focus:ring-[#d19900]/10'
-          } 
+          }
           ${icon ? 'pl-10' : ''} disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed text-gray-800
         `}
       >
@@ -223,7 +211,7 @@ export function ProdutoFormModal({
 
   // --- ESTADOS DA CALCULADORA ---
   const [showMetalCalc, setShowMetalCalc] = useState(false);
-  const [activeSupplierRules, setActiveSupplierRules] = useState<any>(null);
+  const [activeSupplierRules, setActiveSupplierRules] = useState<Record<string, any> | null>(null);
 
   const {
     register,
@@ -368,14 +356,12 @@ export function ProdutoFormModal({
     }
   }, [custoObs, markupObs, setValue, getValues]);
 
-  // --- CÁLCULO DE LUCRO E MARGEM (VISÍVEL) ---
   const indicadores = useMemo(() => {
     const c = Number(custoObs) || 0;
     const v = Number(vendaObs) || 0;
 
     if (v === 0) return { lucro: 0, margem: 0 };
 
-    // Taxas globais (se não existirem, usa 0)
     const taxaCartao = configGlobal?.cardFee
       ? v * (configGlobal.cardFee / 100)
       : 0;
@@ -391,7 +377,7 @@ export function ProdutoFormModal({
   useEffect(() => {
     if (isOpen) {
       if (isEditMode && produtoParaEditar) {
-        const p = produtoParaEditar as unknown as ExtendedProdutoAdmin;
+        const p = produtoParaEditar as ExtendedProdutoAdmin;
         const mk = p.salePrice && p.costPrice ? p.salePrice / p.costPrice : 2.0;
         if (p.weight && p.weight > 0) setShowMetalCalc(true);
         reset({
@@ -442,7 +428,7 @@ export function ProdutoFormModal({
     if (!file) return;
     setIsUploading(true);
     try {
-      const url = await uploadImage(file, 'products');
+      const url = await uploadImage(file);
       setPreviewImage(URL.createObjectURL(file));
       setValue('imageUrl', url);
       toast.success('Foto carregada!');
@@ -487,15 +473,13 @@ export function ProdutoFormModal({
 
       let res;
       if (isEditMode && produtoParaEditar) {
-        await updateAdminProduto(produtoParaEditar.id, payload as any);
-        // Para atualizar a lista sem F5, montamos o objeto atualizado manualmente
-        // pois o updateAdminProduto as vezes retorna void
+        await updateAdminProduto(produtoParaEditar.id, payload as unknown as ProdutoFormData);
         res = { ...produtoParaEditar, ...payload };
       } else {
-        res = await createAdminProduto(payload as any);
+        res = await createAdminProduto(payload as unknown as ProdutoFormData);
       }
 
-      onProdutoSalvo(res); // Envia o objeto completo para a lista atualizar
+      onProdutoSalvo(res);
       onClose();
       toast.success(
         isEditMode ? 'Produto Atualizado!' : `Produto Criado! SKU: ${finalCode}`
@@ -725,7 +709,7 @@ export function ProdutoFormModal({
                                     <option value="">
                                       Tabela de Preços...
                                     </option>
-                                    {activeSupplierRules.lots.map((l: any) => (
+                                    {activeSupplierRules.lots.map((l: { id: string; price: number; name: string }) => (
                                       <option key={l.id} value={l.price}>
                                         {l.name} - R$ {l.price.toFixed(2)}/g
                                       </option>
@@ -801,7 +785,6 @@ export function ProdutoFormModal({
                         </div>
                       </div>
 
-                      {/* EXIBIÇÃO DO LUCRO - AGORA BEM VISÍVEL */}
                       <div className="mt-5 pt-4 border-t border-gray-200 flex justify-between items-center bg-white p-3 rounded-lg border shadow-sm">
                         <div className="flex items-center gap-2 text-gray-500">
                           <TrendingUp size={16} />
@@ -890,7 +873,7 @@ export function ProdutoFormModal({
                         <div className="col-span-3">Status</div>
                         <div className="col-span-1"></div>
                       </div>
-                      {variantesObs.map((_v: any, index: number) => (
+                      {variantesObs.map((_v: ProdutoVariante, index: number) => (
                         <div
                           key={index}
                           className="grid grid-cols-12 gap-3 items-center bg-white p-2 rounded-xl border border-gray-100 shadow-sm"
