@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo } from 'react';
 import { ChevronRight, X, Filter } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica } from '../types';
@@ -104,7 +103,7 @@ export function CategoryFilter({
             <ChevronRight size={16} />
           </div>
 
-          {subcategories.map((sub: any) => (
+          {subcategories.map((sub) => (
             <button
               key={sub}
               onClick={() =>
