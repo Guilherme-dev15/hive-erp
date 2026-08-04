@@ -11,23 +11,29 @@
     "dev:admin": "npm run dev --workspace=app-admin",
     "dev:catalogo": "npm run dev --workspace=app-catalogo",
     "build": "npm run build --workspaces --if-present",
-    "test": "npm test --workspaces --if-present",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "lint": "npm run lint --workspaces --if-present",
     "lint:check": "eslint . --ext .js,.jsx",
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20.14.10",
     "@typescript-eslint/eslint-plugin": "^8.66.0",
     "@typescript-eslint/parser": "^8.66.0",
-    "typescript": "^5.5.3"
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^30.0.1",
+    "typescript": "^5.5.3",
+    "vitest": "^4.1.10"
   },
   "optionalDependencies": {
+    "@rollup/rollup-darwin-x64": "^4.62.4",
     "@rollup/rollup-linux-x64-gnu": "^4.62.4",
     "@rollup/rollup-win32-x64-msvc": "^4.62.4",
-    "@rollup/rollup-darwin-x64": "^4.62.4",
+    "@swc/core-darwin-x64": "^1.7.9",
     "@swc/core-linux-x64-gnu": "^1.7.9",
-    "@swc/core-win32-x64-msvc": "^1.7.9",
-    "@swc/core-darwin-x64": "^1.7.9"
+    "@swc/core-win32-x64-msvc": "^1.7.9"
   }
 }
