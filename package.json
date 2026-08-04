@@ -8,7 +8,8 @@
     "app-catalogo"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=app-admin",
+    "dev:admin": "npm run dev --workspace=app-admin",
+    "dev:catalogo": "npm run dev --workspace=app-catalogo",
     "build": "npm run build --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
