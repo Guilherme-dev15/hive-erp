@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingDown,
-  TrendingUp,
   AlertTriangle,
   ShieldCheck,
   Zap,
