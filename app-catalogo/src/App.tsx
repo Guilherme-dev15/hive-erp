@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, CSSProperties } from 'react';
 import {
   ShoppingCart,
   Loader2,
@@ -19,9 +17,6 @@ import { ModalCarrinho } from './components/ModalCarrinho';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { CategoryFilter } from './components/CategoryFilter';
 
-// ============================================================================
-// 1. HOOK: IDENTIFICAÇÃO DA LOJA (Lógica de URL e Slug)
-// ============================================================================
 const useStoreIdentity = () => {
   const [identity, setIdentity] = useState<{
     slug: string | null;
@@ -33,12 +28,9 @@ const useStoreIdentity = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-
-    // Prioridade 1: ?loja=nome (Amigável) ou ?slug=nome (Técnico)
     let currentSlug = params.get('loja') || params.get('slug');
     const directStoreId = params.get('storeId');
 
-    // Prioridade 2: Subdomínio
     if (!currentSlug) {
       const host = window.location.hostname;
       if (!host.includes('localhost') && !host.includes('vercel.app')) {
@@ -52,9 +44,6 @@ const useStoreIdentity = () => {
   return identity;
 };
 
-// ============================================================================
-// 2. HOOK: DADOS DA LOJA (Busca API)
-// ============================================================================
 const useStoreData = (slug: string | null, directStoreId: string | null) => {
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
   const [config, setConfig] = useState<ConfigPublica>({
@@ -69,20 +58,17 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!slug && !directStoreId) return; // Aguarda identificação
+    if (!slug && !directStoreId) return;
 
     async function loadData() {
       try {
         setLoading(true);
         let finalStoreId = directStoreId;
 
-        // Passo A: Se temos slug mas não ID, busca o ID
         if (slug && !finalStoreId) {
           try {
             const storeData = await fetchStoreBySlug(slug);
             finalStoreId = storeData.storeId;
-
-            // Pré-carrega config básica
             setConfig((prev) => ({
               ...prev,
               ...storeData,
@@ -97,11 +83,9 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
 
         if (!finalStoreId) throw new Error('ID da loja não identificado.');
 
-        // Passo B: Busca Catálogo Completo
         const data = await fetchCatalogData(finalStoreId);
 
-        // Tratamento de preços (Numbers)
-        const safeProducts = (data.produtos || []).map((p: any) => ({
+        const safeProducts = (data.produtos || []).map((p: ProdutoCatalogo) => ({
           ...p,
           salePrice: Number(p.salePrice) || 0,
           promotionalPrice: Number(p.promotionalPrice) || 0,
@@ -109,7 +93,6 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
 
         setProdutos(safeProducts);
 
-        // Atualiza config com dados mais recentes do catálogo
         if (data.config) {
           setConfig((prev) => ({
             ...prev,
@@ -118,9 +101,10 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
             storeName: data.config.storeName || prev.storeName,
           }));
         }
-      } catch (err: any) {
-        console.error('Erro carrega loja:', err);
-        setError(err.message || 'Erro desconhecido');
+      } catch (err) {
+        const error = err as Error;
+        console.error('Erro carrega loja:', error);
+        setError(error.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }
@@ -132,9 +116,6 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
   return { produtos, config, loading, error };
 };
 
-// ============================================================================
-// 3. HOOK: CARRINHO DE COMPRAS
-// ============================================================================
 const useCart = () => {
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [isAberto, setIsAberto] = useState(false);
@@ -189,16 +170,13 @@ const useCart = () => {
   };
 };
 
-// ============================================================================
-// 4. HOOK: FILTROS E BUSCA
-// ============================================================================
+type SortOrder = 'default' | 'priceAsc' | 'priceDesc';
+
 const useProductFilter = (produtos: ProdutoCatalogo[]) => {
   const [term, setTerm] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<
-    'default' | 'priceAsc' | 'priceDesc'
-  >('default');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('default');
   const [isOpen, setIsOpen] = useState(false);
 
   const filtered = useMemo(() => {
@@ -241,21 +219,15 @@ const useProductFilter = (produtos: ProdutoCatalogo[]) => {
   };
 };
 
-// ============================================================================
-// COMPONENTE PRINCIPAL (Limpo e Organizado)
-// ============================================================================
 export default function App() {
-  // 1. Identidade e Dados
   const { slug, storeId } = useStoreIdentity();
   const { produtos, config, loading, error } = useStoreData(slug, storeId);
 
-  // 2. Lógica de Negócio
   const cart = useCart();
   const filter = useProductFilter(produtos);
   const [selectedProduct, setSelectedProduct] =
     useState<ProdutoCatalogo | null>(null);
 
-  // --- RENDERS DE ESTADO ---
   if (loading && !config.storeName)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
@@ -287,7 +259,6 @@ export default function App() {
         }}
       />
 
-      {/* HEADER */}
       <header className="fixed top-0 left-0 right-0 z-50 h-16 px-4 flex items-center justify-between backdrop-blur-xl bg-white/80 border-b border-gray-100/50 shadow-sm">
         <h1
           className="text-lg font-bold tracking-tight truncate max-w-[70%]"
@@ -313,14 +284,12 @@ export default function App() {
         </button>
       </header>
 
-      {/* BANNER */}
       {config.banners && config.banners.length > 0 ? (
         <BannerCarousel banners={config.banners} />
       ) : (
         <div className="mt-20"></div>
       )}
 
-      {/* FILTROS E BUSCA */}
       <div className="sticky top-16 z-40 bg-gray-50/95 backdrop-blur-md border-b border-gray-100 shadow-sm pt-3 pb-1">
         <div className="max-w-7xl mx-auto">
           <div className="px-4 mb-3 flex gap-2">
@@ -335,7 +304,7 @@ export default function App() {
                 value={filter.term}
                 onChange={(e) => filter.setTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-2xl border-none bg-white text-sm focus:ring-2 ring-opacity-20 outline-none"
-                style={{ '--tw-ring-color': config.primaryColor } as any}
+                style={{ '--tw-ring-color': config.primaryColor } as CSSProperties}
               />
             </div>
             <button
@@ -358,7 +327,7 @@ export default function App() {
                   {['default', 'priceAsc', 'priceDesc'].map((opt) => (
                     <button
                       key={opt}
-                      onClick={() => filter.setSortOrder(opt as any)}
+                      onClick={() => filter.setSortOrder(opt as SortOrder)}
                       className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap ${filter.sortOrder === opt ? 'bg-gray-800 text-white' : 'bg-white text-gray-600'}`}
                     >
                       {opt === 'default'
@@ -386,7 +355,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* LISTA DE PRODUTOS */}
       <main className="max-w-7xl mx-auto p-4 min-h-[60vh]">
         <div className="mb-5 px-1 flex items-end justify-between border-b border-gray-100 pb-2">
           <div className="flex flex-col">
@@ -436,7 +404,6 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAIS */}
       <ModalCarrinho
         isOpen={cart.isAberto}
         onClose={() => cart.setIsAberto(false)}

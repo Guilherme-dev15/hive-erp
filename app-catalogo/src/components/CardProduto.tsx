@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Package, Plus, Ruler, TrendingDown } from 'lucide-react';
-import { ProdutoCatalogo, ConfigPublica } from '../types';
+import { ProdutoCatalogo, ConfigPublica, ProdutoVariante } from '../types';
 import { formatCurrency } from '../utils/format';
 
 interface CardProdutoProps {
@@ -21,10 +19,8 @@ export function CardProduto({
 }: CardProdutoProps) {
   const stock = produto.quantity ?? 0;
   const temStock = stock > 0;
-  // Usa a configuração global de estoque baixo ou 5 como padrão
   const lowStockLimit = config.lowStockThreshold || 5;
 
-  // --- LÓGICA INTELIGENTE DE PREÇO E PROMOÇÃO ---
   const {
     precoMostrado,
     precoAntigo,
@@ -35,12 +31,10 @@ export function CardProduto({
   } = useMemo(() => {
     const variantes = produto.variantes || [];
 
-    // --- CENÁRIO 1: SEM VARIANTES (PRODUTO SIMPLES) ---
     if (variantes.length === 0) {
       const precoOriginal = Number(produto.salePrice) || 0;
       const precoPromo = Number(produto.promotionalPrice) || 0;
 
-      // Verifica se a promoção é válida e ativa
       const isPromo =
         produto.isOnSale && precoPromo > 0 && precoPromo < precoOriginal;
 
@@ -56,17 +50,13 @@ export function CardProduto({
       };
     }
 
-    // --- CENÁRIO 2: COM VARIANTES ---
-    // (Nota: Promoções globais geralmente afetam o preço base.
-    // Se quiser aplicar em variantes, precisaria refatorar a estrutura de variantes no backend)
     const precosVariantes = variantes
-      .map((v: { valor_ajuste: any }) => Number(v.valor_ajuste))
+      .map((v: ProdutoVariante) => Number(v.valor_ajuste))
       .filter((p: number) => p > 0);
 
     if (precosVariantes.length > 0) {
       const menorPreco = Math.min(...precosVariantes);
 
-      // Trava visual para valores muito baixos (ex: peso em gramas cadastrado errado como preço)
       if (menorPreco < 5) {
         return {
           precoMostrado: Number(produto.salePrice) || 0,
@@ -215,7 +205,7 @@ export function CardProduto({
             }}
             disabled={!temStock}
             className={`
-              w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-all active:scale-90 
+              w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-all active:scale-90
               ${
                 temStock
                   ? 'hover:brightness-110 text-white shadow-lg'

@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
-  Plus, // <--- Ícone Plus importado novamente
+  Plus,
   MessageCircle,
   Package,
   Maximize2,
@@ -12,21 +11,18 @@ import {
   AlertCircle,
   Info,
 } from 'lucide-react';
-import { ProdutoCatalogo, ConfigPublica } from '../types';
+import { ProdutoCatalogo, ConfigPublica, ProdutoVariante } from '../types';
 import { formatCurrency } from '../utils/format';
 import { ImageZoomModal } from './ImageZoomModal';
 
-// --- CONFIGURAÇÕES ---
 const MARKUP_PADRAO = 2.0;
-
-// A imagem deve estar na pasta 'public' com este nome exato
 const URL_GUIA_MEDIDAS = '/guia-medidas.jpg';
 
 interface ProductDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: ProdutoCatalogo | null;
-  onAddToCart: (produtoComPrecoCorrigido: any) => void;
+  onAddToCart: (produtoComPrecoCorrigido: ProdutoCatalogo) => void;
   config: ConfigPublica;
 }
 
@@ -39,9 +35,8 @@ export function ProductDetailsModal({
 }: ProductDetailsModalProps) {
   const [isZoomed, setIsZoomed] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
-  const [varianteSelecionada, setVarianteSelecionada] = useState<any>(null);
+  const [varianteSelecionada, setVarianteSelecionada] = useState<ProdutoVariante | null>(null);
 
-  // 1. Resetar a variante selecionada
   useEffect(() => {
     if (product?.variantes && product.variantes.length > 0) {
       setVarianteSelecionada(product.variantes[0]);
@@ -51,7 +46,6 @@ export function ProductDetailsModal({
     setShowSizeGuide(false);
   }, [product, isOpen]);
 
-  // 2. Lógica de Preço
   const precoFinalCalculado = useMemo(() => {
     if (!product) return 0;
     const valorBase = varianteSelecionada
@@ -67,7 +61,6 @@ export function ProductDetailsModal({
 
   if (!product) return null;
 
-  // LÓGICA PARA DETECTAR SE É CORRENTE
   const isCorrente =
     product.category?.toUpperCase().includes('CORRENTE') ||
     product.name.toUpperCase().includes('CORRENTE') ||
@@ -112,7 +105,6 @@ export function ProductDetailsModal({
                 <X size={24} />
               </button>
 
-              {/* Lado Esquerdo: Imagem */}
               <div className="w-full md:w-1/2 bg-gray-50 flex items-center justify-center p-6 relative group/image">
                 {product.imageUrl ? (
                   <div
@@ -136,7 +128,6 @@ export function ProductDetailsModal({
                 )}
               </div>
 
-              {/* Lado Direito: Conteúdo */}
               <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto bg-white custom-scrollbar">
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
@@ -177,7 +168,6 @@ export function ProductDetailsModal({
                   </div>
                 </div>
 
-                {/* Grades / Variantes */}
                 {product.variantes && product.variantes.length > 0 && (
                   <div className="mb-8">
                     <div className="flex justify-between items-end mb-3">
@@ -186,7 +176,6 @@ export function ProductDetailsModal({
                         Medida:
                       </h3>
 
-                      {/* BOTÃO DE GUIA DE MEDIDAS */}
                       {isCorrente && (
                         <button
                           onClick={() => setShowSizeGuide(true)}
@@ -198,7 +187,7 @@ export function ProductDetailsModal({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {product.variantes.map((v: any, idx: number) => {
+                      {product.variantes.map((v: ProdutoVariante, idx: number) => {
                         const isSelected =
                           varianteSelecionada?.medida === v.medida;
                         return (
@@ -258,7 +247,6 @@ export function ProductDetailsModal({
                         : config.secondaryColor,
                     }}
                   >
-                    {/* ÍCONE PLUS RESTAURADO */}
                     <Plus size={22} strokeWidth={3} />
                     {isSobConsulta
                       ? 'INDISPONÍVEL ONLINE'
@@ -283,7 +271,6 @@ export function ProductDetailsModal({
         )}
       </AnimatePresence>
 
-      {/* --- MODAL DO GUIA DE TAMANHOS --- */}
       <AnimatePresence>
         {showSizeGuide && (
           <div
@@ -305,13 +292,12 @@ export function ProductDetailsModal({
                 <span className="text-xs font-bold uppercase">Fechar</span>
               </button>
 
-              {/* IMAGEM COM TRATAMENTO DE ERRO VISUAL */}
               <img
                 src={URL_GUIA_MEDIDAS}
                 alt="Guia de Medidas de Correntes"
                 className="w-full h-auto rounded-xl"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none';
+                  (e.target as HTMLElement).style.display = 'none';
                   const msg = document.createElement('div');
                   msg.className = 'bg-red-50 p-8 rounded-xl text-center';
                   msg.innerHTML = `
@@ -321,7 +307,7 @@ export function ProductDetailsModal({
                       está na pasta <strong>public</strong> do seu projeto.
                     </p>
                   `;
-                  e.currentTarget.parentElement?.appendChild(msg);
+                  (e.target as HTMLElement).parentElement?.appendChild(msg);
                 }}
               />
 
