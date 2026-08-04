@@ -1,75 +1,53 @@
 const express = require('express');
-const {
-  getProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  bulkCreateProducts,
-  getCategories,
-  createCategory,
-  deleteCategory,
-  getSuppliers,
-  createSupplier,
-  getTransactions,
-  createTransaction,
-  deleteTransaction,
-  getOrders,
-  updateOrder,
-  updateOrderStatus,
-  deleteOrder,
-  getDashboardStats,
-  adjustInventory,
-  getInventoryLogs,
-  getCoupons,
-  createCoupon,
-  deleteCoupon,
-  getConfig,
-  saveConfig
-} = require('../controllers/admin.controller');
 
-const router = express.Router();
+function createAdminRoutes(db) {
+  const router = express.Router();
+  const adminController = require('../controllers/admin.controller')(db);
 
-// Products
-router.get('/products', getProducts);
-router.post('/products', createProduct);
-router.put('/products/:id', updateProduct);
-router.delete('/products/:id', deleteProduct);
-router.post('/products/bulk', bulkCreateProducts);
+  // Products
+  router.get('/products', adminController.getProducts);
+  router.post('/products', adminController.createProduct);
+  router.put('/products/:id', adminController.updateProduct);
+  router.delete('/products/:id', adminController.deleteProduct);
+  router.post('/products/bulk', adminController.bulkCreateProducts);
 
-// Categories
-router.get('/categories', getCategories);
-router.post('/categories', createCategory);
-router.delete('/categories/:id', deleteCategory);
+  // Categories
+  router.get('/categories', adminController.getCategories);
+  router.post('/categories', adminController.createCategory);
+  router.delete('/categories/:id', adminController.deleteCategory);
 
-// Suppliers
-router.get('/suppliers', getSuppliers);
-router.post('/suppliers', createSupplier);
+  // Suppliers
+  router.get('/suppliers', adminController.getSuppliers);
+  router.post('/suppliers', adminController.createSupplier);
 
-// Transactions
-router.get('/transactions', getTransactions);
-router.post('/transactions', createTransaction);
-router.delete('/transactions/:id', deleteTransaction);
+  // Transactions
+  router.get('/transactions', adminController.getTransactions);
+  router.post('/transactions', adminController.createTransaction);
+  router.delete('/transactions/:id', adminController.deleteTransaction);
 
-// Orders
-router.get('/orders', getOrders);
-router.put('/orders/:id', updateOrder);
-router.patch('/orders/:id/status', updateOrderStatus);
-router.delete('/orders/:id', deleteOrder);
+  // Orders
+  router.get('/orders', adminController.getOrders);
+  router.put('/orders/:id', adminController.updateOrder);
+  router.patch('/orders/:id/status', adminController.updateOrderStatus);
+  router.delete('/orders/:id', adminController.deleteOrder);
 
-// Dashboard
-router.get('/dashboard/stats', getDashboardStats);
+  // Dashboard
+  router.get('/dashboard/stats', adminController.getDashboardStats);
 
-// Inventory
-router.post('/inventory/adjust', adjustInventory);
-router.get('/inventory/logs/:productId', getInventoryLogs);
+  // Inventory
+  router.post('/inventory/adjust', adminController.adjustInventory);
+  router.get('/inventory/logs/:productId', adminController.getInventoryLogs);
 
-// Coupons
-router.get('/coupons', getCoupons);
-router.post('/coupons', createCoupon);
-router.delete('/coupons/:id', deleteCoupon);
+  // Coupons
+  router.get('/coupons', adminController.getCoupons);
+  router.post('/coupons', adminController.createCoupon);
+  router.delete('/coupons/:id', adminController.deleteCoupon);
 
-// Config
-router.get('/config', getConfig);
-router.post('/config', saveConfig);
+  // Config
+  router.get('/config', adminController.getConfig);
+  router.post('/config', adminController.saveConfig);
 
-module.exports = router;
+  return router;
+}
+
+module.exports = createAdminRoutes;
