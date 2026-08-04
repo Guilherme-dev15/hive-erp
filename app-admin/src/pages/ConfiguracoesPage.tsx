@@ -113,6 +113,7 @@ export function ConfiguracoesPage() {
           });
         }
       } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
         toast.error('Erro ao carregar configurações.');
       } finally {
         setLoading(false);
