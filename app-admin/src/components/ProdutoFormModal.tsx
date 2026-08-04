@@ -211,7 +211,7 @@ export function ProdutoFormModal({
 
   // --- ESTADOS DA CALCULADORA ---
   const [showMetalCalc, setShowMetalCalc] = useState(false);
-  const [activeSupplierRules, setActiveSupplierRules] = useState<Record<string, any> | null>(null);
+  const [activeSupplierRules, setActiveSupplierRules] = useState<Record<string, unknown> | null>(null);
 
   const {
     register,

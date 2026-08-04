@@ -2,10 +2,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingDown,
-  AlertTriangle,
-  ShieldCheck,
-  Zap,
-  Save,
   RotateCcw,
   Loader2,
   DollarSign,
@@ -49,6 +45,7 @@ export function CampanhasPage() {
       setSimulation(stats);
       toast.success('Cenário calculado com sucesso!');
     } catch (error) {
+      console.error('Erro ao simular:', error);
       toast.error('Erro ao simular.');
     } finally {
       setLoading(false);
@@ -70,6 +67,7 @@ export function CampanhasPage() {
       toast.success('Campanha aplicada! Os preços foram atualizados.');
       setMode('applied');
     } catch (error) {
+      console.error('Erro ao aplicar campanha:', error);
       toast.error('Erro ao aplicar campanha.');
     } finally {
       setLoading(false);
@@ -92,6 +90,7 @@ export function CampanhasPage() {
       setSimulation(null);
       setMode('simulation');
     } catch (error) {
+      console.error('Erro ao reverter campanha:', error);
       toast.error('Erro ao reverter.');
     } finally {
       setLoading(false);
