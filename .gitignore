@@ -36,3 +36,27 @@ build/
 # Outros
 .DS_Store
 Thumbs.db
+
+# Arquivos de segredos e executáveis
+secrets.txt
+*.exe
+
+# Ambientes virtuais
+/.venv/
+
+
+# Arquivos de segredos e executáveis
+secrets.txt
+*.exe
+
+# Ambientes virtuais
+/.venv/
+
+
+# Arquivos de segredos e executáveis
+secrets.txt
+*.exe
+
+# Ambientes virtuais
+/.venv/
+
