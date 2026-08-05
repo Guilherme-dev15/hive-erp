@@ -24,7 +24,7 @@ jobs:
           cache-dependency-path: 'package-lock.json'
 
       - name: Install Dependencies (Root)
-        run: npm install
+        run: npm install --include=optional
 
       - name: Run Linter
         run: npm run lint:check
