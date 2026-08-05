@@ -30,7 +30,7 @@ jobs:
         run: npm run lint:check
 
       - name: Run Tests
-        run: npm test
+        run: npm run test:api
 
 
       - name: Build (app-admin)
