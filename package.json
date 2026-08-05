@@ -35,5 +35,8 @@
     "@swc/core-darwin-x64": "^1.7.9",
     "@swc/core-linux-x64-gnu": "^1.7.9",
     "@swc/core-win32-x64-msvc": "^1.7.9"
+  },
+  "overrides": {
+    "undici": "6.13.0"
   }
 }
