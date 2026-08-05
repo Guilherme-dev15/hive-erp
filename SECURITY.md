@@ -1,21 +1,17 @@
-# Security Policy
+# Política de Segurança
 
-## Supported Versions
+Agradecemos o seu interesse em manter o projeto Hive ERP seguro. A segurança dos nossos usuários e de seus dados é nossa principal prioridade.
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+## Reportando uma Vulnerabilidade
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+**Por favor, não reporte vulnerabilidades de segurança através de issues públicas no GitHub.**
 
-## Reporting a Vulnerability
+Em vez disso, pedimos que você envie um email para **[SEU EMAIL DE CONTATO DE SEGURANÇA]**.
 
-Use this section to tell people how to report a vulnerability.
+Ao relatar uma vulnerabilidade, por favor, inclua o máximo de detalhes possível, como:
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+*   Uma descrição clara da vulnerabilidade.
+*   Passos para reproduzir o problema.
+*   O impacto potencial da vulnerabilidade.
+
+Nós nos esforçaremos para responder ao seu relatório dentro de 48 horas e manteremos você informado sobre o progresso da correção. Agradecemos sua ajuda em manter o Hive ERP seguro para todos.
