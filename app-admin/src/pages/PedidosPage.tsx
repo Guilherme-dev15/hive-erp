@@ -25,12 +25,6 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
   TooltipProps,
 } from 'recharts';

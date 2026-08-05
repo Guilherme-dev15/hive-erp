@@ -63,7 +63,7 @@ export function FornecedoresPage() {
       setLoading(true);
       const data = await getFornecedores();
       setFornecedores(data);
-    } catch (error) {
+    } catch {
       toast.error('Erro ao carregar fornecedores.');
     } finally {
       setLoading(false);
