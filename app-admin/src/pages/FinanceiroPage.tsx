@@ -22,7 +22,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  TooltipProps,
 } from 'recharts';
 
 import { apiClient } from '../services/apiService';
