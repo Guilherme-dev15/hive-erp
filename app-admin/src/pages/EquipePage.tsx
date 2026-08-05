@@ -50,7 +50,7 @@ export function EquipePage() {
         ...(d.data() as Omit<TeamMember, 'email'>),
       }));
       setUsersList(lista);
-    } catch (error) {
+    } catch {
       toast.error('Erro ao carregar equipe.');
     } finally {
       setLoading(false);
@@ -81,7 +81,7 @@ export function EquipePage() {
       setNewEmail('');
       setNewName('');
       loadUsers();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao adicionar usuário.');
     } finally {
       setIsSubmitting(false);
@@ -101,7 +101,7 @@ export function EquipePage() {
       await deleteDoc(doc(db, 'users', targetUser.email));
       toast.success('Acesso revogado.');
       loadUsers();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao remover.');
     }
   };
