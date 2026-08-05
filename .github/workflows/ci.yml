@@ -24,11 +24,10 @@ jobs:
           cache-dependency-path: 'package-lock.json'
 
       - name: Install Dependencies (Root)
-        run: npm install
+        run: npm install --include=optional
 
       - name: Run Linter
         run: npm run lint:check
-
       - name: Build (app-admin)
         run: npm run build -w app-admin
 
