@@ -1,10 +1,12 @@
+import { vi } from 'vitest';
+
 const mockFirestore = {
-  collection: jest.fn(),
-  where: jest.fn(),
-  limit: jest.fn(),
-  get: jest.fn(() => Promise.resolve({ empty: true, docs: [] })),
-  set: jest.fn(),
-  update: jest.fn(),
+  collection: vi.fn(),
+  where: vi.fn(),
+  limit: vi.fn(),
+  get: vi.fn(() => Promise.resolve({ empty: true, docs: [] })),
+  set: vi.fn(),
+  update: vi.fn(),
 };
 
 const mockDoc = {
@@ -12,32 +14,31 @@ const mockDoc = {
   set: mockFirestore.set,
   update: mockFirestore.update,
   collection: mockFirestore.collection,
-  // Adiciona um ID para referências
   id: 'mock-doc-id',
 };
 
+// Configurando os retornos para encadeamento
 mockFirestore.collection.mockReturnValue(mockFirestore);
 mockFirestore.where.mockReturnValue(mockFirestore);
 mockFirestore.limit.mockReturnValue(mockFirestore);
-// Agora, doc() sempre retorna um objeto com os métodos necessários
-mockFirestore.doc = jest.fn(() => mockDoc);
+mockFirestore.doc = vi.fn(() => mockDoc); // doc() sempre retorna o objeto mockDoc
 
 const mockBatch = {
-  set: jest.fn(),
-  update: jest.fn(),
-  commit: jest.fn(() => Promise.resolve()),
+  set: vi.fn(),
+  update: vi.fn(),
+  commit: vi.fn(() => Promise.resolve()),
 };
-mockFirestore.batch = jest.fn(() => mockBatch);
+mockFirestore.batch = vi.fn(() => mockBatch);
 
 const admin = {
-  apps: [{}],
-  initializeApp: jest.fn(),
+  apps: [{}], // Simula a existência de um app inicializado para evitar erros
+  initializeApp: vi.fn(), // A função de inicialização é um mock vazio
   credential: {
-    cert: jest.fn(),
+    cert: vi.fn(), // A função de credencial é um mock vazio
   },
   firestore: () => mockFirestore,
   auth: () => ({
-    verifyIdToken: jest.fn(() =>
+    verifyIdToken: vi.fn(() =>
       Promise.resolve({ uid: 'test-uid', email: 'test@test.com' })
     ),
   }),
@@ -51,4 +52,4 @@ admin.firestore.Timestamp = {
   fromDate: (date) => date,
 };
 
-module.exports = admin;
+export default admin;
