@@ -31,8 +31,7 @@ Este documento detalha o plano de trabalho para concluir a fase de remediação 
 
 ### Tarefa 1.3: Implementar Teste de Isolamento de Tenant (Issue #20)
 *   **Escopo:** Escrever teste de integração que prova: usuário do Tenant A não consegue ler/escrever dado do Tenant B.
-*   **Entregável:** Teste de regressão verde para a Regra 4 do "Prompt Especialista".
-*   **Estimativa:** 2 dias.
+*   **Status:** ✅ Concluída. Testes de integração (`integration.tenant-isolation.test.js`) foram criados, provando que o filtro de `userId` na API funciona como esperado. Commit `0cfbef0`.
 
 ---
 
