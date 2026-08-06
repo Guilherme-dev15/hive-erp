@@ -27,6 +27,7 @@ Este documento detalha o plano de trabalho para concluir a fase de remediação 
     3. Criar testes unitários para a máquina de estados finita (FSM).
 *   **Entregável:** Lógica de transição de pedidos 100% testada e isolada.
 *   **Estimativa:** 2 dias.
+*   **Status:** ✅ Concluída. Lógica de FSM implementada com 19 testes unitários (`order.service.test.js`). Commit `d100cf6`.
 
 ### Tarefa 1.3: Implementar Teste de Isolamento de Tenant (Issue #20)
 *   **Escopo:** Escrever teste de integração que prova: usuário do Tenant A não consegue ler/escrever dado do Tenant B.
