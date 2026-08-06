@@ -20,7 +20,14 @@ const admin = {
   },
   firestore: () => mockFirestore,
   auth: () => ({
-    verifyIdToken: () => Promise.resolve({ uid: 'test-uid', email: 'test@test.com' }),
+    // Torna o mock dinâmico: o UID é derivado do token enviado.
+    // Convencao: o token "tenant-a-token" -> uid "tenant-a-uid".
+    // Qualquer outro token -> uid generico "test-uid".
+    verifyIdToken: (idToken) => {
+      if (idToken === 'tenant-a-token') return Promise.resolve({ uid: 'tenant-a-uid', email: 'tenant-a@test.com' });
+      if (idToken === 'tenant-b-token') return Promise.resolve({ uid: 'tenant-b-uid', email: 'tenant-b@test.com' });
+      return Promise.resolve({ uid: 'test-uid', email: 'test@test.com' });
+    },
   }),
 };
 
