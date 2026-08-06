@@ -7,13 +7,16 @@ import createApp from '../index';
 const getMock = vi.fn();
 
 // Função para criar uma cadeia de mocks encadeada para qualquer coleção.
+// Suporta: where(), orderBy(), limit(), get()
 const createMockQuery = () => {
   const query = {
     where: vi.fn(),
+    orderBy: vi.fn(),
     limit: vi.fn(),
     get: getMock,
   };
   query.where.mockReturnValue(query);
+  query.orderBy.mockReturnValue(query);
   query.limit.mockReturnValue(query);
   return query;
 };
@@ -66,5 +69,32 @@ describe('Admin Routes - GET /admin/config', () => {
     // O código retorna 200 {} quando vazio, não 404.
     expect(response.status).toBe(200);
     expect(response.body).toEqual({});
+  });
+});
+
+describe('Admin Routes - GET /admin/products', () => {
+
+  it('should return 200 and an array of products', async () => {
+    // Configura o mock para retornar uma lista de produtos.
+    const mockProducts = [
+      { id: 'prod1', name: 'Anel de Ouro', price: 100 },
+      { id: 'prod2', name: 'Corrente de Prata', price: 50 },
+    ];
+    getMock.mockResolvedValue({
+      empty: false,
+      docs: mockProducts.map(p => ({
+        id: p.id,
+        data: () => ({ name: p.name, price: p.price, userId: 'test-uid' }),
+      })),
+    });
+
+    const response = await request(app)
+      .get('/admin/products')
+      .set('Authorization', 'Bearer mock-token');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(2);
+    expect(response.body[0]).toHaveProperty('id', 'prod1');
+    expect(response.body[0]).toHaveProperty('name', 'Anel de Ouro');
   });
 });
