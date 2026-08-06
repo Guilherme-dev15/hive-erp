@@ -5,15 +5,17 @@ import createApp from '../index';
 // 1. Mock do Banco de Dados (Firestore)
 // Reflete a cadeia de chamadas real: db.collection(...).where(...).limit(1).get()
 const getMock = vi.fn();
+const addMock = vi.fn();
 
 // Função para criar uma cadeia de mocks encadeada para qualquer coleção.
-// Suporta: where(), orderBy(), limit(), get()
+// Suporta: where(), orderBy(), limit(), get(), add()
 const createMockQuery = () => {
   const query = {
     where: vi.fn(),
     orderBy: vi.fn(),
     limit: vi.fn(),
     get: getMock,
+    add: addMock,
   };
   query.where.mockReturnValue(query);
   query.orderBy.mockReturnValue(query);
@@ -98,3 +100,30 @@ describe('Admin Routes - GET /admin/products', () => {
     expect(response.body[0]).toHaveProperty('name', 'Anel de Ouro');
   });
 });
+
+describe('Admin Routes - POST /admin/products', () => {
+
+  it('should return 200 and the created product data', async () => {
+    // Configura o mock do 'add' para retornar um ID.
+    addMock.mockResolvedValue({
+      id: 'new-prod-id',
+    });
+
+    const newProduct = {
+      name: 'Pulseira de Prata',
+      price: 75,
+      quantity: 10,
+    };
+
+    const response = await request(app)
+      .post('/admin/products')
+      .set('Authorization', 'Bearer mock-token')
+      .send(newProduct);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('id', 'new-prod-id');
+    expect(response.body).toHaveProperty('name', newProduct.name);
+    expect(response.body).toHaveProperty('price', newProduct.price);
+  });
+});
+
