@@ -220,7 +220,7 @@ export function ProdutoFormModal({
     setValue,
     watch,
     getValues,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<ExtendedProdutoFormData>({
     resolver: zodResolver(extendedProdutoSchema),
     defaultValues: {
@@ -348,19 +348,35 @@ export function ProdutoFormModal({
   useEffect(() => {
     const c = Number(custoObs) || 0;
     const m = Number(markupObs) || 0;
-    if (c > 0 && m > 0) {
-      const vendaCalculada = parseFloat((c * m).toFixed(2));
-      if (Math.abs(Number(getValues('salePrice')) - vendaCalculada) > 0.01) {
-        setValue('salePrice', vendaCalculada);
-      }
+
+    // Se o usuário editou manualmente o salePrice, não recalculamos para não
+    // sobrescrever o valor dele.
+    if (dirtyFields.salePrice) {
+      return;
     }
-  }, [custoObs, markupObs, setValue, getValues]);
+
+    // Se o markup for inválido (< 1), mantemos o valor atual do salePrice.
+    if (m < 1) {
+      return;
+    }
+
+    const vendaCalculada = c > 0 ? parseFloat((c * m).toFixed(2)) : 0;
+    const vendaAtual = Number(getValues('salePrice')) || 0;
+
+    // Atualizamos se o cálculo for diferente do valor atual,
+    // mesmo quando o cálculo é 0 (o usuário zerou o custo).
+    if (Math.abs(vendaAtual - vendaCalculada) > 0.01) {
+      setValue('salePrice', vendaCalculada, { shouldDirty: false });
+    }
+  }, [custoObs, markupObs, setValue, getValues, dirtyFields.salePrice]);
 
   const indicadores = useMemo(() => {
     const c = Number(custoObs) || 0;
     const v = Number(vendaObs) || 0;
 
-    if (v === 0) return { lucro: 0, margem: 0 };
+    if (isNaN(c) || isNaN(v) || v === 0) {
+      return { lucro: 0, margem: 0 };
+    }
 
     const taxaCartao = configGlobal?.cardFee
       ? v * (configGlobal.cardFee / 100)
@@ -757,7 +773,7 @@ export function ProdutoFormModal({
                           placeholder="0.00"
                         />
                         <div className="relative">
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 tracking-wider text-center">
+                          <label htmlFor="markup" className="block text-[10px] font-bold text-gray-500 uppercase mb-1.5 tracking-wider text-center">
                             Markup
                           </label>
                           <div className="relative group">
@@ -765,6 +781,7 @@ export function ProdutoFormModal({
                               <Calculator size={14} />
                             </div>
                             <input
+                              id="markup"
                               type="number"
                               step="0.1"
                               {...register('markup')}
@@ -773,10 +790,11 @@ export function ProdutoFormModal({
                           </div>
                         </div>
                         <div className="relative">
-                          <label className="block text-[10px] font-bold text-[#4a4a4a] uppercase mb-1.5 tracking-wider text-right">
+                          <label htmlFor="salePrice" className="block text-[10px] font-bold text-[#4a4a4a] uppercase mb-1.5 tracking-wider text-right">
                             Venda Final
                           </label>
                           <input
+                            id="salePrice"
                             type="number"
                             step="0.01"
                             {...register('salePrice')}
@@ -791,14 +809,12 @@ export function ProdutoFormModal({
                           <span className="text-[10px] font-bold uppercase tracking-tighter">
                             Lucro Líquido Estimado
                           </span>
-                        </div>
-                        <div className="text-right">
                           <span
-                            className={`text-sm font-black px-2 py-1 rounded-md ${indicadores.lucro > 0 ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}
+                            className={`text-sm font-black px-2 py-1 rounded-md ml-2 ${indicadores.lucro > 0 ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}
                           >
                             R$ {indicadores.lucro.toFixed(2)}
                           </span>
-                          <span className="text-[10px] font-bold text-gray-400 ml-2">
+                          <span className="text-[10px] font-bold text-gray-400 ml-1">
                             ({indicadores.margem.toFixed(0)}%)
                           </span>
                         </div>

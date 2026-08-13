@@ -1,27 +1,23 @@
 # HivePratas — Próximos Passos & Backlog
 
-> **Última atualização:** 2026-08-03
-> Este documento serve como um backlog de alto nível para o desenvolvimento futuro do projeto, após a conclusão das fases de remediação.
+> **Última atualização:** 2026-08-13 (Fase 1 do Cronograma de Deploy concluída)
 
 ---
 
-## 🎯 Foco Imediato (Pós-Remediação)
+## 🎯 Foco Imediato
 
-A base do projeto está estável, mas a ausência de testes automatizados é o maior risco técnico atual.
+Com o ambiente de testes configurado e validado, o foco agora é **aumentar a cobertura de testes** das regras de negócio críticas.
 
-### 1. (P0 - Crítico) Configurar Ambiente de Testes
-- **O quê:** Configurar `Jest` e `@testing-library/react` para o workspace `app-admin`.
+### ✅ 1. (P0 - Crítico) Configurar Ambiente de Testes
+- **O quê:** Configurar `Vitest` e `@testing-library/react` para o workspace `app-admin`.
 - **Por quê:** Para criar uma rede de segurança que previna regressões e permita refatorações e novas features com mais confiança.
-- **Status:** **Bloqueado.** A tentativa de configuração neste ambiente interativo falhou. Requer uma investigação e setup manual no ambiente de desenvolvimento local.
-- **Próxima Ação:** O desenvolvedor principal (Guilherme) deve tentar configurar o ambiente de testes manualmente.
+- **Status:** ✅ **CONCLUÍDO (2026-08-13).** `npm test` está funcional.
 
-### 2. (P1 - Alto) Escrever Testes de Regra de Negócio
+### 🚀 2. (P1 - Alto) Escrever Testes de Regra de Negócio
 - **O quê:** Uma vez que o ambiente de testes esteja funcional, criar testes para as lógicas mais críticas.
 - **Sugestões:**
-    - Testar o `ProdutoFormModal` para garantir a validação de dados com Zod.
-    - Testar o hook `useProducts` para validar o ciclo de vida (loading, data, error).
     - Testar a lógica de cálculo de preço na `PrecificacaoPage`.
-- **Status:** **Pendente** (bloqueado pelo item acima).
+- **Status:** **Pronto para iniciar.**
 
 ---
 
