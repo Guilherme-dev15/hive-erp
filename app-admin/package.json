@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "vitest --config ./vitest.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "react-hook-form": "^7.68.0",
     "react-hot-toast": "^2.4.1",
     "react-qr-code": "^2.0.18",
+    "react-router-dom": "^7.18.2",
     "react-to-print": "^3.2.0",
     "recharts": "^2.15.4",
     "string-similarity": "^4.0.4",
@@ -40,11 +42,44 @@
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
+    "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.4.39",
     "prettier": "^3.9.6",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.5.3",
     "vite": "^7.2.4",
     "vite-plugin-pwa": "^1.2.0"
+  },
+  "babel": {
+    "presets": [
+      "@babel/preset-env",
+      [
+        "@babel/preset-react",
+        {
+          "runtime": "automatic"
+        }
+      ],
+      "@babel/preset-typescript"
+    ],
+    "plugins": [
+      "babel-plugin-transform-import-meta"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "jest-environment-jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/setupTests.js"
+    ],
+    "transform": {
+      "^.+\\\\.tsx?$": "babel-jest",
+      "^.+\\\\.jsx?$": "babel-jest"
+    },
+    "moduleNameMapper": {
+      "\\\\.(css|less|scss|sass)$": "identity-obj-proxy",
+      "^virtual:vite-plugin-pwa/react$": "<rootDir>/__mocks__/vite-pwa-mock.js"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/"
+    ]
   }
 }

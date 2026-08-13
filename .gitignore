@@ -18,6 +18,7 @@ pnpm-debug.log*
 # Chaves de Segurança
 api/serviceAccountKey.json
 serviceAccountKey.json
+secrets.txt
 
 # Pastas de Dependências e Build
 node_modules/
