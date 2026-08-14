@@ -3,19 +3,24 @@ import request from 'supertest';
 import createApp from '../index';
 
 // 1. Mock do Banco de Dados (Firestore)
-// Reflete a cadeia de chamadas real: db.collection(...).where(...).limit(1).get()
 const getMock = vi.fn();
 const addMock = vi.fn();
+const updateMock = vi.fn();
+const deleteMock = vi.fn();
 
 // Função para criar uma cadeia de mocks encadeada para qualquer coleção.
-// Suporta: where(), orderBy(), limit(), get(), add()
 const createMockQuery = () => {
+  const docMock = {
+    update: updateMock,
+    delete: deleteMock,
+  };
   const query = {
     where: vi.fn(),
     orderBy: vi.fn(),
     limit: vi.fn(),
     get: getMock,
     add: addMock,
+    doc: vi.fn(() => docMock), // .doc() retorna um mock com update/delete
   };
   query.where.mockReturnValue(query);
   query.orderBy.mockReturnValue(query);
@@ -126,4 +131,39 @@ describe('Admin Routes - POST /admin/products', () => {
     expect(response.body).toHaveProperty('price', newProduct.price);
   });
 });
+
+describe('Admin Routes - PUT /admin/products/:id', () => {
+
+  it('should return 200 on successful update', async () => {
+    updateMock.mockResolvedValue(); // Simula um update bem-sucedido
+
+    const updatedData = {
+      price: 120,
+    };
+
+    const response = await request(app)
+      .put('/admin/products/some-prod-id')
+      .set('Authorization', 'Bearer mock-token')
+      .send(updatedData);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: 'some-prod-id' });
+    expect(updateMock).toHaveBeenCalledWith(updatedData);
+  });
+});
+
+describe('Admin Routes - DELETE /admin/products/:id', () => {
+
+  it('should return 204 on successful delete', async () => {
+    deleteMock.mockResolvedValue(); // Simula um delete bem-sucedido
+
+    const response = await request(app)
+      .delete('/admin/products/some-prod-id')
+      .set('Authorization', 'Bearer mock-token');
+
+    expect(response.status).toBe(204);
+    expect(deleteMock).toHaveBeenCalled();
+  });
+});
+
 
