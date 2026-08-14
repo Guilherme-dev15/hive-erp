@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
-import { getAnalytics } from 'firebase/analytics';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 
 // As chaves agora são lidas de forma segura do ambiente (.env local ou Vercel)
 const firebaseConfig = {
@@ -53,7 +53,12 @@ if (missingVars.length > 0 || placeholderVars.length > 0) {
 
 // Inicializa os serviços do Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// Inicialização condicional do Analytics
+isSupported().then((supported) => {
+  if (supported) {
+    getAnalytics(app);
+  }
+});
 
 // Exporta os serviços prontos para uso
 export const auth = getAuth(app);
