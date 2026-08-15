@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   X,
@@ -57,9 +57,9 @@ export function StockModal({
       setReason('');
       setActiveTab('adjust');
     }
-  }, [isOpen, product]);
+  }, [isOpen, product, loadHistory]);
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     if (!product) return;
     setLoadingLogs(true);
     try {
@@ -70,7 +70,7 @@ export function StockModal({
     } finally {
       setLoadingLogs(false);
     }
-  };
+  }, [product]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

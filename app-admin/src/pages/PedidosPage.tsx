@@ -25,7 +25,6 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import {
-  ResponsiveContainer,
   TooltipProps,
 } from 'recharts';
 
@@ -148,69 +147,6 @@ interface TransactionRowProps {
 
 // --- COMPONENTES VISUAIS ---
 function StatCard({ title, value, icon, sub, color }: StatCardProps) {
-  return (
-    <motion.div
-      variants={itemVariants}
-      className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-start justify-between hover:shadow-md transition-shadow"
-    >
-      <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-          {title}
-        </p>
-        <h3 className="text-2xl font-black text-gray-800">{value}</h3>
-        {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
-      </div>
-      <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
-        {React.cloneElement(icon as React.ReactElement, {
-          className: color.replace('bg-', 'text-'),
-        })}
-      </div>
-    </motion.div>
-  );
-}
-
-const CustomChartTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-gray-900/95 backdrop-blur-sm text-white p-4 rounded-xl shadow-2xl border border-gray-700 text-xs">
-          <p className="font-bold mb-2 uppercase tracking-wider">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center gap-2 mb-1">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: entry.color }}
-              ></div>
-              <span>
-                {entry.name}:{' '}
-                {entry.value?.toLocaleString('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL',
-                })}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
-function TransactionRow({ desc, date, value, type, onClick }: TransactionRowProps) {
-    return (
-      <tr
-        onClick={onClick}
-        className="hover:bg-gray-50/80 transition-colors cursor-pointer group text-sm"
-      >
-        <td className="p-4 pl-6 font-semibold text-gray-700">{desc}</td>
-        <td className="p-4 text-gray-500">{date}</td>
-        <td
-          className={`p-4 pr-6 text-right font-bold ${type === 'in' ? 'text-emerald-600' : 'text-rose-600'}`}
-        >
-          R$ {Number(value).toFixed(2)}
-        </td>
-      </tr>
-    );
-  }
 
 
 export function PedidosPage() {
