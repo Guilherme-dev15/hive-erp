@@ -108,7 +108,7 @@ export function NeonStudio({ isOpen, onClose, onSuccess }: NeonStudioProps) {
         setActiveSupplierRules(null);
       }
     }
-  }, [globalSettings.supplierId, suppliers]);
+  }, [globalSettings.supplierId, suppliers, setActiveSupplierRules]);
 
   const handleGlobalChange = (field: string, value: string) => {
     setGlobalSettings((prev) => ({ ...prev, [field]: value }));

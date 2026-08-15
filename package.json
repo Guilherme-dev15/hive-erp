@@ -14,7 +14,7 @@
     "test": "vitest --config ./vitest.config.ts",
     "test:api": "vitest --config ./vitest.config.api.ts",
     "test:ui": "vitest --ui --config ./vitest.config.ts",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
     "lint:check": "eslint . --ext .js,.jsx",
     "format": "prettier --write ."
   },
