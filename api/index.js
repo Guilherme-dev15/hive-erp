@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const corsMiddleware = require('./src/config/cors');
 const authenticateUser = require('./src/middleware/auth.middleware');
 // Modificado para aceitar db injetado
@@ -14,15 +16,46 @@ function createApp(db) {
 
   const app = express();
 
-  // 1. Middlewares Globais
+  // 1. Middlewares Globais de Segurança (Fase 4: SEC-04 e SEC-05)
+  // Ativa a proteção de proxy para a Vercel
+  app.set('trust proxy', 1);
+
+  // Hardening de segurança nos Headers HTTP
+  app.use(helmet());
+
+  // Limite de requisições: máximo 300 requisições a cada 15 min por IP
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 300,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: "Muitas requisições. Tente novamente mais tarde." }
+  });
+
+  // Limite mais restritivo para as rotas administrativas
+  const adminLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 150,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: "Limite de requisições de admin atingido." }
+  });
+
+  // CORS e Parsing
   app.use(corsMiddleware);
   app.use(express.json({ limit: '50mb' }));
+
+  // Aplicar Rate Limiter Global para rotas públicas
+  app.use('/', apiLimiter);
 
   // 2. Rotas (agora recebem db)
   const adminRoutes = createAdminRoutes(db);
   const publicRoutes = createPublicRoutes(db);
+
   app.use('/', publicRoutes);
-  app.use('/admin', authenticateUser, adminRoutes);
+
+  // O router /admin usa autenticação + rate limit restrito + rotas
+  app.use('/admin', authenticateUser, adminLimiter, adminRoutes);
 
   return app;
 }
