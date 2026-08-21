@@ -4,7 +4,9 @@
 
 // Tipo auxiliar para lidar com datas que podem vir como String (JSON), Date (JS) ou Timestamp (Firestore)
 export type FirestoreDate =
-  string | Date | { seconds: number; nanoseconds: number };
+  | string
+  | Date
+  | { seconds: number; nanoseconds: number };
 
 // ============================================================================
 // 1. DASHBOARD & GRÁFICOS (Essencial para a DashboardPage)
@@ -51,6 +53,9 @@ export interface ProdutoAdmin {
 
   // Metadados
   createdAt?: FirestoreDate;
+  variantes?: ProdutoVariante[];
+  cm?: string;
+  mm?: string;
 }
 
 export interface ProdutoVariante {
@@ -122,8 +127,16 @@ export interface Transacao {
 // 5. CADASTROS AUXILIARES (Suppliers, Categories, Coupons)
 // ============================================================================
 
+export interface SupplierRules {
+  isByWeight: boolean;
+  lots?: Array<{
+    weight: number;
+    price: number;
+  }>;
+}
+
 export interface Fornecedor {
-  rules: Record<string, any>;
+  rules: SupplierRules;
   id: string;
   name: string;
   contactPhone?: string;
@@ -151,4 +164,15 @@ export interface ABCProduct extends ProdutoAdmin {
   revenue: number; // Faturamento total deste produto
   unitsSold: number; // Unidades vendidas
   classification: 'A' | 'B' | 'C';
+}
+
+export interface CampaignSimulation {
+  simulatedCount: number;
+  affectedProducts: Array<{
+    id: string;
+    name: string;
+    originalPrice: number;
+    newPrice: number;
+  }>;
+  estimatedImpact: number;
 }
