@@ -1,6 +1,12 @@
 const { admin } = require('../config/firebase');
 
 const authenticateUser = async (req, res, next) => {
+  // Bypass de autenticação para ambiente de testes (Injeção de dependência via Header ou variável)
+  if (process.env.NODE_ENV === 'test' && req.headers['x-test-uid']) {
+    req.user = { uid: req.headers['x-test-uid'], email: 'test@example.com' };
+    return next();
+  }
+
   if (!admin.apps.length) {
     return res.status(503).json({ error: "Servidor indisponível" });
   }
@@ -16,7 +22,7 @@ const authenticateUser = async (req, res, next) => {
     req.user = { uid: decodedToken.uid, email: decodedToken.email };
     next();
   } catch (error) {
-    console.error("Erro de autenticação, token inválido:", error.code);
+    console.error("Erro de autenticação, token inválido:", error.code || error.message);
     return res.status(403).json({ message: 'Acesso negado. Token inválido.' });
   }
 };
