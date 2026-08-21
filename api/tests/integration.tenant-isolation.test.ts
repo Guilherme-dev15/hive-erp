@@ -1,43 +1,75 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// 1. Cria objetos mock base
+const getMock = vi.fn();
+const orderByMock = vi.fn().mockReturnThis();
+const whereMock = vi.fn().mockImplementation(() => ({
+  orderBy: vi.fn(() => ({
+    get: getMock
+  })),
+  get: getMock
+}));
+const addMock = vi.fn();
+
+// Precisamos mockar O ARQUIVO LOCAL de config de firebase
+vi.mock('../src/config/firebase', () => {
+  return {
+    db: {
+      collection: vi.fn(() => ({
+        where: whereMock,
+        get: getMock,
+        add: addMock,
+        doc: vi.fn(),
+        batch: vi.fn(),
+        runTransaction: vi.fn()
+      }))
+    },
+    admin: {
+      apps: ['mock-app'],
+      firestore: {
+        FieldValue: {
+          serverTimestamp: vi.fn()
+        }
+      },
+      auth: () => ({
+        // Em vez de mockar o verifyIdToken que é difícil em CJS,
+        // usamos o header x-test-uid adicionado no middleware
+        verifyIdToken: vi.fn()
+      })
+    },
+    COLLECTIONS: {
+      PRODUCTS: 'products',
+      SUPPLIERS: 'suppliers',
+      CATEGORIES: 'categories',
+      TRANSACTIONS: 'transactions',
+      ORDERS: 'orders',
+      COUPONS: 'coupons',
+      CONFIG: 'config',
+      INVENTORY_LOGS: 'inventory_logs'
+    }
+  };
+});
+
+// Importações ocorrem DEPOIS do vi.mock
 import request from 'supertest';
 import createApp from '../index';
-import { getAuth } from 'firebase-admin/auth';
+import { db } from '../src/config/firebase';
 
-// Mocking Firebase Admin SDK
-vi.mock('firebase-admin/app', () => ({
-  initializeApp: vi.fn(),
-  getApps: vi.fn(() => [true]), // Simula que o app já foi inicializado
-}));
-vi.mock('firebase-admin/auth');
-
-const mockDb = {
-  collection: vi.fn(),
-};
-
-const app = createApp(mockDb);
+const app = createApp(db);
 
 describe('Multi-Tenancy Isolation Tests', () => {
   const userA_UID = 'user-tenant-A';
-  const userB_UID = 'user-tenant-B';
-
-  let getMock: any;
 
   beforeEach(() => {
-    vi.clearAllMocks(); // Limpa os mocks antes de cada teste
-    getMock = vi.fn();
-    const queryMock = {
-      where: vi.fn().mockReturnThis(),
-      get: getMock,
-    };
-    mockDb.collection.mockReturnValue(queryMock);
+    vi.clearAllMocks();
   });
 
   it('User from Tenant A should NOT see products from Tenant B', async () => {
-    // 1. Setup: O banco de dados tem um produto que pertence ao Tenant B
+    // 1. Setup
     const productFromTenantB = {
       id: 'product-b',
       name: 'Produto do Inquilino B',
-      userId: 'tenant-B-owner-id', // ID do dono do tenant B
+      userId: 'tenant-B-owner-id',
     };
 
     getMock.mockResolvedValue({
@@ -50,25 +82,23 @@ describe('Multi-Tenancy Isolation Tests', () => {
       ],
     });
 
-    // 2. Mock da Autenticação: Simula que o User A está fazendo a requisição
-    (getAuth as any).mockReturnValue({
-      verifyIdToken: vi.fn().mockResolvedValue({ uid: userA_UID }),
-    });
-
-    // 3. Execução: User A tenta listar todos os produtos
+    // 3. Execução
     const response = await request(app)
       .get('/admin/products')
-      .set('Authorization', `Bearer token-for-user-A`);
+      // Adicionamos o header que o middleware modificado escuta em ambiente de testes
+      .set('x-test-uid', userA_UID)
+      .set('Authorization', `Bearer test-token`);
 
-    // 4. Verificação:
-    // A API deve retornar 200 (a requisição em si é válida)
+    if (response.status !== 200) {
+      console.error("DEBUG ERROR 500:", response.body);
+    }
+
+    // 4. Verificação
     expect(response.status).toBe(200);
-    // A API NUNCA deve retornar o produto do Tenant B para o User A
     expect(response.body).not.toContain(
       expect.objectContaining({ id: 'product-b' })
     );
-    // A query no banco de dados DEVE ter sido filtrada pelo UID do User A
-    expect(mockDb.collection('products').where).toHaveBeenCalledWith(
+    expect(whereMock).toHaveBeenCalledWith(
       'userId',
       '==',
       userA_UID
@@ -80,28 +110,18 @@ describe('Multi-Tenancy Isolation Tests', () => {
       name: 'Produto do Inquilino A',
       price: 100,
     };
-    const addMock = vi.fn().mockResolvedValue({ id: 'new-product-id' });
-    const queryMock = {
-      add: addMock,
-    };
-    mockDb.collection.mockReturnValue(queryMock);
+    addMock.mockResolvedValue({ id: 'new-product-id' });
 
-    // Mock da Autenticação: User A está logado
-    (getAuth as any).mockReturnValue({
-      verifyIdToken: vi.fn().mockResolvedValue({ uid: userA_UID }),
-    });
-
-    // Execução: User A cria um novo produto
     await request(app)
       .post('/admin/products')
-      .set('Authorization', `Bearer token-for-user-A`)
+      .set('x-test-uid', userA_UID)
+      .set('Authorization', `Bearer test-token`)
       .send(newProductData);
 
-    // Verificação: O produto salvo no banco DEVE conter o UID do User A
     expect(addMock).toHaveBeenCalledWith(
       expect.objectContaining({
         ...newProductData,
-        userId: userA_UID, // Garante que o ID do tenant foi adicionado
+        userId: userA_UID,
       })
     );
   });

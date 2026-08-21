@@ -5,6 +5,15 @@ function initializeFirebase() {
     return admin;
   }
 
+  // Não tenta carregar chave real em ambiente de testes para evitar crash de 'Cannot find module'
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+    console.log("ℹ️ Ambiente de TESTE detectado. Inicializando Firebase Admin com mock.");
+    try {
+      admin.initializeApp({ projectId: "test-project-id" });
+    } catch(e) {}
+    return admin;
+  }
+
   try {
     // Prioriza a variável de ambiente para produção (Vercel, GitHub Actions)
     if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
