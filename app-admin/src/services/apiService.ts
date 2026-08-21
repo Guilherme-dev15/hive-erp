@@ -218,8 +218,8 @@ export const deleteCoupon = async (id: string): Promise<void> => {
 export const simulateCampaign = async (
   discount: number,
   minMarkup: number
-): Promise<any> => { // TODO: Criar tipo para CampaignSimulation
-  const { data } = await apiClient.post(
+): Promise<CampaignSimulation> => {
+  const { data } = await apiClient.post<CampaignSimulation>(
     '/admin/campaign/simulate',
     { discount, minMarkup }
   );

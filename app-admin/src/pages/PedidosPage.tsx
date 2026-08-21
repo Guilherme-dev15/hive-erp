@@ -147,6 +147,26 @@ interface TransactionRowProps {
 
 // --- COMPONENTES VISUAIS ---
 function StatCard({ title, value, icon, sub, color }: StatCardProps) {
+    return (
+    <motion.div
+      // variants={itemVariants}
+      className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-start justify-between hover:shadow-md transition-shadow"
+    >
+      <div>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+          {title}
+        </p>
+        <h3 className="text-2xl font-black text-gray-800">{value}</h3>
+        {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      </div>
+      <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
+        {React.cloneElement(icon as React.ReactElement, {
+          className: color.replace('bg-', 'text-'),
+        })}
+      </div>
+    </motion.div>
+  );
+}
 
 
 export function PedidosPage() {
