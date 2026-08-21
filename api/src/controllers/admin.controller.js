@@ -125,26 +125,38 @@ module.exports = (db) => ({
     // Dashboard
     getDashboardStats: async (req, res) => {
         try {
-            const statsRef = db.collection("dashboard_stats").doc(req.user.uid);
-            const statsDoc = await statsRef.get();
+            const ordersRef = db.collection(COLLECTIONS.ORDERS).where('userId', '==', req.user.uid);
 
-            if (!statsDoc.exists) {
-                return res.json({
-                    revenue: 0,
-                    ordersToday: 0,
-                    totalOrders: 0,
-                    averageTicket: 0
+            // Agregação 1: Total e Receita
+            const totalAggQuery = ordersRef.aggregate({
+                totalOrders: admin.firestore.AggregateField.count(),
+                totalRevenue: admin.firestore.AggregateField.sum('total')
+            });
+
+            // Agregação 2: Pedidos Hoje
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const todayTimestamp = admin.firestore.Timestamp.fromDate(startOfToday);
+
+            const todayAggQuery = ordersRef
+                .where('createdAt', '>=', todayTimestamp)
+                .aggregate({
+                    ordersToday: admin.firestore.AggregateField.count()
                 });
-            }
 
-            const statsData = statsDoc.data();
-            const totalRevenue = statsData.totalRevenue || 0;
-            const totalOrders = statsData.totalOrders || 0;
+            const [totalSnap, todaySnap] = await Promise.all([
+                totalAggQuery.get(),
+                todayAggQuery.get()
+            ]);
+
+            const totalOrders = totalSnap.data().totalOrders || 0;
+            const totalRevenue = totalSnap.data().totalRevenue || 0;
+            const ordersToday = todaySnap.data().ordersToday || 0;
             const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
 
             res.json({
                 revenue: totalRevenue,
-                ordersToday: 0,
+                ordersToday: ordersToday,
                 totalOrders: totalOrders,
                 averageTicket: averageTicket
             });
