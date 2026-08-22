@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+﻿import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
@@ -34,7 +34,7 @@ export default defineConfig({
             src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable', // Importante para Android
+            purpose: 'any maskable',
           },
           {
             src: 'pwa-512x512.png',
@@ -47,6 +47,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
