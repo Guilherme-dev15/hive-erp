@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  SELLER
+}
+
+enum ProductStatus {
+  ATIVO
+  INATIVO
+}
+
+enum CouponStatus {
+  ATIVO
+  INATIVO
+}
+
+enum OrderStatus {
+  AGUARDANDO_PAGAMENTO
+  EM_PRODUCAO
+  EM_SEPARACAO
+  ENVIADO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum TransactionType {
+  VENDA
+  DESPESA
+  CAPITAL
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String
+  role      Role     @default(OWNER)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos - Base do Tenancy
+  config         Config?
+  categories     Category[]
+  suppliers      Supplier[]
+  products       Product[]
+  coupons        Coupon[]
+  orders         Order[]
+  transactions   Transaction[]
+  inventoryLogs  InventoryLog[]
+  dashboardStats DashboardStat?
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("users")
+}
+
+model Config {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storeName         String   @map("store_name")
+  primaryColor      String   @default("#D4AF37") @map("primary_color")
+  secondaryColor    String   @default("#343434") @map("secondary_color")
+  whatsappNumber    String?  @map("whatsapp_number")
+  monthlyGoal       Decimal? @map("monthly_goal") @db.Decimal(10, 2)
+  banners           Json?
+  cardFee           Decimal  @default(0) @map("card_fee") @db.Decimal(5, 2)
+  packagingCost     Decimal  @default(0) @map("packaging_cost") @db.Decimal(10, 2)
+  lowStockThreshold Int      @default(5) @map("low_stock_threshold")
+  warrantyText      String?  @map("warranty_text") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("configs")
+}
+
+model Category {
+  id       String    @id @default(uuid()) @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  products Product[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("categories")
+}
+
+model Supplier {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  contactPhone String?   @map("contact_phone")
+  email        String?
+  pixKey       String?   @map("pix_key")
+  url          String?
+  paymentTerms String?   @map("payment_terms") @db.Text
+  rules        Json?
+  products     Product[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("suppliers")
+}
+
+model Product {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  code        String?
+  categoryId  String?   @map("category_id") @db.Uuid
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory String?
+  description String?   @db.Text
+  imageUrl    String?   @map("image_url") @db.Text
+
+  costPrice     Decimal  @default(0) @map("cost_price") @db.Decimal(10, 2)
+  salePrice     Decimal  @default(0) @map("sale_price") @db.Decimal(10, 2)
+  marginPercent Decimal? @map("margin_percent") @db.Decimal(5, 2)
+
+  quantity Int           @default(0)
+  weight   Decimal?      @db.Decimal(10, 3)
+  status   ProductStatus @default(ATIVO)
+
+  supplierId         String?   @map("supplier_id") @db.Uuid
+  supplier           Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  supplierProductUrl String?   @map("supplier_product_url") @db.Text
+
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
+  transactions  Transaction[]
+  inventoryLogs InventoryLog[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id              String  @id @default(uuid()) @db.Uuid
+  productId       String  @map("product_id") @db.Uuid
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  skuSuffix       String  @map("sku_suffix")
+  adjustmentValue Decimal @default(0) @map("adjustment_value") @db.Decimal(10, 2)
+  measurement     String?
+  stock           Int     @default(0)
+  onDemand        Boolean @default(false) @map("on_demand")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("product_variants")
+}
+
+model Coupon {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code            String
+  discountPercent Decimal      @map("discount_percent") @db.Decimal(5, 2)
+  status          CouponStatus @default(ATIVO)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("coupons")
+}
+
+model Order {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  customerName  String      @map("customer_name")
+  customerPhone String?     @map("customer_phone")
+  status        OrderStatus @default(AGUARDANDO_PAGAMENTO)
+
+  subtotal            Decimal @default(0) @db.Decimal(10, 2)
+  discount            Decimal @default(0) @db.Decimal(10, 2)
+  total               Decimal @default(0) @db.Decimal(10, 2)
+  notes               String? @db.Text
+  financialRegistered Boolean @default(false) @map("financial_registered")
+
+  items        OrderItem[]
+  transactions Transaction[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id      String @id @default(uuid()) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  name      String
+  code      String?
+  salePrice Decimal @map("sale_price") @db.Decimal(10, 2)
+  quantity  Int
+  imageUrl  String? @map("image_url") @db.Text
+
+  @@map("order_items")
+}
+
+model Transaction {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        TransactionType
+  date        DateTime
+  amount      Decimal         @db.Decimal(10, 2)
+  description String          @db.Text
+  category    String?
+
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  orderId   String?  @map("order_id") @db.Uuid
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Campo transiente para a migração do Firebase
+  legacyId String? @unique @map("legacy_id")
+
+  @@map("transactions")
+}
+
+model InventoryLog {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  type        String
+  change      Int
+  newQuantity Int     @map("new_quantity")
+  userName    String? @map("user_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("inventory_logs")
+}
+
+model DashboardStat {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  revenue     Decimal? @default(0) @db.Decimal(15, 2)
+  totalOrders Int?     @default(0) @map("total_orders")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("dashboard_stats")
+}
