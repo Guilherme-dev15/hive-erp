@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   Loader2,
   Download,
@@ -8,35 +8,23 @@ import {
   DollarSign,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import { getAdminProdutos } from '../services/apiService';
-import { ProdutoAdmin } from '../types';
-
-// Tipos
-interface ResumoEstoque {
-  totalItens: number;
-  valorTotal: number;
-  produtosZerados: number;
-}
-
-interface ProdutoCurva extends ProdutoAdmin {
-  valorEstoque: number;
-  classificacao: 'A' | 'B' | 'C';
-}
+import { getABCReport } from '../services/apiService';
+import { ABCReport } from '../types';
 
 // Utilitário
 const formatCurrency = (val: number): string =>
   val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function RelatoriosPage() {
-  const [produtos, setProdutos] = useState<ProdutoAdmin[]>([]);
+  const [report, setReport] = useState<ABCReport | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function carregarDados() {
       try {
         setLoading(true);
-        const data: ProdutoAdmin[] = await getAdminProdutos();
-        setProdutos(data);
+        const data = await getABCReport();
+        setReport(data);
       } catch (e) {
         console.error("Erro ao carregar dados para relatórios:", e);
         toast.error('Erro ao carregar dados.');
@@ -47,165 +35,120 @@ export function RelatoriosPage() {
     carregarDados();
   }, []);
 
-  const { curvaABC, resumoEstoque } = useMemo(() => {
-    if (produtos.length === 0) {
-      return {
-        curvaABC: [],
-        resumoEstoque: { totalItens: 0, valorTotal: 0, produtosZerados: 0 },
-      };
-    }
-
-    const resumo: ResumoEstoque = produtos.reduce(
-      (acc, p) => {
-        const qtd = Number(p.quantity) || 0;
-        const preco = Number(p.salePrice) || 0;
-        acc.totalItens += qtd;
-        acc.valorTotal += qtd * preco;
-        if (qtd === 0) acc.produtosZerados++;
-        return acc;
-      },
-      { totalItens: 0, valorTotal: 0, produtosZerados: 0 }
-    );
-
-    const sorted = [...produtos].sort((a, b) => {
-      const valA = (a.salePrice || 0) * (a.quantity || 0);
-      const valB = (b.salePrice || 0) * (b.quantity || 0);
-      return valB - valA;
-    });
-
-    const totalValor = resumo.valorTotal || 1;
-    let acumulado = 0;
-    const abc: ProdutoCurva[] = sorted.map((p) => {
-      const valorEstoque = (p.salePrice || 0) * (p.quantity || 0);
-      acumulado += valorEstoque;
-      const percentual = (acumulado / totalValor) * 100;
-
-      let classif: 'A' | 'B' | 'C' = 'C';
-      if (percentual <= 80) classif = 'A';
-      else if (percentual <= 95) classif = 'B';
-
-      return { ...p, valorEstoque, classificacao: classif };
-    });
-
-    return { curvaABC: abc, resumoEstoque: resumo };
-  }, [produtos]);
-
-  if (loading) {
+  if (loading || !report) {
     return (
       <div className="flex justify-center p-10">
-        <Loader2 className="animate-spin text-dourado" />
+        <Loader2 className="animate-spin text-indigo-600" />
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6 pb-10">
-      <Toaster position="top-right" />
+  const { curvaABC, resumoEstoque } = report;
 
+  return (
+    <div className="space-y-6 pb-20">
+      <Toaster position="top-right" />
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-carvao">
-            Relatórios & Inteligência
-          </h1>
-          <p className="text-gray-500 text-sm">
-            Análise de estoque e curva ABC.
-          </p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
-          <Download size={18} /> Exportar CSV
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+          Relatórios & Estoque
+        </h1>
+        <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm font-medium">
+          <Download size={20} />
+          Exportar
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-gray-500 text-xs font-bold uppercase">
-              Valor em Estoque
-            </p>
-            <p className="text-2xl font-bold text-carvao">
-              {formatCurrency(resumoEstoque.valorTotal)}
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-full">
+            <Package size={24} />
           </div>
-          <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-            <DollarSign size={24}/>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-gray-500 text-xs font-bold uppercase">
-              Total de Peças
-            </p>
-            <p className="text-2xl font-bold text-carvao">
+            <p className="text-sm text-gray-500 font-medium">Itens em Estoque</p>
+            <p className="text-2xl font-bold text-gray-900">
               {resumoEstoque.totalItens}
             </p>
           </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <Package size={24} />
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-4 bg-emerald-50 text-emerald-600 rounded-full">
+            <DollarSign size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Valor Total Estoque</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatCurrency(resumoEstoque.valorTotal)}
+            </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-4 bg-rose-50 text-rose-600 rounded-full">
+            <AlertTriangle size={24} />
+          </div>
           <div>
-            <p className="text-gray-500 text-xs font-bold uppercase">
-              Produtos Esgotados
-            </p>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-sm text-gray-500 font-medium">Produtos Zerados</p>
+            <p className="text-2xl font-bold text-gray-900">
               {resumoEstoque.produtosZerados}
             </p>
-          </div>
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg">
-            <AlertTriangle size={24} />
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b">
-          <h3 className="font-bold text-gray-800 flex items-center gap-2">
-            <TrendingUp size={18} className="text-dourado" /> Curva ABC
-            (Potencial de Venda)
-          </h3>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <TrendingUp size={20} className="text-indigo-600" /> Curva ABC de
+            Estoque
+          </h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600 font-medium border-b">
+          <table className="w-full text-left">
+            <thead className="bg-white text-xs text-gray-500 uppercase tracking-wider border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3">Produto</th>
-                <th className="px-4 py-3 text-center">Classificação</th>
-                <th className="px-4 py-3 text-right">Preço</th>
-                <th className="px-4 py-3 text-center">Qtd</th>
-                <th className="px-4 py-3 text-right">Valor em Estoque</th>
+                <th className="p-4 pl-6 font-semibold">Produto</th>
+                <th className="p-4 font-semibold text-center">Classificação</th>
+                <th className="p-4 text-right font-semibold">Quantidade</th>
+                <th className="p-4 pr-6 text-right font-semibold">
+                  Valor Estoque
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50 text-sm">
               {curvaABC.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-800">
+                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="p-4 pl-6 font-medium text-gray-900">
                     {p.name}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="p-4 text-center">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-bold ${
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
                         p.classificacao === 'A'
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-emerald-100 text-emerald-700'
                           : p.classificacao === 'B'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       Classe {p.classificacao}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-500">
-                    {formatCurrency(p.salePrice)}
+                  <td className="p-4 text-right text-gray-600">
+                    {p.quantity} un
                   </td>
-                  <td className="px-4 py-3 text-center">{p.quantity}</td>
-                  <td className="px-4 py-3 text-right font-bold text-carvao">
+                  <td className="p-4 pr-6 text-right font-bold text-gray-900">
                     {formatCurrency(p.valorEstoque)}
                   </td>
                 </tr>
               ))}
+              {curvaABC.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-gray-400">
+                    Nenhum produto em estoque.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

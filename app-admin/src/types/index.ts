@@ -176,3 +176,22 @@ export interface CampaignSimulation {
   }>;
   estimatedImpact: number;
 }
+// (Added inside index.ts)
+export interface ABCReportItem {
+  id: string;
+  name: string;
+  quantity: number;
+  salePrice: number;
+  valorEstoque: number;
+  classificacao: 'A' | 'B' | 'C';
+}
+
+export interface ABCReport {
+  curvaABC: ABCReportItem[];
+  resumoEstoque: {
+    totalItens: number;
+    valorTotal: number;
+    produtosZerados: number;
+  };
+}
+
