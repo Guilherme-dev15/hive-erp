@@ -1,14 +1,17 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
-import viteConfig from './vite.config';
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react-swc'
+import path from 'path'
 
-export default mergeConfig(viteConfig, defineConfig({
-  resolve: {
-    dedupe: ['react', 'react-dom', '@testing-library/react', '@testing-library/user-event'],
-  },
+export default defineConfig({
+  plugins: [react()],
   test: {
-    globals: true,
     environment: 'jsdom',
-    setupFiles: './src/setupTests.ts',
-    css: true,
+    setupFiles: ['./src/setupTests.ts'],
+    globals: true,
   },
-}));
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  }
+})
