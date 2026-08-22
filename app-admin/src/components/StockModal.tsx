@@ -57,7 +57,7 @@ export function StockModal({
       setReason('');
       setActiveTab('adjust');
     }
-  }, [isOpen, product, loadHistory]);
+  }, [isOpen, product]); // loadHistory removed from dependency array to fix reference error
 
   const loadHistory = useCallback(async () => {
     if (!product) return;
