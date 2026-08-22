@@ -6,8 +6,7 @@ import React from 'react';
 
 // Mock Services
 vi.mock('../services/apiService', () => ({
-  getAdminProdutos: vi.fn(),
-  getAdminOrders: vi.fn(),
+  getDashboardStats: vi.fn(),
 }));
 
 // Mock framer-motion to avoid JSDOM errors
@@ -46,27 +45,28 @@ describe('DashboardPage (KPIs)', () => {
   });
 
   it('deve exibir o estado de loading inicialmente', () => {
-    (apiService.getAdminProdutos as any).mockImplementation(() => new Promise(() => {})); // never resolves
-    (apiService.getAdminOrders as any).mockImplementation(() => new Promise(() => {}));
+    (apiService.getDashboardStats as any).mockImplementation(() => new Promise(() => {})); // never resolves
     
     render(<DashboardPage />);
     expect(screen.getByText('SINCRONIZANDO...')).toBeInTheDocument();
   });
 
   it('deve processar e exibir os KPIs calculados corretamente na interface', async () => {
-    const mockProducts = [
-      { id: '1', name: 'Aliança', quantity: 10, salePrice: 100, status: 'ativo' }, // R$ 1000
-      { id: '2', name: 'Anel', quantity: 2, salePrice: 50, status: 'ativo' }, // R$ 100 (Estoque baixo)
-    ];
+    const mockData = {
+      stats: {
+        totalVendas: 15000.50,
+        totalDespesas: 5000.00,
+        lucroLiquido: 10000.50,
+        saldoTotal: 20000.00,
+        activeProducts: 42
+      },
+      charts: {
+        salesByDay: [],
+        incomeVsExpense: []
+      }
+    };
 
-    const now = new Date();
-    const mockOrders = [
-      { id: 'o1', total: 5000, status: 'Concluído', createdAt: now.toISOString() }, // Lucro: 3500
-      { id: 'o2', total: 1000, status: 'Aguardando Pagamento', createdAt: now.toISOString() }, // Ignorado
-    ];
-
-    (apiService.getAdminProdutos as any).mockResolvedValue(mockProducts);
-    (apiService.getAdminOrders as any).mockResolvedValue(mockOrders);
+    (apiService.getDashboardStats as any).mockResolvedValue(mockData);
 
     render(<DashboardPage />);
 
@@ -76,9 +76,12 @@ describe('DashboardPage (KPIs)', () => {
 
     // We can't rely strictly on exact string matching for browser-dependent toLocaleString
     // so we search for the numeric substrings
-    expect(screen.getByText(/5\.000/i)).toBeInTheDocument();
-    expect(screen.getByText(/3\.500/i)).toBeInTheDocument();
-    expect(screen.getByText(/1\.100/i)).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // Active products count
+    expect(screen.getByText(/15\.000/i)).toBeInTheDocument();
+    
+    // Teste usando a busca completa do conteúdo textual dentro do Node, lidando com o espaço non-breaking do Intl API
+    expect(screen.getAllByText(/5\.000,00/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/10\.000/i)).toBeInTheDocument();
+    expect(screen.getByText(/20\.000/i)).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument(); // Active products count
   });
 });
