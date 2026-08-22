@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, ReactNode } from 'react';
+﻿import { useEffect, useState, useCallback, ReactNode } from 'react';
 import {
   AreaChart,
   Area,
@@ -22,9 +22,9 @@ import {
 import { motion } from 'framer-motion';
 
 // SERVIÇOS
-import { getAdminProdutos, getAdminOrders } from '../services/apiService';
+import { getDashboardStats } from '../services/apiService';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
-import { Order, ProdutoAdmin } from '../types';
+import { Order, DashboardStats, ChartData } from '../types';
 
 // --- CONFIGURAÇÕES GLOBAIS ---
 const COLORS = [
@@ -36,13 +36,7 @@ const COLORS = [
   '#EC4899',
 ];
 
-const statusIgnorados = ['aguardando pagamento', 'cancelado', ''];
-
-type Timestamp = {
-    seconds: number;
-    nanoseconds: number;
-}
-const parseDate = (d: Timestamp | Date | string) => {
+const parseDate = (d: any) => {
   if (!d) return new Date();
   if (typeof d === 'object' && 'seconds' in d)
     return new Date(d.seconds * 1000);
@@ -62,11 +56,6 @@ const itemVariants = {
 
 // --- TIPOS ---
 type TimeRange = '7d' | '30d' | 'all';
-interface ChartData {
-    name: string;
-    vendas: number;
-    lucro: number;
-}
 interface CategoryData {
     name: string;
     value: number;
@@ -76,150 +65,74 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
-  const [rawProducts, setRawProducts] = useState<ProdutoAdmin[]>([]);
-  const [rawOrders, setRawOrders] = useState<Order[]>([]);
-
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [kpi, setKpi] = useState({
-    faturamento: 0,
-    lucro: 0,
-    ticketMedio: 0,
-    valorEstoque: 0,
-    estoqueBaixo: 0,
-    produtosAtivos: 0,
-  });
+  // States preenchidos pelo backend (agregação em O(1))
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [charts, setCharts] = useState<ChartData | null>(null);
 
-  const [chartData, setChartData] = useState<ChartData[]>([]);
+  // Fallbacks visuais caso a API de gráficos ou de extrato não esteja 100% pronta
+  // (Como o PERF-01 otimizou stats, vamos focar neles)
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [recentList, setRecentList] = useState<Order[]>([]);
 
-  // 1. CARGA DE DADOS
+  // 1. CARGA DE DADOS DO BACKEND (Aggregation API)
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      const [prods, orders] = await Promise.all([
-        getAdminProdutos(),
-        getAdminOrders().catch(() => []),
-      ]);
-      setRawProducts(prods || []);
-      setRawOrders(orders || []);
+      // Passa o timeRange pro backend calcular na query
+      const data = await getDashboardStats(timeRange);
+      setStats(data.stats);
+      setCharts(data.charts);
+      
+      // Temporary stub for features not yet implemented in aggregation API
+      setCategoryData([]);
+      setRecentList([]);
+      
       setLoading(false);
     } catch (error) {
       console.error('Erro Dashboard:', error);
       setLoading(false);
     }
-  }, []);
+  }, [timeRange]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // 2. PROCESSAMENTO ROBUSTO
-  useEffect(() => {
-    if (loading || rawOrders.length === 0) return;
-
-    const now = new Date();
-    const cutoffDate = new Date();
-    if (timeRange === '7d') cutoffDate.setDate(now.getDate() - 7);
-    else if (timeRange === '30d') cutoffDate.setDate(now.getDate() - 30);
-    else cutoffDate.setFullYear(2000);
-
-    let revenue = 0;
-    let salesCount = 0;
-    const dailyMap: Record<
-      string,
-      { vendas: number; lucro: number; timestamp: number }
-    > = {};
-
-    rawOrders.forEach((o: Order) => {
-      const oDate = parseDate(o.createdAt || o.date);
-
-      if (oDate < cutoffDate) return;
-
-      const statusFormatado = (o.status || '').trim().toLowerCase();
-      const isVendaValida = !statusIgnorados.includes(statusFormatado);
-
-      if (isVendaValida) {
-        const val = Number(o.total || 0);
-        revenue += val;
-        salesCount++;
-
-        const dayKey = oDate.toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: 'short',
-        });
-        if (!dailyMap[dayKey]) {
-          dailyMap[dayKey] = {
-            vendas: 0,
-            lucro: 0,
-            timestamp: oDate.getTime(),
-          };
-        }
-        dailyMap[dayKey].vendas += val;
-        dailyMap[dayKey].lucro += val * 0.7;
-      }
-    });
-
-    setKpi({
-      faturamento: revenue,
-      lucro: revenue * 0.7,
-      ticketMedio: salesCount > 0 ? revenue / salesCount : 0,
-      valorEstoque: rawProducts.reduce(
-        (acc, p) => acc + Number(p.salePrice || 0) * (Number(p.quantity) || 0),
-        0
-      ),
-      estoqueBaixo: rawProducts.filter((p) => (Number(p.quantity) || 0) < 5)
-        .length,
-      produtosAtivos: rawProducts.length,
-    });
-
-    const sortedChart = Object.keys(dailyMap)
-      .map((key) => ({
-        name: key,
-        vendas: dailyMap[key].vendas,
-        lucro: dailyMap[key].lucro,
-        timestamp: dailyMap[key].timestamp,
-      }))
-      .sort((a, b) => a.timestamp - b.timestamp);
-
-    setChartData(
-      sortedChart.length > 0
-        ? sortedChart
-        : [{ name: 'Sem vendas', vendas: 0, lucro: 0 }]
-    );
-
-    const catMap: Record<string, number> = {};
-    rawProducts.forEach((p) => {
-      const c = p.category || 'Outros';
-      catMap[c] = (catMap[c] || 0) + 1;
-    });
-    setCategoryData(
-      Object.keys(catMap).map((k) => ({ name: k, value: catMap[k] }))
-    );
-
-    setRecentList(rawOrders.slice(0, 5));
-  }, [loading, timeRange, rawProducts, rawOrders]);
 
   const openOrderDetails = (pedido: Order) => {
     setSelectedOrder(pedido);
     setIsModalOpen(true);
   };
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="p-8 text-center text-gray-500 animate-pulse font-bold">
-        SINCRONIZANDO...
+      <div className="flex justify-center items-center h-64">
+        <span className="text-gray-500 font-medium tracking-widest text-sm">
+          SINCRONIZANDO...
+        </span>
       </div>
     );
+  }
+
+  // Prepara valores ou usa 0 se estiver nulo
+  const s = stats || {
+    totalVendas: 0,
+    lucroLiquido: 0,
+    totalDespesas: 0,
+    saldoTotal: 0,
+    activeProducts: 0,
+  };
 
   return (
     <motion.div
-      className="space-y-8 pb-20"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
+      className="space-y-8 pb-20"
     >
+      {/* HEADER E FILTROS */}
       <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 border-b border-gray-100 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
@@ -233,21 +146,27 @@ export function DashboardPage() {
             Visão consolidada da operação
           </p>
         </div>
+
         <div className="flex gap-3">
           <div className="flex bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
-            {[
-              { id: '7d', label: '7 Dias' },
-              { id: '30d', label: '30 Dias' },
-              { id: 'all', label: 'Tudo' },
-            ].map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => setTimeRange(btn.id as TimeRange)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === btn.id ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
-              >
-                {btn.label}
-              </button>
-            ))}
+            <button
+              onClick={() => setTimeRange('7d')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === '7d' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              7 Dias
+            </button>
+            <button
+              onClick={() => setTimeRange('30d')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === '30d' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              30 Dias
+            </button>
+            <button
+              onClick={() => setTimeRange('all')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === 'all' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              Tudo
+            </button>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 shadow-lg">
             <Download size={18} /> Relatório
@@ -255,102 +174,68 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* CARDS DE KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatsCard
           title="Faturamento"
-          value={kpi.faturamento}
+          value={s.totalVendas}
           icon={<DollarSign size={22} className="text-white" />}
+          color="bg-indigo-600"
           trend="Vendas"
           trendUp={true}
-          color="bg-indigo-600"
         />
         <StatsCard
           title="Lucro Líquido"
-          value={kpi.lucro}
+          value={s.lucroLiquido}
           icon={<TrendingUp size={22} className="text-emerald-600" />}
+          color="bg-white"
+          iconColor="bg-emerald-50"
           trend="Real"
           trendUp={true}
-          color="bg-emerald-100"
-          iconColor="text-emerald-600"
         />
         <StatsCard
-          title="Valor em Estoque"
-          value={kpi.valorEstoque}
-          icon={<Package size={22} className="text-violet-600" />}
-          trend="Snapshot"
-          trendUp={true}
-          color="bg-violet-100"
-          iconColor="text-violet-600"
-        />
-        <StatsCard
-          title="Estoque Baixo"
-          value={kpi.estoqueBaixo}
-          isCurrency={false}
+          title="Total Despesas"
+          value={s.totalDespesas}
           icon={<AlertCircle size={22} className="text-rose-600" />}
-          trend="Alertas"
+          color="bg-white"
+          iconColor="bg-rose-50"
+          trend="Saídas"
           trendUp={false}
-          color="bg-rose-100"
-          iconColor="text-rose-600"
+        />
+        <StatsCard
+          title="Saldo Geral"
+          value={s.saldoTotal}
+          icon={<Package size={22} className="text-violet-600" />}
+          color="bg-white"
+          iconColor="bg-violet-50"
+          trend="Liquidez"
+          trendUp={s.saldoTotal >= 0}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ÁREA DE GRÁFICOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <motion.div
           variants={itemVariants}
-          className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col min-h-[400px]"
+          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm lg:col-span-2 flex flex-col min-h-[400px]"
         >
           <h3 className="text-lg font-bold text-gray-900 mb-6">
             Fluxo de Caixa
           </h3>
           <div className="flex-grow w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
+              <AreaChart data={charts?.salesByDay || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorVendas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />
+                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                  </linearGradient>
                 </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#f3f4f6"
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  dy={10}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                />
-                <Tooltip content={<CustomChartTooltip />} />
-                <Area
-                  type="monotone"
-                  name="Faturamento"
-                  dataKey="vendas"
-                  stroke="#4F46E5"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorVendas)"
-                />
-                <Area
-                  type="monotone"
-                  name="Lucro"
-                  dataKey="lucro"
-                  stroke="#10B981"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorLucro)"
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} tickFormatter={(value) => `R$ ${value}`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="vendas" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorVendas)" activeDot={{ r: 6, strokeWidth: 0 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -360,43 +245,29 @@ export function DashboardPage() {
           variants={itemVariants}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col min-h-[400px]"
         >
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
-            Mix de Produtos
-          </h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Mix de Produtos</h3>
           <div className="flex-grow flex items-center justify-center relative min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {categoryData.map((_, index) => (
-                    <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                <Pie data={categoryData.length ? categoryData : [{name: 'Vazio', value: 1}]} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
+                  {(categoryData.length ? categoryData : [{name: 'Vazio', value: 1}]).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip content={<PieTooltip />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold text-gray-800">
-                {kpi.produtosAtivos}
-              </span>
-              <span className="text-[10px] text-gray-400 uppercase">Itens</span>
+              <span className="text-2xl font-bold text-gray-800">{s.activeProducts}</span>
+              <span className="text-[10px] text-gray-400 uppercase">Itens Ativos</span>
             </div>
           </div>
         </motion.div>
       </div>
 
+      {/* EXTRATO RECENTE */}
       <motion.div variants={itemVariants}>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
-          Extrato Recente
-        </h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Extrato Recente</h3>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-xs text-gray-400 uppercase tracking-wider">
@@ -407,24 +278,31 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 text-sm">
-              {recentList.map((o: Order) => (
-                <TransactionRow
-                  key={o.id}
-                  desc={
-                    o.customerName || `Pedido #${o.id?.slice(-5).toUpperCase()}`
-                  }
-                  date={parseDate(o.createdAt || o.date).toLocaleDateString(
-                    'pt-BR'
-                  )}
-                  value={Number(o.total || 0)}
-                  type={
-                    !statusIgnorados.includes((o.status || '').toLowerCase())
-                      ? 'in'
-                      : 'out'
-                  }
-                  onClick={() => openOrderDetails(o)}
-                />
+              {recentList.map((tx) => (
+                <tr
+                  key={tx.id}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                  onClick={() => openOrderDetails(tx)}
+                >
+                  <td className="p-4 pl-6">
+                    <p className="font-bold text-gray-900">{tx.customerName}</p>
+                    <p className="text-gray-500 text-xs">{tx.status}</p>
+                  </td>
+                  <td className="p-4 text-gray-500">
+                    {parseDate(tx.createdAt).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td className="p-4 pr-6 text-right font-medium text-emerald-600">
+                    {tx.total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </td>
+                </tr>
               ))}
+              {recentList.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-8 text-center text-gray-400">
+                    Nenhuma transação recente encontrada.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -455,36 +333,40 @@ function StatsCard({
   value,
   icon,
   color,
-  iconColor,
+  iconColor = 'bg-white/20',
   trend,
   trendUp,
   isCurrency = true,
 }: StatsCardProps) {
-  const isSolid = color.includes('-600');
+  const isSolid = color !== 'bg-white';
   return (
     <motion.div
       variants={itemVariants}
-      className={`relative p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 group overflow-hidden ${isSolid ? color : 'bg-white'}`}
+      className={`relative p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 group overflow-hidden ${color}`}
     >
       <div className="flex justify-between items-start mb-4 relative z-10">
-        <div
-          className={`p-3 rounded-xl ${isSolid ? 'bg-white/20 text-white' : color}`}
-        >
-          <span className={isSolid ? 'text-white' : iconColor}>{icon}</span>
+        <div className={`p-3 rounded-xl ${iconColor} text-white`}>
+          <span className={isSolid ? 'text-white' : ''}>{icon}</span>
         </div>
         <div
-          className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${isSolid ? 'bg-white/20 text-white' : trendUp ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}
+          className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+            isSolid
+              ? 'bg-white/20 text-white'
+              : trendUp
+                ? 'bg-emerald-50 text-emerald-600'
+                : 'bg-rose-50 text-rose-600'
+          }`}
         >
           {trend}
         </div>
       </div>
       <div className="relative z-10">
-        <p
-          className={`text-sm font-medium ${isSolid ? 'text-indigo-100' : 'text-gray-500'}`}
+        <h2
+          className={`text-sm font-medium mb-1 ${isSolid ? 'text-indigo-100' : 'text-gray-500'}`}
         >
           {title}
-        </p>
-        <h3
+        </h2>
+        <div
           className={`text-3xl font-bold tracking-tight ${isSolid ? 'text-white' : 'text-gray-900'}`}
         >
           {isCurrency
@@ -493,43 +375,20 @@ function StatsCard({
                 currency: 'BRL',
               })
             : value}
-        </h3>
+        </div>
       </div>
+      <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-white/0 to-white/10 rounded-full blur-2xl transform group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
     </motion.div>
   );
 }
 
-interface TransactionRowProps {
-    desc: string;
-    date: string;
-    value: number;
-    type: 'in' | 'out';
-    onClick: () => void;
-}
-function TransactionRow({ desc, date, value, type, onClick }: TransactionRowProps) {
-  return (
-    <tr
-      onClick={onClick}
-      className="hover:bg-gray-50/80 transition-colors cursor-pointer group text-sm"
-    >
-      <td className="p-4 pl-6 font-semibold text-gray-700">{desc}</td>
-      <td className="p-4 text-gray-500">{date}</td>
-      <td
-        className={`p-4 pr-6 text-right font-bold ${type === 'in' ? 'text-emerald-600' : 'text-rose-600'}`}
-      >
-        R$ {Number(value).toFixed(2)}
-      </td>
-    </tr>
-  );
-}
-
-const CustomChartTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-gray-900/95 backdrop-blur-sm text-white p-4 rounded-xl shadow-2xl border border-gray-700 text-xs">
-        <p className="font-bold mb-2 uppercase tracking-wider">{label}</p>
+      <div className="bg-gray-900 text-white p-3 rounded-xl shadow-xl text-sm border border-gray-800">
+        <p className="text-gray-400 mb-1">{label}</p>
         {payload.map((entry, index) => (
-          <div key={index} className="flex items-center gap-2 mb-1">
+          <div key={index} className="flex items-center gap-2">
             <div
               className="w-2 h-2 rounded-full"
               style={{ backgroundColor: entry.color }}
@@ -543,6 +402,26 @@ const CustomChartTooltip = ({ active, payload, label }: TooltipProps<number, str
             </span>
           </div>
         ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+const PieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 rounded-xl shadow-xl text-sm border border-gray-100">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: payload[0].payload.fill }}
+          ></div>
+          <span className="font-medium text-gray-900">
+            {payload[0].name}
+          </span>
+          <span className="text-gray-500 ml-2">{payload[0].value}</span>
+        </div>
       </div>
     );
   }
