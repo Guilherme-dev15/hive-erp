@@ -243,7 +243,7 @@ export const revertCampaign = async (): Promise<{ message: string }> => {
 // DOMÍNIO: DASHBOARD & CONFIGURAÇÕES GLOBAIS
 // ============================================================================
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-  const { data } = await apiClient.get('/admin/dashboard-stats');
+  const { data } = await apiClient.get('/admin/dashboard/stats');
   return data;
 };
 export const getDashboardCharts = async (): Promise<DashboardCharts> => {

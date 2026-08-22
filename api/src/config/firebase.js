@@ -24,7 +24,7 @@ function initializeFirebase() {
       console.log("✅ Firebase inicializado via Variável de Ambiente (SERVICE_ACCOUNT_KEY_JSON)!");
     } else {
       // Fallback para o arquivo local para desenvolvimento
-      const serviceAccount = require('../../serviceAccountKey.json');
+      const serviceAccount = require('../../../serviceAccountKey.json');
       admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
       console.log("✅ Firebase inicializado via Arquivo Local (serviceAccountKey.json)!");
     }
