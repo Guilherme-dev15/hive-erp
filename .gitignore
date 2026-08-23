@@ -43,3 +43,4 @@ secrets.txt
 
 # Ambientes virtuais
 /.venv/
+nest-api-tmp/
