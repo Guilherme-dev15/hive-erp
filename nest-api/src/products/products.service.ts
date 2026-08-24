@@ -1,76 +1,61 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
-    return this.prisma.product.findMany();
-  }
-
-  async findOne(id: string) {
-    return this.prisma.product.findUnique({
-      where: { id },
+  async findAll(userId: string) {
+    return this.prisma.product.findMany({
+      where: { userId },
     });
   }
 
-  async create(data: any) {
+  async findOne(id: string, userId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, userId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Produto não encontrado');
+    }
+    return product;
+  }
+
+  async create(data: CreateProductDto, userId: string) {
     // Para simplificar no dual write, lidamos com upsert
     if (data.legacyId) {
       return this.prisma.product.upsert({
         where: { legacyId: data.legacyId },
         update: {
-          name: data.name,
-          salePrice: data.salePrice || 0,
-          quantity: data.quantity || 0,
-          status: data.status || 'ATIVO',
+          ...data,
           updatedAt: new Date()
         },
         create: {
-          name: data.name,
-          salePrice: data.salePrice || 0,
-          quantity: data.quantity || 0,
-          status: data.status || 'ATIVO',
-          legacyId: data.legacyId,
-          // Hack: we need a user context, this should come from auth/tenancy
-          user: {
-            connectOrCreate: {
-              where: { email: 'admin@hive.com' },
-              create: { email: 'admin@hive.com', name: 'Admin', active: true }
-            }
-          }
+          ...data,
+          userId
         }
       });
     }
-    
+
     // Fallback normal create
     return this.prisma.product.create({
       data: {
-        name: data.name,
-        salePrice: data.salePrice || 0,
-        quantity: data.quantity || 0,
-        status: data.status || 'ATIVO',
-        legacyId: data.legacyId,
-        user: {
-          connectOrCreate: {
-            where: { email: 'admin@hive.com' },
-            create: { email: 'admin@hive.com', name: 'Admin', active: true }
-          }
-        }
+        ...data,
+        userId
       }
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdateProductDto, userId: string) {
+    // Verifica se o produto pertence ao usuário
+    await this.findOne(id, userId);
+
     return this.prisma.product.update({
       where: { id },
-      data: {
-        name: data.name,
-        salePrice: data.salePrice,
-        quantity: data.quantity,
-        status: data.status,
-      }
+      data
     });
   }
 }
