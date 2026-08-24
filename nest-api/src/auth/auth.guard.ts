@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -23,7 +24,7 @@ export class AuthGuard implements CanActivate {
       firebaseUid = 'He8p0wAioIctG7ZBIIxG4C9YOmX2';
     } else {
       try {
-        const decodedToken = await admin.auth().verifyIdToken(token);
+        const decodedToken = await getAuth().verifyIdToken(token);
         firebaseUid = decodedToken.uid;
       } catch (error) {
         throw new UnauthorizedException('Token inválido ou expirado');

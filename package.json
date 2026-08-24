@@ -5,12 +5,14 @@
   "workspaces": [
     "api",
     "app-admin",
-    "app-catalogo"
+    "app-catalogo",
+    "nest-api"
   ],
   "scripts": {
     "dev:admin": "npm run dev --workspace=app-admin",
     "dev:catalogo": "npm run dev --workspace=app-catalogo",
     "build": "npm run build --workspaces --if-present",
+    "build:nest": "npm run build --workspace=nest-api",
     "test": "vitest --config ./vitest.config.ts",
     "test:api": "vitest --config ./vitest.config.api.ts",
     "test:ui": "vitest --ui --config ./vitest.config.ts",
