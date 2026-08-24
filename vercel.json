@@ -4,9 +4,28 @@
     {
       "src": "api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "nest-api/src/serverless.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "nest-api/prisma/**",
+          "nest-api/node_modules/.prisma/client/**"
+        ]
+      }
     }
   ],
   "routes": [
+    {
+      "src": "/api/v2/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
+      },
+      "dest": "nest-api/src/serverless.ts"
+    },
     {
       "src": "/(.*)",
       "headers": {

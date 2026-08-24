@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Param, Body, UseGuards, Request, Get, Patch } from '@nestjs/common';
+import { Controller, Post, Param, Body, UseGuards, Request, Get, Patch } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -10,12 +10,12 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
-  findAll(@Request() req) {
+  findAll(@Request() req: any) {
     return this.ordersService.findAll(req.user.id);
   }
 
   @Post()
-  create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
+  create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     return this.ordersService.create(createOrderDto, req.user.id);
   }
 
@@ -23,7 +23,7 @@ export class OrdersController {
   updateStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateOrderStatusDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.ordersService.updateStatus(id, updateStatusDto.status, req.user.id);
   }
