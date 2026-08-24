@@ -12,10 +12,16 @@ module.exports = (db) => ({
     createProduct: async (req, res) => {
         const productData = { ...req.body, userId: req.user.uid, createdAt: admin.firestore.FieldValue.serverTimestamp() };
         const ref = await db.collection(COLLECTIONS.PRODUCTS).add(productData);
+        
+        // DUAL WRITE - Fase 5.3
+        dualWriteService.syncProduct(ref.id, req.body).catch(err => console.error('[DUAL WRITE ERROR]', err));
         res.json({ id: ref.id, ...productData });
     },
     updateProduct: async (req, res) => {
         await db.collection(COLLECTIONS.PRODUCTS).doc(req.params.id).update(req.body);
+        
+        // DUAL WRITE - Fase 5.3
+        dualWriteService.syncProduct(req.params.id, req.body).catch(err => console.error('[DUAL WRITE ERROR]', err));
         res.json({ id: req.params.id });
     },
     deleteProduct: async (req, res) => {
@@ -155,6 +161,18 @@ module.exports = (db) => ({
             const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
 
             res.json({
+                stats: {
+                    totalVendas: totalRevenue,
+                    lucroLiquido: totalRevenue * 0.4, // Simulação temporária
+                    totalDespesas: totalRevenue * 0.6, // Simulação temporária
+                    saldoTotal: totalRevenue,
+                    activeProducts: 0 // Placeholder, ideal seria uma agregação em productsRef
+                },
+                charts: {
+                    salesByDay: [],
+                    incomeVsExpense: []
+                },
+                // Mantendo os dados do refactor (retrocompatibilidade caso necessário)
                 revenue: totalRevenue,
                 ordersToday: ordersToday,
                 totalOrders: totalOrders,
