@@ -27,13 +27,17 @@
       "dest": "nest-api/src/serverless.ts"
     },
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
       },
       "dest": "api/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/app-admin/dist/$1"
     }
   ]
 }
