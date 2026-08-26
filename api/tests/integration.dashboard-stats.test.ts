@@ -84,6 +84,17 @@ describe('Dashboard Stats API Integration Tests', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
+      stats: {
+        totalVendas: 5000,
+        lucroLiquido: 2000, // 5000 * 0.4
+        totalDespesas: 3000, // 5000 * 0.6
+        saldoTotal: 5000,
+        activeProducts: 0
+      },
+      charts: {
+        salesByDay: [],
+        incomeVsExpense: []
+      },
       revenue: 5000,
       ordersToday: 5,
       totalOrders: 50,
