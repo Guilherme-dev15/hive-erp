@@ -46,3 +46,4 @@ secrets.txt
 nest-api-tmp/
 
 .vercel
+.env*
