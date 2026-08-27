@@ -6,6 +6,8 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "deploy:firestore:indexes": "firebase deploy --only firestore:indexes",
     "logs": "firebase functions:log"
   },
   "engines": {
