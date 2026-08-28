@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/firebase/firebaseConfig';
-import { updateMarkupViaFirebase } from '../services/firebase/bulkUpdate';
+import { updateBulkMarkup } from '../services/apiService';
 
 interface Category {
   id: string;
@@ -74,11 +74,11 @@ export const BulkMarkupModal: React.FC<BulkMarkupModalProps> = ({
 
     setIsProcessing(true);
     try {
-      const updatedCount = await updateMarkupViaFirebase(
-        Number(markupValue),
-        selectedCategory
+      const result = await updateBulkMarkup(
+        selectedCategory,
+        Number(markupValue)
       );
-      onSuccess(updatedCount);
+      onSuccess(result.updatedCount);
       onClose();
     } catch (error) {
       console.error('Falha na atualização de markup em massa:', error);

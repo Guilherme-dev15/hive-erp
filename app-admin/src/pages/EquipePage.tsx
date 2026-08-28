@@ -10,22 +10,13 @@ import {
   Lock,
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-} from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
-
-const db = getFirestore();
+import { getTeamMembers, inviteTeamMember, removeTeamMember } from '../services/apiService';
 
 interface TeamMember {
     email: string;
     name: string;
-    role: 'owner' | 'vendedor';
+    role: 'owner' | 'vendedor' | 'OWNER' | 'SELLER';
     active: boolean;
 }
 
@@ -39,16 +30,14 @@ export function EquipePage() {
   const [newName, setNewName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isOwner = userData?.role === 'owner';
+  // Consideramos 'owner' o campo legado e 'OWNER' o campo do Prisma
+  // @ts-expect-error - Comparação legado x novo banco
+  const isOwner = userData?.role === 'owner' || userData?.role === 'OWNER';
 
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, 'users'));
-      const lista = querySnapshot.docs.map((d) => ({
-        email: d.id,
-        ...(d.data() as Omit<TeamMember, 'email'>),
-      }));
+      const lista = await getTeamMembers();
       setUsersList(lista);
     } catch {
       toast.error('Erro ao carregar equipe.');
@@ -68,21 +57,13 @@ export function EquipePage() {
 
     setIsSubmitting(true);
     try {
-      await setDoc(doc(db, 'users', newEmail.trim().toLowerCase()), {
-        name: newName,
-        email: newEmail.trim().toLowerCase(),
-        role: 'vendedor',
-        active: true,
-        createdBy: user?.email,
-        createdAt: new Date(),
-      });
-
+      await inviteTeamMember(newName, newEmail.trim().toLowerCase());
       toast.success('Usuário adicionado!');
       setNewEmail('');
       setNewName('');
       loadUsers();
-    } catch {
-      toast.error('Erro ao adicionar usuário.');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao adicionar usuário.');
     } finally {
       setIsSubmitting(false);
     }
@@ -91,14 +72,14 @@ export function EquipePage() {
   const handleDelete = async (targetUser: TeamMember) => {
     if (!isOwner) return toast.error('Apenas o dono pode remover membros.');
 
-    if (targetUser.role === 'owner') {
+    if (targetUser.role === 'owner' || targetUser.role === 'OWNER') {
       return toast.error('O Dono não pode ser removido.');
     }
 
     if (!confirm(`Revogar acesso de ${targetUser.name}?`)) return;
 
     try {
-      await deleteDoc(doc(db, 'users', targetUser.email));
+      await removeTeamMember(targetUser.email);
       toast.success('Acesso revogado.');
       loadUsers();
     } catch {
@@ -186,13 +167,13 @@ export function EquipePage() {
                 key={u.email}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className={`p-4 rounded-xl border flex items-center justify-between shadow-sm ${u.role === 'owner' ? 'bg-yellow-50/50 border-yellow-100' : 'bg-white border-gray-100'}`}
+                className={`p-4 rounded-xl border flex items-center justify-between shadow-sm ${u.role === 'owner' || u.role === 'OWNER' ? 'bg-yellow-50/50 border-yellow-100' : 'bg-white border-gray-100'}`}
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`p-3 rounded-full ${u.role === 'owner' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-50 text-blue-600'}`}
+                    className={`p-3 rounded-full ${u.role === 'owner' || u.role === 'OWNER' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-50 text-blue-600'}`}
                   >
-                    {u.role === 'owner' ? (
+                    {(u.role === 'owner' || u.role === 'OWNER') ? (
                       <ShieldCheck size={20} />
                     ) : (
                       <Shield size={20} />
@@ -206,7 +187,7 @@ export function EquipePage() {
                   </div>
                 </div>
 
-                {isOwner && u.role !== 'owner' && (
+                {isOwner && (u.role !== 'owner' && u.role !== 'OWNER') && (
                   <button
                     onClick={() => handleDelete(u)}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -223,3 +204,4 @@ export function EquipePage() {
     </div>
   );
 }
+
