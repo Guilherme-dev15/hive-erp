@@ -265,3 +265,32 @@ export const saveConfig = async (
   const { data } = await apiClient.post('/api/admin/config', configData);
   return data;
 };
+
+// ==========================================
+// M3: Novas APIs do NestJS (V2)
+// ==========================================
+
+export const updateBulkMarkup = async (categoryId: string, markup: number, globalGramPrice?: number) => {
+  const { data } = await apiClient.post('/api/v2/products/bulk-markup', { categoryId, markup, globalGramPrice });
+  return data;
+};
+
+export const updateBulkStatus = async (productIds: string[], status: 'ATIVO' | 'INATIVO') => {
+  const { data } = await apiClient.post('/api/v2/products/bulk-status', { productIds, status });
+  return data;
+};
+
+export const getTeamMembers = async () => {
+  const { data } = await apiClient.get('/api/v2/team');
+  return data;
+};
+
+export const inviteTeamMember = async (name: string, email: string) => {
+  const { data } = await apiClient.post('/api/v2/team', { name, email });
+  return data;
+};
+
+export const removeTeamMember = async (email: string) => {
+  const { data } = await apiClient.delete(`/api/v2/team/${email}`);
+  return data;
+};

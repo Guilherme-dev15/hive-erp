@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Todos os acessos a dados
+    match /{document=**} {
+      // 1. O usuario deve estar autenticado.
+      // 2. A leitura eh permitida SE o documento nao existir (para verificacoes) ou
+      //    SE o userId do documento pertencer ao uid do usuario solicitante.
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+
+      // 3. A Gravacao direta pelo Client App (React) ESTA PROIBIDA.
+      // Toda a manipulacao de dados deve passar pela API Rest (Express ou NestJS) para assegurar atomicidade e validacoes.
+      allow write: if false;
+    }
+  }
+}

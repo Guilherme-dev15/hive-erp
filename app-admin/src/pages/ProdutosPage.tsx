@@ -26,7 +26,6 @@ import { toast, Toaster } from 'react-hot-toast';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useReactToPrint } from 'react-to-print';
 import { BulkMarkupModal } from '../components/BulkMarkupModal';
-import { updateStatusEmMassa } from '../services/firebase/bulkUpdate';
 
 // --- HOOKS ---
 import { useProducts } from '../hooks/useProducts';
@@ -36,6 +35,7 @@ import {
   getFornecedores,
   getCategories,
   getConfig,
+  updateBulkStatus,
 } from '../services/apiService';
 
 // --- COMPONENTES ---
@@ -250,9 +250,9 @@ export function ProdutosPage() {
 
     try {
       setLoading(true);
-      const count = await updateStatusEmMassa(selectedIds, novoStatus);
+      const res = await updateBulkStatus(selectedIds, novoStatus.toUpperCase() as 'ATIVO' | 'INATIVO');
       toast.success(
-        `${count} produtos alterados para ${novoStatus.toUpperCase()}!`,
+        `${res.updatedCount} produtos alterados para ${novoStatus.toUpperCase()}!`,
         { duration: 4000 }
       );
       await new Promise((resolve) => setTimeout(resolve, 1500));
