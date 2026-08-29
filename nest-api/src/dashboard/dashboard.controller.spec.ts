@@ -12,7 +12,11 @@ describe('DashboardController', () => {
       providers: [
         {
           provide: DashboardService,
-          useValue: {},
+          useValue: {
+            getStats: jest.fn().mockResolvedValue({}),
+            getCharts: jest.fn().mockResolvedValue({}),
+            getABCReport: jest.fn().mockResolvedValue({}),
+          },
         },
         {
           provide: PrismaService,

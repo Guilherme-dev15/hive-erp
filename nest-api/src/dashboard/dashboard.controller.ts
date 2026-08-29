@@ -14,17 +14,11 @@ export class DashboardController {
   
   @Get('dashboard-charts')
   getCharts(@Request() req: any) {
-    return {
-      salesByDay: [],
-      incomeVsExpense: [],
-    };
+    return this.dashboardService.getCharts(req.user.id);
   }
   
   @Get('reports/abc')
   getABC(@Request() req: any) {
-    return {
-      items: [],
-      summary: { totalRevenue: 0 }
-    };
+    return this.dashboardService.getABCReport(req.user.id);
   }
 }
