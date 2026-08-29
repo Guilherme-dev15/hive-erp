@@ -10,8 +10,5 @@ module.exports = {
   },
   transformIgnorePatterns: [
     "node_modules/(?!(jose|firebase-admin)/)"
-  ],
-  moduleNameMapper: {
-    "^jose(.*)$": "<rootDir>/../../node_modules/jose/dist/node/cjs$1"
-  }
+  ]
 };
