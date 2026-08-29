@@ -202,17 +202,17 @@ export const deleteCategory = async (id: string): Promise<void> => {
 // DOMÍNIO: MARKETING (CUPONS & CAMPANHAS)
 // ============================================================================
 export const getCoupons = async (): Promise<Cupom[]> => {
-  const { data } = await apiClient.get('/api/admin/coupons');
+  const { data } = await apiClient.get('/api/v2/coupons');
   return data;
 };
 export const createCoupon = async (
   couponData: Omit<Cupom, 'id' | 'status'>
 ): Promise<Cupom> => {
-  const { data } = await apiClient.post('/api/admin/coupons', couponData);
+  const { data } = await apiClient.post('/api/v2/coupons', couponData);
   return data;
 };
 export const deleteCoupon = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/admin/coupons/${id}`);
+  await apiClient.delete(`/api/v2/coupons/${id}`);
 };
 
 export const simulateCampaign = async (
@@ -243,7 +243,7 @@ export const revertCampaign = async (): Promise<{ message: string }> => {
 // DOMÍNIO: DASHBOARD & CONFIGURAÇÕES GLOBAIS
 // ============================================================================
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-  const { data } = await apiClient.get('/api/admin/dashboard/stats');
+  const { data } = await apiClient.get('/api/v2/dashboard/stats');
   return data;
 };
 export const getDashboardCharts = async (): Promise<DashboardCharts> => {
@@ -256,13 +256,13 @@ export const getABCReport = async (): Promise<ABCReport> => {
 };
 
 export const getConfig = async (): Promise<Config> => {
-  const { data } = await apiClient.get('/api/admin/config');
+  const { data } = await apiClient.get('/api/v2/config');
   return data;
 };
 export const saveConfig = async (
   configData: Partial<Config>
 ): Promise<Config> => {
-  const { data } = await apiClient.post('/api/admin/config', configData);
+  const { data } = await apiClient.post('/api/v2/config', configData);
   return data;
 };
 

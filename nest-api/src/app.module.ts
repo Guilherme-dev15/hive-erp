@@ -6,9 +6,12 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { TeamModule } from './team/team.module';
 import { AuthModule } from './auth/auth.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { ConfigModule } from './config/config.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, OrdersModule, TransactionsModule, InventoryModule, TeamModule, AuthModule],
+  imports: [PrismaModule, ProductsModule, OrdersModule, TransactionsModule, InventoryModule, TeamModule, AuthModule, CouponsModule, ConfigModule, DashboardModule],
   controllers: [],
   providers: [],
 })
