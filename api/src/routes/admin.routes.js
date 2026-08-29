@@ -31,21 +31,12 @@ function createAdminRoutes(db) {
   router.patch('/orders/:id/status', adminController.updateOrderStatus);
   router.delete('/orders/:id', adminController.deleteOrder);
 
-  // Dashboard
-  router.get('/dashboard/stats', adminController.getDashboardStats);
 
   // Inventory
   router.post('/inventory/adjust', adminController.adjustInventory);
   router.get('/inventory/logs/:productId', adminController.getInventoryLogs);
 
-  // Coupons
-  router.get('/coupons', adminController.getCoupons);
-  router.post('/coupons', adminController.createCoupon);
-  router.delete('/coupons/:id', adminController.deleteCoupon);
 
-  // Config
-  router.get('/config', adminController.getConfig);
-  router.post('/config', adminController.saveConfig);
 
   return router;
 }

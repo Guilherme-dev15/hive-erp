@@ -14,14 +14,14 @@ module.exports = (db) => ({
         const ref = await db.collection(COLLECTIONS.PRODUCTS).add(productData);
         
         // DUAL WRITE - Fase 5.3
-        dualWriteService.syncProduct(ref.id, req.body).catch(err => console.error('[DUAL WRITE ERROR]', err));
+        // dualWriteService.syncProduct(ref.id, req.body).catch(err => console.error('[DUAL WRITE ERROR]', err));
         res.json({ id: ref.id, ...productData });
     },
     updateProduct: async (req, res) => {
         await db.collection(COLLECTIONS.PRODUCTS).doc(req.params.id).update(req.body);
         
         // DUAL WRITE - Fase 5.3
-        dualWriteService.syncProduct(req.params.id, req.body).catch(err => console.error('[DUAL WRITE ERROR]', err));
+        // dualWriteService.syncProduct(req.params.id, req.body).catch(err => console.error('[DUAL WRITE ERROR]', err));
         res.json({ id: req.params.id });
     },
     deleteProduct: async (req, res) => {
@@ -128,63 +128,6 @@ module.exports = (db) => ({
         }
     },
 
-    // Dashboard
-    getDashboardStats: async (req, res) => {
-        try {
-            const ordersRef = db.collection(COLLECTIONS.ORDERS).where('userId', '==', req.user.uid);
-
-            // Agregação 1: Total e Receita
-            const totalAggQuery = ordersRef.aggregate({
-                totalOrders: admin.firestore.AggregateField.count(),
-                totalRevenue: admin.firestore.AggregateField.sum('total')
-            });
-
-            // Agregação 2: Pedidos Hoje
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0);
-            const todayTimestamp = admin.firestore.Timestamp.fromDate(startOfToday);
-
-            const todayAggQuery = ordersRef
-                .where('createdAt', '>=', todayTimestamp)
-                .aggregate({
-                    ordersToday: admin.firestore.AggregateField.count()
-                });
-
-            const [totalSnap, todaySnap] = await Promise.all([
-                totalAggQuery.get(),
-                todayAggQuery.get()
-            ]);
-
-            const totalOrders = totalSnap.data().totalOrders || 0;
-            const totalRevenue = totalSnap.data().totalRevenue || 0;
-            const ordersToday = todaySnap.data().ordersToday || 0;
-            const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
-
-            res.json({
-                stats: {
-                    totalVendas: totalRevenue,
-                    lucroLiquido: totalRevenue * 0.4, // Simulação temporária
-                    totalDespesas: totalRevenue * 0.6, // Simulação temporária
-                    saldoTotal: totalRevenue,
-                    activeProducts: 0 // Placeholder, ideal seria uma agregação em productsRef
-                },
-                charts: {
-                    salesByDay: [],
-                    incomeVsExpense: []
-                },
-                // Mantendo os dados do refactor (retrocompatibilidade caso necessário)
-                revenue: totalRevenue,
-                ordersToday: ordersToday,
-                totalOrders: totalOrders,
-                averageTicket: averageTicket
-            });
-
-        } catch (error) {
-            console.error("Erro ao buscar estatísticas do dashboard:", error);
-            res.status(500).json({ error: "Erro ao buscar estatísticas do dashboard" });
-        }
-    },
-
     // Inventory
     adjustInventory: async (req, res) => {
         const { productId, type, quantity, userName } = req.body;
@@ -202,39 +145,5 @@ module.exports = (db) => ({
     getInventoryLogs: async (req, res) => {
         const s = await db.collection(COLLECTIONS.INVENTORY_LOGS).where('productId', '==', req.params.productId).where('userId', '==', req.user.uid).orderBy('createdAt', 'desc').limit(20).get();
         res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
-    },
-
-    // Coupons
-    getCoupons: async (req, res) => {
-        const s = await db.collection(COLLECTIONS.COUPONS).where('userId', '==', req.user.uid).get();
-        res.json(s.docs.map(d => ({ id: d.id, ...d.data() })));
-    },
-    createCoupon: async (req, res) => {
-        const data = { ...req.body, userId: req.user.uid, code: req.body.code.toUpperCase(), createdAt: admin.firestore.FieldValue.serverTimestamp() };
-        const ref = await db.collection(COLLECTIONS.COUPONS).add(data);
-        res.json({ id: ref.id, ...data });
-    },
-    deleteCoupon: async (req, res) => {
-        await db.collection(COLLECTIONS.COUPONS).doc(req.params.id).delete();
-        res.sendStatus(204);
-    },
-
-    // Config
-    saveConfig: async (req, res) => {
-        await db.collection(COLLECTIONS.CONFIG).doc('settings').set({
-            ...req.body,
-            userId: req.user.uid,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        res.json(req.body);
-    },
-    getConfig: async (req, res) => {
-        try {
-            const snapshot = await db.collection(COLLECTIONS.CONFIG).where('userId', '==', req.user.uid).limit(1).get();
-            if (snapshot.empty) return res.json({});
-            return res.json({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
-        }
-    },
+    }
 });
