@@ -62,7 +62,7 @@ export const uploadImage = async (file: File): Promise<string> => {
 // DOMÍNIO: PRODUTOS
 // ============================================================================
 export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
-  const { data } = await apiClient.get<ProdutoAdmin[]>('/api/admin/products');
+  const { data } = await apiClient.get<ProdutoAdmin[]>('/api/v2/products');
   return data.map((prod) => ({
     ...prod,
     variantes: prod.variantes || [],
@@ -73,23 +73,23 @@ export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
 export const createAdminProduto = async (
   productData: ProdutoFormData
 ): Promise<ProdutoAdmin> => {
-  const { data } = await apiClient.post('/api/admin/products', productData);
+  const { data } = await apiClient.post('/api/v2/products', productData);
   return data;
 };
 export const updateAdminProduto = async (
   id: string,
   productData: Partial<ProdutoFormData>
 ): Promise<ProdutoAdmin> => {
-  const { data } = await apiClient.put(`/api/admin/products/${id}`, productData);
+  const { data } = await apiClient.put(`/api/v2/products/${id}`, productData);
   return data;
 };
 export const deleteAdminProduto = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/admin/products/${id}`);
+  await apiClient.delete(`/api/v2/products/${id}`);
 };
 export const importProductsBulk = async (
   products: Partial<ProdutoAdmin>[]
 ): Promise<{ count: number }> => {
-  const { data } = await apiClient.post('/api/admin/products/bulk', products);
+  const { data } = await apiClient.post('/api/v2/products/bulk', products);
   return data;
 };
 
@@ -97,33 +97,33 @@ export const importProductsBulk = async (
 // DOMÍNIO: PEDIDOS (GESTÃO DE VENDAS)
 // ============================================================================
 export const getAdminOrders = async (): Promise<PedidoAdmin[]> => {
-  const { data } = await apiClient.get('/api/admin/orders');
+  const { data } = await apiClient.get('/api/v2/orders');
   return data;
 };
 export const updateAdminOrderStatus = async (
   orderId: string,
   status: string
 ): Promise<PedidoAdmin> => {
-  const { data } = await apiClient.patch(`/api/admin/orders/${orderId}/status`, {
+  const { data } = await apiClient.patch(`/api/v2/orders/${orderId}/status`, {
     status,
   });
   return data;
 };
 export const deleteAdminOrder = async (orderId: string): Promise<void> => {
-  await apiClient.delete(`/api/admin/orders/${orderId}`);
+  await apiClient.delete(`/api/v2/orders/${orderId}`);
 };
 
 // ============================================================================
 // DOMÍNIO: FINANCEIRO & TRANSAÇÕES
 // ============================================================================
 export const getTransacoes = async (): Promise<Transacao[]> => {
-  const { data } = await apiClient.get('/api/admin/transactions');
+  const { data } = await apiClient.get('/api/v2/transactions');
   return data;
 };
 export const createTransacao = async (
   transacaoData: Omit<Transacao, 'id'>
 ): Promise<Transacao> => {
-  const { data } = await apiClient.post('/api/admin/transactions', transacaoData);
+  const { data } = await apiClient.post('/api/v2/transactions', transacaoData);
   return data;
 };
 export const updateTransacao = async (
@@ -131,13 +131,13 @@ export const updateTransacao = async (
   transacaoData: Partial<Transacao>
 ): Promise<Transacao> => {
   const { data } = await apiClient.put(
-    `/api/admin/transactions/${id}`,
+    `/api/v2/transactions/${id}`,
     transacaoData
   );
   return data;
 };
 export const deleteTransacao = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/admin/transactions/${id}`);
+  await apiClient.delete(`/api/v2/transactions/${id}`);
 };
 
 // ============================================================================
@@ -147,13 +147,13 @@ export const adjustStock = async (
   adjustmentData: StockAdjustment
 ): Promise<{ success: boolean; message: string }> => {
   const { data } = await apiClient.post(
-    '/api/admin/inventory/adjust',
+    '/api/v2/inventory/adjust',
     adjustmentData
   );
   return data;
 };
 export const getProductLogs = async (productId: string): Promise<StockLog[]> => {
-  const { data } = await apiClient.get(`/api/admin/inventory/logs/${productId}`);
+  const { data } = await apiClient.get(`/api/v2/inventory/logs/${productId}`);
   return data;
 };
 
@@ -161,13 +161,13 @@ export const getProductLogs = async (productId: string): Promise<StockLog[]> => 
 // DOMÍNIO: FORNECEDORES & CATEGORIAS
 // ============================================================================
 export const getFornecedores = async (): Promise<Fornecedor[]> => {
-  const { data } = await apiClient.get('/api/admin/suppliers');
+  const { data } = await apiClient.get('/api/v2/suppliers');
   return data;
 };
 export const createFornecedor = async (
   fornecedorData: Omit<Fornecedor, 'id'>
 ): Promise<Fornecedor> => {
-  const { data } = await apiClient.post('/api/admin/suppliers', fornecedorData);
+  const { data } = await apiClient.post('/api/v2/suppliers', fornecedorData);
   return data;
 };
 export const updateFornecedor = async (
@@ -175,27 +175,27 @@ export const updateFornecedor = async (
   fornecedorData: Partial<Fornecedor>
 ): Promise<Fornecedor> => {
   const { data } = await apiClient.put(
-    `/api/admin/suppliers/${id}`,
+    `/api/v2/suppliers/${id}`,
     fornecedorData
   );
   return data;
 };
 export const deleteFornecedor = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/admin/suppliers/${id}`);
+  await apiClient.delete(`/api/v2/suppliers/${id}`);
 };
 
 export const getCategories = async (): Promise<Categoria[]> => {
-  const { data } = await apiClient.get('/api/admin/categories');
+  const { data } = await apiClient.get('/api/v2/categories');
   return data;
 };
 export const createCategory = async (
   categoryData: Omit<Categoria, 'id'>
 ): Promise<Categoria> => {
-  const { data } = await apiClient.post('/api/admin/categories', categoryData);
+  const { data } = await apiClient.post('/api/v2/categories', categoryData);
   return data;
 };
 export const deleteCategory = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/admin/categories/${id}`);
+  await apiClient.delete(`/api/v2/categories/${id}`);
 };
 
 // ============================================================================
@@ -220,7 +220,7 @@ export const simulateCampaign = async (
   minMarkup: number
 ): Promise<CampaignSimulation> => {
   const { data } = await apiClient.post<CampaignSimulation>(
-    '/api/admin/campaign/simulate',
+    '/api/v2/campaign/simulate',
     { discount, minMarkup }
   );
   return data;
@@ -230,11 +230,11 @@ export const applyCampaign = async (
   minMarkup: number,
   campaignName: string
 ): Promise<{ count: number }> => {
-  const { data } = await apiClient.post('/api/admin/campaign/apply', { discount, minMarkup, campaignName });
+  const { data } = await apiClient.post('/api/v2/campaign/apply', { discount, minMarkup, campaignName });
   return data;
 };
 export const revertCampaign = async (): Promise<{ message: string }> => {
-  const { data } = await apiClient.post('/api/admin/campaign/revert');
+  const { data } = await apiClient.post('/api/v2/campaign/revert');
   return data;
 };
 
@@ -247,11 +247,11 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
   return data;
 };
 export const getDashboardCharts = async (): Promise<DashboardCharts> => {
-  const { data } = await apiClient.get('/api/admin/dashboard-charts');
+  const { data } = await apiClient.get('/api/v2/dashboard-charts');
   return data;
 };
 export const getABCReport = async (): Promise<ABCReport> => {
-  const { data } = await apiClient.get('/api/admin/reports/abc');
+  const { data } = await apiClient.get('/api/v2/reports/abc');
   return data;
 };
 
