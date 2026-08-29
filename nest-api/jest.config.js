@@ -6,8 +6,7 @@ module.exports = {
     '^.+\.(t|j)s$': ['ts-jest', { isolatedModules: true }],
   },
   moduleNameMapper: {
-    '^jose(.*)$': '<rootDir>/../node_modules/jose/dist/node/cjs$1',
-    '^firebase-admin/auth$': '<rootDir>/../node_modules/firebase-admin/lib/auth/index.js'
+    '^jose(.*)$': '<rootDir>/../node_modules/jose/dist/node/cjs$1'
   },
   transformIgnorePatterns: [
     "node_modules/(?!.*\.mjs$)"
