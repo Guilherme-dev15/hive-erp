@@ -2,10 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "nest-api/src/serverless.ts",
       "use": "@vercel/node",
       "config": {
@@ -33,7 +29,7 @@
         "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
       },
-      "dest": "api/index.js"
+      "dest": "nest-api/src/serverless.ts"
     },
     {
       "src": "/(.*)",
