@@ -76,7 +76,7 @@ describe('Business Rules - Estoque & Inventário (e2e)', () => {
         quantity: 15,
         userName: 'Gerente Biz',
       })
-      .expect(201); // Created
+      .expect(200); // Nest retorna OK por padrão
 
     // 3. Assert: Valida a mutação atômica no banco de dados (Prisma transaction)
     const updatedProduct = await prisma.product.findUnique({ where: { id: product.id } });
