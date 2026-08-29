@@ -10,5 +10,8 @@ module.exports = {
   },
   transformIgnorePatterns: [
     "node_modules/(?!(jose|firebase-admin)/)"
-  ]
+  ],
+  moduleNameMapper: {
+    "^firebase-admin/auth$": "<rootDir>/mocks/firebase-admin-auth.ts"
+  }
 };
