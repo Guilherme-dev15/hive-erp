@@ -3,17 +3,17 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, storage } from './firebase/firebaseConfig';
 import {
   ProdutoAdmin,
-  Categoria,
+  Category,
   Fornecedor,
   Order as PedidoAdmin, // Renomeando para consistência
   Transacao,
-  Cupom,
+  Coupon,
   ConfigFormData as Config,
   StockAdjustment,
   StockLog,
   ProdutoFormData,
   DashboardStats,
-  DashboardCharts,
+  ChartData,
   ABCReport,
 } from '../types';
 
@@ -184,13 +184,13 @@ export const deleteFornecedor = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v2/suppliers/${id}`);
 };
 
-export const getCategories = async (): Promise<Categoria[]> => {
+export const getCategories = async (): Promise<Category[]> => {
   const { data } = await apiClient.get('/api/v2/categories');
   return data;
 };
 export const createCategory = async (
-  categoryData: Omit<Categoria, 'id'>
-): Promise<Categoria> => {
+  categoryData: Omit<Category, 'id'>
+): Promise<Category> => {
   const { data } = await apiClient.post('/api/v2/categories', categoryData);
   return data;
 };
@@ -201,13 +201,13 @@ export const deleteCategory = async (id: string): Promise<void> => {
 // ============================================================================
 // DOMÍNIO: MARKETING (CUPONS & CAMPANHAS)
 // ============================================================================
-export const getCoupons = async (): Promise<Cupom[]> => {
+export const getCoupons = async (): Promise<Coupon[]> => {
   const { data } = await apiClient.get('/api/v2/coupons');
   return data;
 };
 export const createCoupon = async (
-  couponData: Omit<Cupom, 'id' | 'status'>
-): Promise<Cupom> => {
+  couponData: Omit<Coupon, 'id' | 'status'>
+): Promise<Coupon> => {
   const { data } = await apiClient.post('/api/v2/coupons', couponData);
   return data;
 };
@@ -246,7 +246,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
   const { data } = await apiClient.get('/api/v2/dashboard/stats');
   return data;
 };
-export const getDashboardCharts = async (): Promise<DashboardCharts> => {
+export const getChartData = async (): Promise<ChartData> => {
   const { data } = await apiClient.get('/api/v2/dashboard-charts');
   return data;
 };
