@@ -63,7 +63,7 @@ describe('Business Rules - Transações Financeiras (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/api/v2/transactions')
       .send(transacaoPayload)
-      .expect(200);
+      .expect(201);
 
     expect(response.body.id).toBeDefined();
 
