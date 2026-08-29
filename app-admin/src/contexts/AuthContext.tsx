@@ -6,17 +6,14 @@ import {
   signOut,
   User,
 } from 'firebase/auth';
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { auth } from '../services/firebase/firebaseConfig';
 import toast from 'react-hot-toast';
 import { apiClient } from '../services/apiService';
 
 interface UserData {
-  // Defina aqui a estrutura dos dados do usuário que vêm do Firestore
   name: string;
   role: 'admin' | 'editor' | 'viewer';
   active: boolean;
-  // Adicione outros campos conforme necessário
 }
 
 interface AuthContextType {
@@ -31,8 +28,6 @@ export const AuthContext = createContext<AuthContextType>(
   {} as AuthContextType
 );
 
-const db = getFirestore();
-
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -46,18 +41,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.email) {
         try {
-          const userRef = doc(db, 'users', currentUser.email);
-          const userSnap = await getDoc(userRef);
+          // Prepara o header de autorização ANTES de bater na API
+          const token = await currentUser.getIdToken();
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-          if (userSnap.exists() && userSnap.data().active === true) {
-            const data = userSnap.data() as UserData;
-            setUserData(data);
+          // Usa o backend NestJS(PostgreSQL) para verificar a saúde/perfil em vez do Firestore
+          const response = await apiClient.get('/api/v2/auth/me');
+
+          if (response.data && response.data.active) {
+            setUserData(response.data as UserData);
             setUser(currentUser);
-            const token = await currentUser.getIdToken();
-            apiClient.defaults.headers.common['Authorization'] =
-              `Bearer ${token}`;
           } else {
-            toast.error('Acesso negado. Usuário não cadastrado ou inativo.');
+            toast.error('Acesso negado. Usuário inativo no ERP.');
             await signOut(auth);
             setUser(null);
             setUserData(null);
@@ -65,8 +60,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
         } catch (error) {
           console.error('Erro ao validar usuário:', error);
-          toast.error('Erro de conexão ao validar permissões.');
+          toast.error('Erro de conexão ao validar permissões. Você possui conta cadastrada?');
+          await signOut(auth);
           setUser(null);
+          setUserData(null);
+          delete apiClient.defaults.headers.common['Authorization'];
         }
       } else {
         setUser(null);
