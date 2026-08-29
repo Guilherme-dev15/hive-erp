@@ -1,60 +1,83 @@
-name: Hive ERP CI/CD
+name: CI / CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
 
 jobs:
-  build_and_test:
+  test-nest-backend:
+    name: Test NestJS Backend (Unit & E2E)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20.x]
+    
+    # Define os serviços em background necessários para os testes (Postgres)
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: johndoe
+          POSTGRES_PASSWORD: randompassword
+          POSTGRES_DB: mydb
+        ports:
+          - 5432:5432
+        # Aguarda até o banco estar pronto para receber conexões
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20'
           cache: 'npm'
 
-      - name: Install Dependencies (Root)
-        run: npm install --include=optional
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Run Linter
-        run: npm run lint:check
-      - name: Build (app-admin)
-        run: npm run build -w app-admin
-  deploy:
-    needs: build_and_test
+      - name: Generate Prisma Client
+        working-directory: ./nest-api
+        run: npx prisma generate
+
+      - name: Run Prisma Migrations
+        working-directory: ./nest-api
+        env:
+          DATABASE_URL: "postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
+        run: npx prisma migrate deploy
+
+      - name: Run Unit Tests (NestJS)
+        working-directory: ./nest-api
+        run: npm run test
+
+      - name: Run E2E Tests (NestJS)
+        working-directory: ./nest-api
+        env:
+          DATABASE_URL: "postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
+        run: npm run test:e2e
+
+  test-react-frontend:
+    name: Test React Frontend (Vitest)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Vercel CLI (pinned)
-        run: npm install -g vercel@latest
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Deploy API to Vercel
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
-        run: vercel --prod --yes --token "$VERCEL_TOKEN"
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Deploy app-admin to Vercel
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
-        run: vercel --prod --yes --token "$VERCEL_TOKEN"
-
-      - name: Deploy app-catalogo to Vercel
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CATALOGO }}
-        run: vercel --prod --yes --token "$VERCEL_TOKEN"
+      - name: Run Unit Tests (Vitest)
+        working-directory: ./app-admin
+        run: npm run test
