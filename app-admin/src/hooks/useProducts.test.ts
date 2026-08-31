@@ -17,13 +17,25 @@ vi.mock('react-hot-toast', () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+  default: {
+    success: vi.fn(),
+    error: vi.fn(),
+  }
 }))
 
 import { getAdminProdutos, createAdminProduto, deleteAdminProduto } from '../services/apiService'
 
 describe('useProducts', () => {
+  let consoleErrorSpy: any;
+
   beforeEach(() => {
     vi.clearAllMocks()
+    // Suppress console.error in tests to avoid polluting the test output when we deliberately throw errors
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  })
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   })
 
   it('deve carregar produtos com sucesso e mudar isLoading para false', async () => {
