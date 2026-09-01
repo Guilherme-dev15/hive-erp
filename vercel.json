@@ -12,43 +12,43 @@
       }
     }
   ],
+  "routes": [
+    {
+      "src": "/api/v2/(.*)",
+      "dest": "nest-api/src/serverless.ts",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
+      }
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "nest-api/src/serverless.ts",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/app-admin/dist/$1"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Cross-Origin-Opener-Policy",
-          "value": "unsafe-none"
+          "value": "same-origin-allow-popups"
         },
         {
           "key": "Cross-Origin-Embedder-Policy",
           "value": "unsafe-none"
         }
       ]
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/v2/(.*)",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
-      },
-      "dest": "nest-api/src/serverless.ts"
-    },
-    {
-      "src": "/api/(.*)",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
-      },
-      "dest": "nest-api/src/serverless.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/app-admin/dist/$1"
     }
   ]
 }

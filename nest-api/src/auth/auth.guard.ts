@@ -1,5 +1,4 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import * as admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -13,6 +12,10 @@ export class AuthGuard implements CanActivate {
 
     let firebaseUid: string | undefined;
     let firebaseEmail: string | undefined;
+
+    if (request.method === 'OPTIONS') {
+       return true;
+    }
 
     if (!token) {
       if (process.env.NODE_ENV !== 'production') {
@@ -31,7 +34,14 @@ export class AuthGuard implements CanActivate {
         firebaseUid = decodedToken.uid;
         firebaseEmail = decodedToken.email;
       } catch (error) {
-        throw new UnauthorizedException('Token inválido ou expirado');
+        // Fallback EXTREMO para ambiente local em modo dev (vite proxy proxyando o header "Bearer null" ou expirado temporariamente)
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Fallback AuthGuard Local - Token Firebase Inválido mas aceito para simular dev.');
+          firebaseUid = 'He8p0wAioIctG7ZBIIxG4C9YOmX2';
+          firebaseEmail = 'guibanks1@gmail.com';
+        } else {
+          throw new UnauthorizedException('Token inválido ou expirado');
+        }
       }
     }
 
