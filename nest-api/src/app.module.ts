@@ -11,9 +11,34 @@ import { AuthModule } from './auth/auth.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { ConfigModule } from './config/config.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, OrdersModule, TransactionsModule, InventoryModule, TeamModule, AuthModule, CouponsModule, ConfigModule, DashboardModule],
+  imports: [
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty', options: { singleLine: true } }
+            : undefined,
+        autoLogging: false, // Desliga logs de requisicoes default que dao muita poluição visual, podemos ligar dps
+        customProps: (req, res) => ({
+          context: 'HTTP',
+        }),
+      },
+    }),
+    PrismaModule, 
+    ProductsModule, 
+    OrdersModule, 
+    TransactionsModule, 
+    InventoryModule, 
+    TeamModule, 
+    AuthModule, 
+    CouponsModule, 
+    ConfigModule, 
+    DashboardModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
