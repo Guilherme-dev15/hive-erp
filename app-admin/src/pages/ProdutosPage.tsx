@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -23,9 +23,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
-import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useReactToPrint } from 'react-to-print';
-import { BulkMarkupModal } from '../components/BulkMarkupModal';
 
 // --- HOOKS ---
 import { useProducts } from '../hooks/useProducts';
@@ -39,13 +37,32 @@ import {
 } from '../services/apiService';
 
 // --- COMPONENTES ---
-import { ImportModal } from '../components/ImportModal';
 import { ProdutoFormModal } from '../components/ProdutoFormModal';
 import { CategoryModal } from '../components/CategoryModal';
-import { CatalogPDF } from '../components/CatologPDF';
 import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
 import { StockModal } from '../components/StockModal';
-import { NeonStudio } from '../components/NeonStudio';
+
+const PDFDownloadLink = lazy(() =>
+  import('@react-pdf/renderer').then(({ PDFDownloadLink }) => ({ default: PDFDownloadLink }))
+);
+const CatalogPDF = lazy(() =>
+  import('../components/CatologPDF').then(({ CatalogPDF }) => ({ default: CatalogPDF }))
+);
+const ImportModal = lazy(() =>
+  import('../components/ImportModal').then(({ ImportModal }) => ({ default: ImportModal }))
+);
+const BulkMarkupModal = lazy(() =>
+  import('../components/BulkMarkupModal').then(({ BulkMarkupModal }) => ({ default: BulkMarkupModal }))
+);
+const NeonStudio = lazy(() =>
+  import('../components/NeonStudio').then(({ NeonStudio }) => ({ default: NeonStudio }))
+);
+
+const FEATURE_FALLBACK = (
+  <div className="p-6 text-sm text-gray-500" role="status">
+    Carregando recurso...
+  </div>
+);
 
 // --- TIPOS ---
 import type { ProdutoAdmin, Category, Fornecedor, ConfigFormData } from '../types';
@@ -312,21 +329,20 @@ export function ProdutosPage() {
 
             {isGeneratingPdf ? (
               <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-100 animate-pulse">
-                <PDFDownloadLink
-                  document={
-                    <CatalogPDF
-                      produtos={produtosParaPdf}
-                      storeName={storeConfig?.storeName || 'Catálogo'}
-                    />
-                  }
-                  fileName="catalogo_produtos.pdf"
-                  className="flex items-center gap-2 text-[#d19900] font-bold text-xs"
-                >
-                  {
-                  // @ts-expect-error - Recharts typing issue
-                  ({ loading: pdfLoading }) => (pdfLoading ? 'Gerando...' : 'Baixar PDF')
-                  }
-                </PDFDownloadLink>
+                <Suspense fallback={FEATURE_FALLBACK}>
+                  <PDFDownloadLink
+                    document={
+                      <CatalogPDF
+                        produtos={produtosParaPdf}
+                        storeName={storeConfig?.storeName || 'Catálogo'}
+                      />
+                    }
+                    fileName="catalogo_produtos.pdf"
+                    className="flex items-center gap-2 text-[#d19900] font-bold text-xs"
+                  >
+                    {({ loading: pdfLoading }) => (pdfLoading ? 'Gerando...' : 'Baixar PDF')}
+                  </PDFDownloadLink>
+                </Suspense>
                 <button
                   onClick={() => setIsGeneratingPdf(false)}
                   className="hover:bg-red-50 p-1 rounded-full"
@@ -392,11 +408,15 @@ export function ProdutosPage() {
             Atualizar Preços em Massa
           </button>
 
-          <BulkMarkupModal
-            isOpen={isMarkupModalOpen}
-            onClose={() => setIsMarkupModalOpen(false)}
-            onSuccess={handleMarkupSuccess}
-          />
+          {isMarkupModalOpen && (
+            <Suspense fallback={FEATURE_FALLBACK}>
+              <BulkMarkupModal
+                isOpen={isMarkupModalOpen}
+                onClose={() => setIsMarkupModalOpen(false)}
+                onSuccess={handleMarkupSuccess}
+              />
+            </Suspense>
+          )}
         </div>
       </div>
 
@@ -725,17 +745,25 @@ export function ProdutosPage() {
           setCategories((prev) => [...prev, newCat])
         }
       />
-      <ImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={carregarTudo}
-      />
+      {isImportModalOpen && (
+        <Suspense fallback={FEATURE_FALLBACK}>
+          <ImportModal
+            isOpen={isImportModalOpen}
+            onClose={() => setIsImportModalOpen(false)}
+            onSuccess={carregarTudo}
+          />
+        </Suspense>
+      )}
 
-      <NeonStudio
-        isOpen={isNeonOpen}
-        onClose={() => setIsNeonOpen(false)}
-        onSuccess={carregarTudo}
-      />
+      {isNeonOpen && (
+        <Suspense fallback={FEATURE_FALLBACK}>
+          <NeonStudio
+            isOpen={isNeonOpen}
+            onClose={() => setIsNeonOpen(false)}
+            onSuccess={carregarTudo}
+          />
+        </Suspense>
+      )}
       <StockModal
         isOpen={isStockModalOpen}
         onClose={() => setIsStockModalOpen(false)}
