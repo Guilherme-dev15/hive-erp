@@ -1,30 +1,29 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '../test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Order } from '../types';
 
 // Resolve hoisting issue
 vi.mock('../components/CertificadoImpressao', () => {
-  const ReactMock = require('react');
   return {
-    CertificadoImpressao: ReactMock.forwardRef((props: any, ref: any) => <div ref={ref} data-testid="mock-certificado">Certificado</div>)
+    CertificadoImpressao: React.forwardRef((_props: unknown, ref: unknown) => <div ref={ref as React.Ref<HTMLDivElement>} data-testid="mock-certificado">Certificado</div>)
   };
 });
 
 // Remove destructuring from vi.mock
 vi.mock('framer-motion', () => {
-  const ReactMock = require('react');
   return {
-    AnimatePresence: ({ children }: any) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     motion: {
-      div: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <div {...props}>{children}</div>,
-      button: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <button {...props}>{children}</button>,
-      li: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <li {...props}>{children}</li>,
-      span: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <span {...props}>{children}</span>,
-      p: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <p {...props}>{children}</p>,
-      h3: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <h3 {...props}>{children}</h3>,
-      tr: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <tr {...props}>{children}</tr>,
-      td: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <td {...props}>{children}</td>,
-      tbody: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => <tbody {...props}>{children}</tbody>,
+      div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+      button: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <button {...props}>{children}</button>,
+      li: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <li {...props}>{children}</li>,
+      span: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <span {...props}>{children}</span>,
+      p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
+      h3: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <h3 {...props}>{children}</h3>,
+      tr: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <tr {...props}>{children}</tr>,
+      td: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <td {...props}>{children}</td>,
+      tbody: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <tbody {...props}>{children}</tbody>,
     }
   };
 });
@@ -73,9 +72,9 @@ describe('PedidosPage', () => {
 
   it('deve exibir os pedidos carregados do backend', async () => {
     vi.mocked(getAdminOrders).mockResolvedValueOnce([
-      { 
-        id: '12345678', 
-        customerName: 'João Silva', 
+      {
+        id: '12345678',
+        customerName: 'João Silva',
         customerPhone: '11999999999',
         total: 500,
         status: 'PENDENTE',
@@ -84,9 +83,9 @@ describe('PedidosPage', () => {
         history: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       },
-      { 
-        id: '98765432', 
-        customerName: 'Maria Souza', 
+      {
+        id: '98765432',
+        customerName: 'Maria Souza',
         customerPhone: '11888888888',
         total: 250,
         status: 'PAGO',
@@ -95,7 +94,9 @@ describe('PedidosPage', () => {
         history: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       }
-    ] as any);
+    ] as unknown as Order[]);
+
+    // O fixture parcial representa apenas os campos consumidos por este teste.
 
     render(<PedidosPage />);
 
@@ -111,23 +112,23 @@ describe('PedidosPage', () => {
   
   it('deve filtrar pedidos pelo input de busca', async () => {
     vi.mocked(getAdminOrders).mockResolvedValueOnce([
-      { 
-        id: '12345678', 
-        customerName: 'João Silva', 
+      {
+        id: '12345678',
+        customerName: 'João Silva',
         total: 500,
         status: 'PENDENTE',
         items: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       },
-      { 
-        id: '98765432', 
-        customerName: 'Maria Souza', 
+      {
+        id: '98765432',
+        customerName: 'Maria Souza',
         total: 250,
         status: 'PENDENTE',
         items: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       }
-    ] as any);
+    ] as unknown as Order[]);
 
     render(<PedidosPage />);
 
@@ -144,15 +145,15 @@ describe('PedidosPage', () => {
 
   it('deve engatilhar a mudanca de status ao alterar o select e chamar a API', async () => {
     vi.mocked(getAdminOrders).mockResolvedValueOnce([
-      { 
-        id: 'pedido-mock', 
-        customerName: 'João Silva', 
+      {
+        id: 'pedido-mock',
+        customerName: 'João Silva',
         total: 500,
         status: 'Aguardando Pagamento',
         items: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       }
-    ] as any);
+    ] as unknown as Order[]);
 
     render(<PedidosPage />);
 
@@ -175,28 +176,28 @@ describe('PedidosPage', () => {
 
   it('deve calcular corretamente o dashboard de estatisticas', async () => {
     vi.mocked(getAdminOrders).mockResolvedValueOnce([
-      { 
-        id: '1', 
+      {
+        id: '1',
         total: 500,
         status: 'Aguardando Pagamento',
         items: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       },
-      { 
-        id: '2', 
+      {
+        id: '2',
         total: 250,
         status: 'Concluído',
         items: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       },
-      { 
-        id: '3', 
+      {
+        id: '3',
         total: 1000,
-        status: 'Cancelado', 
+        status: 'Cancelado',
         items: [],
         createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
       }
-    ] as any);
+    ] as unknown as Order[]);
 
     render(<PedidosPage />);
 

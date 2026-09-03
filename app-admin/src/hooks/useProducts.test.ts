@@ -26,7 +26,7 @@ vi.mock('react-hot-toast', () => ({
 import { getAdminProdutos, createAdminProduto, deleteAdminProduto } from '../services/apiService'
 
 describe('useProducts', () => {
-  let consoleErrorSpy: any;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -43,28 +43,28 @@ describe('useProducts', () => {
       { id: '1', name: 'Anel de Ouro', category: 'Anéis' },
       { id: '2', name: 'Corrente de Prata', category: 'Correntes' }
     ]
-    vi.mocked(getAdminProdutos).mockResolvedValueOnce(mockProducts as any)
-    
+    vi.mocked(getAdminProdutos).mockResolvedValueOnce(mockProducts as unknown as ReturnType<typeof getAdminProdutos> extends Promise<infer U> ? U : never)
+
     const { result } = renderHook(() => useProducts())
-    
+
     await waitFor(() => expect(result.current.isLoading).toBe(false))
-    
+
     expect(result.current.products).toEqual(mockProducts)
   })
 
   it('deve adicionar um novo produto na lista ao chamar createProduct', async () => {
-    vi.mocked(getAdminProdutos).mockResolvedValueOnce([] as any)
+    vi.mocked(getAdminProdutos).mockResolvedValueOnce([] as unknown as ReturnType<typeof getAdminProdutos> extends Promise<infer U> ? U : never)
     const newProduct = { id: '3', name: 'Pulseira de Prata', category: 'Pulseiras' }
-    vi.mocked(createAdminProduto).mockResolvedValueOnce(newProduct as any)
-    
+    vi.mocked(createAdminProduto).mockResolvedValueOnce(newProduct as unknown as ReturnType<typeof createAdminProduto> extends Promise<infer U> ? U : never)
+
     const { result } = renderHook(() => useProducts())
-    
+
     await waitFor(() => expect(result.current.isLoading).toBe(false))
-    
+
     await act(async () => {
-      await result.current.createProduct({ name: 'Pulseira de Prata' } as any)
+      await result.current.createProduct({ name: 'Pulseira de Prata' } as unknown as Parameters<typeof createAdminProduto>[0])
     })
-    
+
     expect(result.current.products).toHaveLength(1)
     expect(result.current.products[0]).toEqual(newProduct)
   })
@@ -74,7 +74,7 @@ describe('useProducts', () => {
       { id: '1', name: 'Anel' },
       { id: '2', name: 'Corrente' }
     ]
-    vi.mocked(getAdminProdutos).mockResolvedValueOnce(mockProducts as any)
+    vi.mocked(getAdminProdutos).mockResolvedValueOnce(mockProducts as unknown as ReturnType<typeof getAdminProdutos> extends Promise<infer U> ? U : never)
     vi.mocked(deleteAdminProduto).mockResolvedValueOnce(undefined)
     
     const { result } = renderHook(() => useProducts())
