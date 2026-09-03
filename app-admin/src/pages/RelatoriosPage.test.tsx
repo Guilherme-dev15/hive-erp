@@ -1,8 +1,11 @@
-﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import type { Mock } from 'vitest';
 import { RelatoriosPage } from './RelatoriosPage';
 import * as apiService from '../services/apiService';
-import React from 'react';
+
+type MockedFunction = Mock;
 
 // Mock Services
 vi.mock('../services/apiService', () => ({
@@ -36,7 +39,7 @@ describe('RelatoriosPage (Curva ABC)', () => {
   });
 
   it('deve exibir spinner de carregamento inicialmente', () => {
-    (apiService.getABCReport as any).mockImplementation(() => new Promise(() => {})); // never resolves
+    (apiService.getABCReport as unknown as MockedFunction).mockImplementation(() => new Promise(() => {})); // never resolves
     const { container } = render(<RelatoriosPage />);
     expect(container.querySelector('.animate-spin')).toBeInTheDocument();
   });
@@ -60,7 +63,7 @@ describe('RelatoriosPage (Curva ABC)', () => {
       }
     };
 
-    (apiService.getABCReport as any).mockResolvedValue(mockReport);
+    (apiService.getABCReport as unknown as MockedFunction).mockResolvedValue(mockReport);
 
     render(<RelatoriosPage />);
 

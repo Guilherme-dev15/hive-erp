@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '../test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProdutosPage } from './ProdutosPage';
@@ -7,13 +8,15 @@ vi.mock('@react-pdf/renderer', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@react-pdf/renderer')>();
   return {
     ...actual,
-    PDFDownloadLink: ({ children }: any) => <div data-testid="pdf-mock">{typeof children === 'function' ? children({ loading: false }) : children}</div>,
-    Document: ({ children }: any) => <div>{children}</div>,
-    Page: ({ children }: any) => <div>{children}</div>,
-    Text: ({ children }: any) => <div>{children}</div>,
-    View: ({ children }: any) => <div>{children}</div>,
-    Image: ({ children }: any) => <div>{children}</div>,
-    StyleSheet: { create: (s: any) => s },
+    PDFDownloadLink: ({ children }: { children: React.ReactNode | ((params: { loading: boolean }) => React.ReactNode) }) => (
+      <div data-testid="pdf-mock">{typeof children === 'function' ? children({ loading: false }) : children}</div>
+    ),
+    Document: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Page: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Text: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    View: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Image: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    StyleSheet: { create: (s: unknown) => s },
   };
 });
 
@@ -22,18 +25,18 @@ vi.mock('react-to-print', () => ({
 }));
 
 vi.mock('framer-motion', async () => {
-  const actual = await vi.importActual('framer-motion') as any;
+  const actual = await vi.importActual('framer-motion');
   return {
-    ...actual,
-    AnimatePresence: ({ children }: any) => <div>{children}</div>,
+    ...(actual as object),
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
     motion: {
-      div: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => {
+      div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
         return <div {...props}>{children}</div>;
       },
-      button: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => {
+      button: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
         return <button {...props}>{children}</button>;
       },
-      tr: ({ children, layout, initial, animate, exit, transition, whileHover, whileTap, layoutId, ...props }: any) => {
+      tr: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
         return <tr {...props}>{children}</tr>;
       }
     }
@@ -57,8 +60,19 @@ vi.mock('../services/firebase/firebaseConfig', () => ({
   db: {}
 }));
 
+interface TestProduct {
+  id: string;
+  name: string;
+  price: number;
+  currentStock: number;
+  category: string;
+  type: string;
+  status?: string;
+  code?: string;
+}
+
 const mockUseProducts = {
-  products: [] as any[],
+  products: [] as TestProduct[],
   isLoading: false,
   deleteProduct: vi.fn(),
   refresh: vi.fn(),
