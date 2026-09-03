@@ -21,7 +21,7 @@ interface TeamMember {
 }
 
 export function EquipePage() {
-  const { user, userData } = useAuth();
+  const { userData } = useAuth();
   const [usersList, setUsersList] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,8 +62,13 @@ export function EquipePage() {
       setNewEmail('');
       setNewName('');
       loadUsers();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao adicionar usuário.');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        toast.error(axiosError.response?.data?.message || 'Erro ao adicionar usuário.');
+      } else {
+        toast.error('Erro ao adicionar usuário.');
+      }
     } finally {
       setIsSubmitting(false);
     }

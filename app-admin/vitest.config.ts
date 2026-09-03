@@ -8,6 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
     globals: true,
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/setup.test.ts'],
     env: {
       VITE_FIREBASE_API_KEY: 'mock-key',
       VITE_FIREBASE_AUTH_DOMAIN: 'mock-domain',

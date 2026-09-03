@@ -36,11 +36,11 @@ const COLORS = [
   '#EC4899',
 ];
 
-const parseDate = (d: any) => {
+const parseDate = (d: unknown) => {
   if (!d) return new Date();
-  if (typeof d === 'object' && 'seconds' in d)
-    return new Date(d.seconds * 1000);
-  const date = new Date(d);
+  if (typeof d === 'object' && d !== null && 'seconds' in d)
+    return new Date((d as { seconds: number }).seconds * 1000);
+  const date = new Date(d as string | number);
   return isNaN(date.getTime()) ? new Date() : date;
 };
 
@@ -408,7 +408,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
   return null;
 };
 
-const PieTooltip = ({ active, payload }: any) => {
+const PieTooltip = ({ active, payload }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-3 rounded-xl shadow-xl text-sm border border-gray-100">
