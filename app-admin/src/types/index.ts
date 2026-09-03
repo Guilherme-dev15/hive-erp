@@ -182,13 +182,22 @@ export interface ABCReportItem {
   name: string;
   quantity: number;
   salePrice: number;
+  costPrice: number;
   valorEstoque: number;
+  custoEstoque: number;
+  lucroProjetado: number;
   classificacao: 'A' | 'B' | 'C';
 }
 
 export interface ABCReport {
   curvaABC: ABCReportItem[];
-  resumoEstoque: {
+  summary: {
+    totalRevenue: number;
+    totalCost: number;
+    projectedProfit: number;
+    averageTicket: number;
+  };
+  resumoEstoque?: { // Mantendo por retrocompatibilidade se o frontend atual usa
     totalItens: number;
     valorTotal: number;
     produtosZerados: number;

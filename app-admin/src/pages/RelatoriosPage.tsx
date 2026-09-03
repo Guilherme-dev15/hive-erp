@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   TrendingUp,
   DollarSign,
+  PieChart,
+  Tag
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { getABCReport } from '../services/apiService';
@@ -43,7 +45,17 @@ export function RelatoriosPage() {
     );
   }
 
-  const { curvaABC, resumoEstoque } = report;
+  const { curvaABC, resumoEstoque, summary } = report;
+
+  // Fallback seguro caso o payload do backend ainda não tenha o objeto summary completo
+  const metrics = {
+    totalItens: resumoEstoque?.totalItens ?? 0,
+    produtosZerados: resumoEstoque?.produtosZerados ?? 0,
+    valorTotal: summary?.totalRevenue ?? resumoEstoque?.valorTotal ?? 0,
+    custoTotal: summary?.totalCost ?? 0,
+    lucroProjetado: summary?.projectedProfit ?? 0,
+    ticketMedio: summary?.averageTicket ?? 0
+  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -58,7 +70,7 @@ export function RelatoriosPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-4 bg-indigo-50 text-indigo-600 rounded-full">
             <Package size={24} />
@@ -66,7 +78,7 @@ export function RelatoriosPage() {
           <div>
             <p className="text-sm text-gray-500 font-medium">Itens em Estoque</p>
             <p className="text-2xl font-bold text-gray-900">
-              {resumoEstoque.totalItens}
+              {metrics.totalItens}
             </p>
           </div>
         </div>
@@ -76,25 +88,47 @@ export function RelatoriosPage() {
             <DollarSign size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Valor Total Estoque</p>
+            <p className="text-sm text-gray-500 font-medium">Valor Total Estoque (Venda)</p>
             <p className="text-2xl font-bold text-gray-900">
-              {formatCurrency(resumoEstoque.valorTotal)}
+              {formatCurrency(metrics.valorTotal)}
             </p>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-rose-50 text-rose-600 rounded-full">
-            <AlertTriangle size={24} />
+          <div className="p-4 bg-sky-50 text-sky-600 rounded-full">
+            <PieChart size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Produtos Zerados</p>
+            <p className="text-sm text-gray-500 font-medium">Lucro Projetado do Estoque</p>
+            <p className="text-2xl font-bold text-sky-700">
+              {formatCurrency(metrics.lucroProjetado)}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-4 bg-purple-50 text-purple-600 rounded-full">
+            <Tag size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Ticket Médio (Histórico)</p>
             <p className="text-2xl font-bold text-gray-900">
-              {resumoEstoque.produtosZerados}
+              {formatCurrency(metrics.ticketMedio)}
             </p>
           </div>
         </div>
       </div>
+
+      {metrics.produtosZerados > 0 && (
+        <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3">
+          <AlertTriangle className="text-rose-600" size={24} />
+          <div>
+            <h3 className="text-rose-800 font-semibold text-sm">Atenção ao Estoque</h3>
+            <p className="text-rose-600 text-sm">Existem {metrics.produtosZerados} produtos com estoque zerado no momento.</p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -110,8 +144,9 @@ export function RelatoriosPage() {
                 <th className="p-4 pl-6 font-semibold">Produto</th>
                 <th className="p-4 font-semibold text-center">Classificação</th>
                 <th className="p-4 text-right font-semibold">Quantidade</th>
+                <th className="p-4 text-right font-semibold">Custo</th>
                 <th className="p-4 pr-6 text-right font-semibold">
-                  Valor Estoque
+                  Valor Estoque (Venda)
                 </th>
               </tr>
             </thead>
@@ -137,6 +172,9 @@ export function RelatoriosPage() {
                   <td className="p-4 text-right text-gray-600">
                     {p.quantity} un
                   </td>
+                  <td className="p-4 text-right text-gray-500">
+                    {p.costPrice ? formatCurrency(p.costPrice) : '-'}
+                  </td>
                   <td className="p-4 pr-6 text-right font-bold text-gray-900">
                     {formatCurrency(p.valorEstoque)}
                   </td>
@@ -144,7 +182,7 @@ export function RelatoriosPage() {
               ))}
               {curvaABC.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-400">
+                  <td colSpan={5} className="p-8 text-center text-gray-400">
                     Nenhum produto em estoque.
                   </td>
                 </tr>

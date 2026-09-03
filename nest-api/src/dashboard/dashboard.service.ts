@@ -129,17 +129,23 @@ export class DashboardService {
     });
 
     let totalEstoqueValor = 0;
+    let totalEstoqueCusto = 0;
 
     // 2. Calcula o valor em estoque de cada produto e o total global
     const mappedProducts = products.map(p => {
       const valorEstoque = Number(p.salePrice) * p.quantity;
+      const custoEstoque = Number(p.costPrice || 0) * p.quantity;
       totalEstoqueValor += valorEstoque;
+      totalEstoqueCusto += custoEstoque;
       return {
         id: p.id,
         name: p.name,
         quantity: p.quantity,
         salePrice: Number(p.salePrice),
-        valorEstoque
+        costPrice: Number(p.costPrice || 0),
+        valorEstoque,
+        custoEstoque,
+        lucroProjetado: valorEstoque - custoEstoque
       };
     });
 
@@ -151,7 +157,7 @@ export class DashboardService {
     const curvaABC = mappedProducts.map(p => {
       acumulado += p.valorEstoque;
       const percentualAcumulado = totalEstoqueValor > 0 ? (acumulado / totalEstoqueValor) * 100 : 0;
-      
+
       let classificacao: 'A' | 'B' | 'C' = 'C';
       if (percentualAcumulado <= 80) classificacao = 'A'; // Primeiros 80% do valor = Classe A
       else if (percentualAcumulado <= 95) classificacao = 'B'; // Próximos 15% = Classe B
@@ -163,10 +169,29 @@ export class DashboardService {
       };
     });
 
+    // Calcula ticket médio a partir da receita total
+    const totalAgg = await this.prisma.order.aggregate({
+      where: { userId, status: OrderStatus.CONCLUIDO },
+      _count: { id: true },
+      _sum: { total: true },
+    });
+
+    const totalOrders = totalAgg._count.id || 0;
+    const totalRevenueHistory = Number(totalAgg._sum.total || 0);
+    const averageTicket = totalOrders > 0 ? totalRevenueHistory / totalOrders : 0;
+
     return {
       curvaABC,
       summary: {
-        totalRevenue: totalEstoqueValor // Valor total do estoque projetado
+        totalRevenue: totalEstoqueValor, // Valor total do estoque projetado (venda)
+        totalCost: totalEstoqueCusto,    // Custo total do estoque
+        projectedProfit: totalEstoqueValor - totalEstoqueCusto, // Lucro projetado
+        averageTicket, // Ticket médio histórico
+      },
+      resumoEstoque: {
+        totalItens: mappedProducts.length,
+        valorTotal: totalEstoqueValor,
+        produtosZerados: mappedProducts.filter(p => p.quantity <= 0).length
       }
     };
   }
