@@ -1,4 +1,4 @@
-import { useState, ElementType } from 'react';
+import { lazy, Suspense, useState, type ElementType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogOut,
@@ -25,18 +25,40 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/LoginPage.tsx';
 
-// Importa as páginas
-import { ProdutosPage } from './pages/ProdutosPage';
-import { FornecedoresPage } from './pages/FornecedoresPage';
-import { FinanceiroPage } from './pages/FinanceiroPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { PrecificacaoPage } from './pages/PrecificacaoPage';
-import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
-import { PedidosPage } from './pages/PedidosPage';
-import { RelatoriosPage } from './pages/RelatoriosPage';
-import { CuponsPage } from './pages/CuponsPage';
-import { EquipePage } from './pages/EquipePage';
-import { CampanhasPage } from './pages/CampanhasPage'; // <--- NOVA PÁGINA GLOBAL
+// Importa as páginas sob demanda para manter o shell inicial enxuto.
+const ProdutosPage = lazy(() =>
+  import('./pages/ProdutosPage').then(({ ProdutosPage }) => ({ default: ProdutosPage }))
+);
+const FornecedoresPage = lazy(() =>
+  import('./pages/FornecedoresPage').then(({ FornecedoresPage }) => ({ default: FornecedoresPage }))
+);
+const FinanceiroPage = lazy(() =>
+  import('./pages/FinanceiroPage').then(({ FinanceiroPage }) => ({ default: FinanceiroPage }))
+);
+const DashboardPage = lazy(() =>
+  import('./pages/DashboardPage').then(({ DashboardPage }) => ({ default: DashboardPage }))
+);
+const PrecificacaoPage = lazy(() =>
+  import('./pages/PrecificacaoPage').then(({ PrecificacaoPage }) => ({ default: PrecificacaoPage }))
+);
+const ConfiguracoesPage = lazy(() =>
+  import('./pages/ConfiguracoesPage').then(({ ConfiguracoesPage }) => ({ default: ConfiguracoesPage }))
+);
+const PedidosPage = lazy(() =>
+  import('./pages/PedidosPage').then(({ PedidosPage }) => ({ default: PedidosPage }))
+);
+const RelatoriosPage = lazy(() =>
+  import('./pages/RelatoriosPage').then(({ RelatoriosPage }) => ({ default: RelatoriosPage }))
+);
+const CuponsPage = lazy(() =>
+  import('./pages/CuponsPage').then(({ CuponsPage }) => ({ default: CuponsPage }))
+);
+const EquipePage = lazy(() =>
+  import('./pages/EquipePage').then(({ EquipePage }) => ({ default: EquipePage }))
+);
+const CampanhasPage = lazy(() =>
+  import('./pages/CampanhasPage').then(({ CampanhasPage }) => ({ default: CampanhasPage }))
+);
 
 // Importar a Proteção contra Tela Branca
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -206,6 +228,21 @@ function Navbar({
   );
 }
 
+function PageLoadingFallback() {
+  return (
+    <div
+      className="min-h-[50vh] flex items-center justify-center bg-off-white"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-col items-center gap-3 text-gray-500">
+        <Loader2 className="animate-spin text-carvao" size={40} />
+        <span className="text-sm font-medium">Carregando página...</span>
+      </div>
+    </div>
+  );
+}
+
 // --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
   const { user, loading } = useAuth();
@@ -271,7 +308,9 @@ function ProtectedLayout() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <ErrorBoundary key={pagina}>
           <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
-            {renderizarPagina()}
+            <Suspense fallback={<PageLoadingFallback />}>
+              {renderizarPagina()}
+            </Suspense>
           </div>
         </ErrorBoundary>
       </main>
