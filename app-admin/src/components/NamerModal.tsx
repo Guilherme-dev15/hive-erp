@@ -71,13 +71,19 @@ export function NamerModal({ isOpen, onClose, onNameGenerated }: NamerModalProps
     try {
       const imageDataBase64 = await toBase64(imageFile);
       const imageMimeType = imageFile.type;
-      
+
       const apiResult = await generateNameFromImage(imageDataBase64, imageMimeType);
-      
+
       setResult(apiResult);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.response?.data?.message || err.message || "Erro desconhecido ao gerar nome.");
+      if (err instanceof Error) {
+        // Safe access as unknown
+        const axiosError = err as { response?: { data?: { message?: string } } };
+        setError(axiosError.response?.data?.message || err.message || "Erro desconhecido ao gerar nome.");
+      } else {
+        setError("Erro desconhecido ao gerar nome.");
+      }
       toast.error("Falha ao gerar nome.");
     } finally {
       setLoading(false);
@@ -180,7 +186,7 @@ export function NamerModal({ isOpen, onClose, onNameGenerated }: NamerModalProps
               )}
 
               {result && (
-                <motion.div 
+                <motion.div
                   className="mt-6 result-card bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -208,6 +214,6 @@ export function NamerModal({ isOpen, onClose, onNameGenerated }: NamerModalProps
       )}
     </AnimatePresence>
   );
-  
+
 }
 */
