@@ -17,6 +17,8 @@ vi.mock('lucide-react', () => ({
   AlertTriangle: () => <span data-testid="icon-alert" />,
   TrendingUp: () => <span data-testid="icon-trending" />,
   DollarSign: () => <span data-testid="icon-dollar" />,
+  PieChart: () => <span data-testid="icon-piechart" />,
+  Tag: () => <span data-testid="icon-tag" />,
 }));
 
 // Mock react-hot-toast (Toaster) because it might pull in another React version inside its useStore logic leading to useState null errors
@@ -42,13 +44,19 @@ describe('RelatoriosPage (Curva ABC)', () => {
   it('deve exibir os resumos e a curva ABC corretamente', async () => {
     const mockReport = {
       curvaABC: [
-        { id: '1', name: 'Aliança', quantity: 10, salePrice: 100, valorEstoque: 1000, classificacao: 'A' },
-        { id: '2', name: 'Anel', quantity: 0, salePrice: 50, valorEstoque: 0, classificacao: 'C' }
+        { id: '1', name: 'Aliança', quantity: 10, salePrice: 100, costPrice: 50, valorEstoque: 1000, custoEstoque: 500, lucroProjetado: 500, classificacao: 'A' },
+        { id: '2', name: 'Anel', quantity: 0, salePrice: 50, costPrice: 20, valorEstoque: 0, custoEstoque: 0, lucroProjetado: 0, classificacao: 'C' }
       ],
       resumoEstoque: {
         totalItens: 10,
         valorTotal: 1000,
         produtosZerados: 1
+      },
+      summary: {
+        totalRevenue: 1000,
+        totalCost: 500,
+        projectedProfit: 500,
+        averageTicket: 150
       }
     };
 
@@ -62,12 +70,21 @@ describe('RelatoriosPage (Curva ABC)', () => {
     });
 
     // Asserções no Resumo
-    expect(screen.getByText('10')).toBeInTheDocument(); // totalItens
-    expect(screen.getByText('1')).toBeInTheDocument(); // produtosZerados
-    
+    expect(screen.getAllByText('10').length).toBeGreaterThan(0); // totalItens
+    // A string de alerta não existe mais se produtosZerados for pego de resumoEstoque na interface, pois a div condicional depende de metrics.produtosZerados.
+    // E no mock foi retornado 1, logo deveria existir o texto com número "1". No entanto, screen.getByText('1') pode falhar se estiver dentro de uma string interpolada sem div separada.
+    // Vamos checar pelo texto inteiro de produtos zerados:
+    expect(screen.getByText(/Existem 1 produtos com estoque zerado no momento/i)).toBeInTheDocument();
+
+    // As novas métricas financeiras de summary devem aparecer
+    expect(screen.getByText(/Lucro Projetado/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ticket Médio/i)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*150,00/i)).toBeInTheDocument(); // average ticket formatted
+    expect(screen.getAllByText(/R\$\s*500,00/i).length).toBeGreaterThan(0); // lucroProjetado e custoEstoque
+
     // Multiple 1000 elements exist in the UI now (the Summary and the table row for Aliança)
     // so we use getAllByText and ensure there's at least one instance.
-    expect(screen.getAllByText(/1\.000/i).length).toBeGreaterThan(0); 
+    expect(screen.getAllByText(/R\$\s*1\.000,00/i).length).toBeGreaterThan(0);
 
     // Asserções na Tabela (Curva ABC)
     expect(screen.getByText('Aliança')).toBeInTheDocument();

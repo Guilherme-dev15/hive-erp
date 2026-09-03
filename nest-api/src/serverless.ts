@@ -28,7 +28,7 @@ async function bootstrap() {
         ];
 
     app.enableCors({
-      origin: (origin, callback) => {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         // Permitimos ausência de origin (ex: chamadas Server-to-Server ou curl), ou origins homologados
         if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
           callback(null, true);
