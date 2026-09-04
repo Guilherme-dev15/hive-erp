@@ -12,16 +12,13 @@
       }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/v2/(.*)",
-      "dest": "nest-api/src/serverless.ts",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
-      }
-    },
+      "source": "/(.*)",
+      "destination": "/app-admin/dist/index.html"
+    }
+  ],
+  "routes": [
     {
       "src": "/api/(.*)",
       "dest": "nest-api/src/serverless.ts",
@@ -32,8 +29,20 @@
       }
     },
     {
-      "src": "/(.*)",
+      "src": "/assets/(.*)",
+      "dest": "/app-admin/dist/assets/$1"
+    },
+    {
+      "src": "/pwa-(.*)",
+      "dest": "/app-admin/dist/pwa-$1"
+    },
+    {
+      "src": "/(manifest\\.json|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-.*\\.js)",
       "dest": "/app-admin/dist/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/app-admin/dist/index.html"
     }
   ],
   "headers": [
