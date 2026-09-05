@@ -11,6 +11,8 @@ async function bootstrap() {
   if (!cachedServer) {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
+    app.setGlobalPrefix('api/v2');
+
     app.useLogger(app.get(Logger));
 
     app.useGlobalPipes(new ValidationPipe({
@@ -20,10 +22,10 @@ async function bootstrap() {
     }));
 
     // Configurando CORS seguro
-    const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',')
       : [
-          'https://hive-erp.vercel.app', 
+          'https://hive-erp.vercel.app',
           'https://hiveerp-catalogo.vercel.app'
         ];
 
