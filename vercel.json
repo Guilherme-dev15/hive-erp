@@ -12,12 +12,6 @@
       }
     }
   ],
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/app-admin/dist/index.html"
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
