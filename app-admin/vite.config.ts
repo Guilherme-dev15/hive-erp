@@ -58,4 +58,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1400,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'ui-vendor': ['lucide-react', 'recharts', 'react-hook-form', '@hookform/resolvers'],
+          'pdf-vendor': ['@react-pdf/renderer'],
+          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
+        },
+      },
+    },
+  },
 });
