@@ -128,7 +128,8 @@ export class OrdersService {
   // Máquina de estados baseada no legacy (order.service.js)
   private getValidTransitions(currentStatus: OrderStatus): OrderStatus[] {
     const transitions: Record<OrderStatus, OrderStatus[]> = {
-      AGUARDANDO_PAGAMENTO: [OrderStatus.EM_PRODUCAO, OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
+      AGUARDANDO_PAGAMENTO: [OrderStatus.PAGO, OrderStatus.EM_PRODUCAO, OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
+      PAGO: [OrderStatus.EM_PRODUCAO, OrderStatus.CANCELADO],
       EM_PRODUCAO: [OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
       EM_SEPARACAO: [OrderStatus.ENVIADO, OrderStatus.CONCLUIDO, OrderStatus.CANCELADO],
       ENVIADO: [OrderStatus.CONCLUIDO, OrderStatus.CANCELADO], // As vezes pode cancelar/devolver após envio
