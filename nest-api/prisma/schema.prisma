@@ -22,8 +22,16 @@ enum CouponStatus {
   INATIVO
 }
 
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  BOLETO
+  MANUAL
+}
+
 enum OrderStatus {
   AGUARDANDO_PAGAMENTO
+  PAGO
   EM_PRODUCAO
   EM_SEPARACAO
   ENVIADO
@@ -212,6 +220,12 @@ model Order {
   notes               String? @db.Text
   financialRegistered Boolean @default(false) @map("financial_registered")
 
+  // Gateway de Pagamentos V2
+  paymentMethod     PaymentMethod? @map("payment_method")
+  gatewayOrderId    String?        @map("gateway_order_id")
+  gatewayPaymentUrl String?        @map("gateway_payment_url")
+  gatewayStatus     String?        @map("gateway_status")
+
   items        OrderItem[]
   transactions Transaction[]
 
@@ -252,6 +266,9 @@ model Transaction {
   description String          @db.Text
   category    String?
 
+  // Referência do Gateway caso seja uma venda capturada
+  gatewayTransactionId String? @map("gateway_transaction_id")
+
   productId String?  @map("product_id") @db.Uuid
   product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   orderId   String?  @map("order_id") @db.Uuid
@@ -264,6 +281,23 @@ model Transaction {
   legacyId String? @unique @map("legacy_id")
 
   @@map("transactions")
+}
+
+model PaymentWebhookEvent {
+  id                   String    @id @default(uuid()) @db.Uuid
+  provider             String
+  eventId              String    @map("event_id")
+  eventType            String    @map("event_type")
+  gatewayOrderId       String?   @map("gateway_order_id")
+  gatewayTransactionId String?   @map("gateway_transaction_id")
+  amount               Decimal?  @db.Decimal(10, 2)
+  payload              Json?
+  processedAt          DateTime? @map("processed_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  @@unique([provider, eventId])
+  @@index([gatewayOrderId])
+  @@map("payment_webhook_events")
 }
 
 model InventoryLog {
