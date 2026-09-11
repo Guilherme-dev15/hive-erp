@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "builds": [
     {
@@ -9,6 +10,14 @@
           "nest-api/prisma/**",
           "nest-api/node_modules/.prisma/client/**"
         ]
+      }
+    },
+    {
+      "src": "app-admin/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist",
+        "zeroConfig": true
       }
     }
   ],
@@ -36,7 +45,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/app-admin/dist/index.html"
+      "dest": "/index.html"
     }
   ],
   "headers": [

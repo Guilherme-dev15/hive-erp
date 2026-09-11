@@ -35,6 +35,18 @@ module.exports = [
     },
   },
   {
+    // Override para scripts CommonJS operacionais do NestJS
+    files: ["nest-api/migration-draft.js", "nest-api/seed.js", "nest-api/prisma/seed.ts"],
+    languageOptions: {
+      sourceType: "commonjs",
+    },
+    rules: {
+      // Esses scripts carregam módulos e credenciais por caminho dinâmico
+      "@typescript-eslint/no-var-requires": "off",
+      "@typescript-eslint/no-require-imports": "off",
+    }
+  },
+  {
     // Override para arquivos CommonJS (API e Functions)
     files: ["api/**/*.js", "functions/**/*.js"],
     languageOptions: {

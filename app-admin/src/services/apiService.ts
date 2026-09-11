@@ -21,7 +21,11 @@ import {
 // ============================================================================
 // CONFIGURAÇÃO DA CONEXÃO
 // ============================================================================
-const API_URL = import.meta.env.VITE_API_URL;
+// Os endpoints já incluem o prefixo `/api/v2`; normalize uma eventual base
+// legada configurada como `https://hive-erp.vercel.app/api` para não gerar
+// `/api/api/v2/...` em produção.
+const configuredApiUrl = import.meta.env.VITE_API_URL;
+const API_URL = configuredApiUrl?.replace(/\/api\/?$/, '') || '';
 
 export const apiClient = axios.create({
   baseURL: API_URL,

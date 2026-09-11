@@ -11,8 +11,6 @@ async function bootstrap() {
   if (!cachedServer) {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-    app.setGlobalPrefix('api/v2');
-
     app.useLogger(app.get(Logger));
 
     app.useGlobalPipes(new ValidationPipe({
