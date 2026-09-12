@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "npm run build --workspace=app-admin",
+  "buildCommand": "npm run build --workspace=app-admin && npm run build --workspace=nest-api",
   "outputDirectory": "app-admin/dist",
   "functions": {
     "api/index.ts": {
