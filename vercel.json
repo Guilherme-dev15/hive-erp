@@ -5,8 +5,7 @@
   "outputDirectory": "app-admin/dist",
   "functions": {
     "api/index.ts": {
-      "includeFiles": "nest-api/prisma/**",
-      "runtime": "nodejs22.x"
+      "includeFiles": "nest-api/prisma/**"
     }
   },
   "installCommand": "npm install --include=dev",
