@@ -1,24 +1,39 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
+  "buildCommand": "npm run build --workspace=app-admin",
+  "outputDirectory": "app-admin/dist",
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": [
+        "nest-api/prisma/**",
+        "node_modules/.prisma/client/**",
+        "node_modules/@prisma/client/**"
+      ]
+    }
+  },
+  "rewrites": [
     {
-      "src": "nest-api/src/serverless.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "nest-api/prisma/**",
-          "node_modules/.prisma/client/**",
-          "node_modules/@prisma/client/**"
-        ]
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
       }
     },
     {
-      "src": "app-admin/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "routes": [
