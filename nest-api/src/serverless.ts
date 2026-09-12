@@ -1,11 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { IncomingMessage, ServerResponse } from 'node:http';
 import { AppModule } from './app.module';
-import serverlessExpress from '@vendia/serverless-express';
-import { Handler, Context, Callback } from 'aws-lambda';
 import { Logger } from 'nestjs-pino';
 
-let cachedServer: Handler;
+let cachedServer: (req: IncomingMessage, res: ServerResponse) => void;
 
 async function bootstrap() {
   if (!cachedServer) {
@@ -45,12 +44,15 @@ async function bootstrap() {
     await app.init();
 
     const expressApp = app.getHttpAdapter().getInstance();
-    cachedServer = serverlessExpress({ app: expressApp });
+    cachedServer = expressApp;
   }
   return cachedServer;
 }
 
-export default async function handler(event: any, context: Context, callback: Callback) {
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   const server = await bootstrap();
-  return server(event, context, callback);
+  server(req, res);
 }

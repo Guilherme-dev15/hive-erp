@@ -24,17 +24,19 @@ import {
   Cell,
 } from 'recharts';
 
-import { apiClient } from '../services/apiService';
+import {
+  createTransacao,
+  deleteTransacao,
+  getTransacoes,
+} from '../services/apiService';
 import { formatCurrency } from '../utils/format';
+import type { Transacao } from '../types';
 
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  type: 'receita' | 'despesa' | 'venda';
+type Transaction = Omit<Transacao, 'date' | 'type'> & {
   date: string;
+  type: 'receita' | 'despesa' | 'venda';
   category: string;
-}
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -61,8 +63,15 @@ export function FinanceiroPage() {
   const carregar = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/admin/transactions');
-      setTransactions(res.data);
+      const data = await getTransacoes();
+      setTransactions(
+        data.map((transaction) => ({
+          ...transaction,
+          date: String(transaction.date),
+          category: transaction.category ?? 'Geral',
+          type: transaction.type === 'capital' ? 'venda' : transaction.type,
+        }))
+      );
     } catch (e) {
       console.error("Erro ao carregar finanças:", e);
       toast.error('Erro ao carregar finanças');
@@ -123,10 +132,18 @@ export function FinanceiroPage() {
         date: new Date().toISOString(),
       };
 
-      const res = await apiClient.post('/admin/transactions', payload);
+      const transacaoSalva = await createTransacao({
+        ...payload,
+        type: payload.type === 'receita' ? 'venda' : 'despesa',
+      });
 
       setTransactions((prev) => [
-        { id: res.data.id, ...payload } as Transaction,
+        {
+          ...transacaoSalva,
+          date: String(transacaoSalva.date),
+          category: transacaoSalva.category ?? 'Geral',
+          type: transacaoSalva.type === 'capital' ? 'venda' : transacaoSalva.type,
+        },
         ...prev,
       ]);
       setNewTrans({
@@ -145,7 +162,7 @@ export function FinanceiroPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este lançamento?')) return;
     try {
-      await apiClient.delete(`/admin/transactions/${id}`);
+      await deleteTransacao(id);
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       toast.success('Excluído com sucesso');
     } catch (e) {

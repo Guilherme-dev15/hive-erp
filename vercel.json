@@ -8,7 +8,8 @@
       "config": {
         "includeFiles": [
           "nest-api/prisma/**",
-          "nest-api/node_modules/.prisma/client/**"
+          "node_modules/.prisma/client/**",
+          "node_modules/@prisma/client/**"
         ]
       }
     },
@@ -16,8 +17,7 @@
       "src": "app-admin/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist",
-        "zeroConfig": true
+        "distDir": "dist"
       }
     }
   ],
@@ -32,16 +32,7 @@
       }
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/app-admin/dist/assets/$1"
-    },
-    {
-      "src": "/pwa-(.*)",
-      "dest": "/app-admin/dist/pwa-$1"
-    },
-    {
-      "src": "/(manifest\\.json|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-.*\\.js)",
-      "dest": "/app-admin/dist/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
