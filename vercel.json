@@ -5,11 +5,7 @@
   "outputDirectory": "app-admin/dist",
   "functions": {
     "api/index.ts": {
-      "includeFiles": [
-        "nest-api/prisma/**",
-        "node_modules/.prisma/client/**",
-        "node_modules/@prisma/client/**"
-      ]
+      "includeFiles": "nest-api/prisma/**"
     }
   },
   "rewrites": [
