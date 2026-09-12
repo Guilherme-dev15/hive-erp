@@ -14,6 +14,7 @@
     "build": "npm run build --workspaces --if-present",
     "build:vercel": "npm run build --workspace=app-admin && npm run build --workspace=nest-api --if-present",
     "build:nest": "npm run build --workspace=nest-api",
+    "vercel-build": "npm run build --workspace=app-admin",
     "test": "vitest --config ./vitest.config.ts",
     "test:api": "vitest --config ./vitest.config.api.ts",
     "test:ui": "vitest --ui --config ./vitest.config.ts",
