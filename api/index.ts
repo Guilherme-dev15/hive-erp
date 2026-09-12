@@ -1,1 +1,1 @@
-export { default } from '../nest-api/src/serverless';
+export { default } from '../nest-api/dist/serverless';
