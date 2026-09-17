@@ -13,9 +13,7 @@ export const EtiquetaImpressao = forwardRef<
   HTMLDivElement,
   EtiquetaImpressaoProps
 >(({ produtos, config }, ref) => {
-  // 🔥 URL DE PRODUÇÃO FIXA
-  // Isso garante que a etiqueta funcione sempre, não importa de onde foi impressa
-  const baseUrl = 'https://hive-erp.vercel.app';
+  const baseUrl = import.meta.env.VITE_ADMIN_PUBLIC_URL || window.location.origin;
 
   return (
     <div style={{ display: 'none' }}>
@@ -33,8 +31,8 @@ export const EtiquetaImpressao = forwardRef<
         {/* GRID DE ETIQUETAS */}
         <div className="grid grid-cols-3 gap-4">
           {produtos.map((produto) => {
-            // Gera o link direto para a busca no Admin de Produção
-            const adminUrl = `${baseUrl}/admin/produtos?q=${produto.code}`;
+            const adminUrl = new URL('/admin/produtos', baseUrl);
+            adminUrl.searchParams.set('q', produto.code || '');
 
             return (
               <div
@@ -50,7 +48,7 @@ export const EtiquetaImpressao = forwardRef<
                   {/* QR Code apontando para Produção */}
                   <div className="bg-white p-1">
                     <QRCode
-                      value={adminUrl}
+                      value={adminUrl.toString()}
                       size={64}
                       style={{
                         height: 'auto',

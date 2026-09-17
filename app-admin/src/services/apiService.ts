@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, storage } from './firebase/firebaseConfig';
+import { normalizeApiBaseUrl } from './apiUrl';
 import {
   ProdutoAdmin,
   Category,
@@ -25,7 +26,13 @@ import {
 // legada configurada como `https://hive-erp.vercel.app/api` para não gerar
 // `/api/api/v2/...` em produção.
 const configuredApiUrl = import.meta.env.VITE_API_URL;
-const API_URL = configuredApiUrl?.replace(/\/api\/?$/, '') || '';
+const API_URL = normalizeApiBaseUrl(configuredApiUrl);
+
+if (!API_URL && import.meta.env.PROD) {
+  throw new Error(
+    'VITE_API_URL não configurada: defina a origem da API no ambiente de Preview/Production.'
+  );
+}
 
 export const apiClient = axios.create({
   baseURL: API_URL,

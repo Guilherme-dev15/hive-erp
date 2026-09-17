@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ElementType } from 'react';
+import { lazy, Suspense, useEffect, useState, type ElementType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogOut,
@@ -64,18 +64,21 @@ const CampanhasPage = lazy(() =>
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Definição das Rotas
-type Pagina =
-  | 'dashboard'
-  | 'pedidos'
-  | 'produtos'
-  | 'fornecedores'
-  | 'financeiro'
-  | 'campanhas' // Descontos Globais
-  | 'cupons' // Códigos de Desconto
-  | 'precificacao'
-  | 'relatorios'
-  | 'equipe'
-  | 'configuracoes';
+import {
+  canonicalPathFromPath,
+  pageFromPath,
+  pathFromPage,
+  type Pagina,
+} from './routing';
+
+export type { Pagina } from './routing';
+
+function navigateToPage(page: Pagina) {
+  const nextPath = pathFromPage(page);
+  if (window.location.pathname !== nextPath) {
+    window.history.pushState({}, '', `${nextPath}${window.location.search}`);
+  }
+}
 
 // --- NAVBAR RESPONSIVA ---
 function Navbar({
@@ -246,13 +249,52 @@ function PageLoadingFallback() {
 // --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
   const { user, loading } = useAuth();
-  const [pagina, setPagina] = useState<Pagina>('dashboard');
+  const [pagina, setPagina] = useState<Pagina>(() =>
+    pageFromPath(window.location.pathname)
+  );
 
-  // Tratamento de QR Code
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('q')) {
-    localStorage.setItem('pending_qr_scan', params.get('q') || '');
-  }
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qrQuery = params.get('q');
+
+    if (qrQuery) {
+      localStorage.setItem('pending_qr_scan', qrQuery);
+    }
+
+    const canonicalPath = canonicalPathFromPath(window.location.pathname);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.replaceState(
+        {},
+        '',
+        `${canonicalPath}${window.location.search}`
+      );
+    }
+
+    const handlePopState = () => {
+      setPagina(pageFromPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleNavigate = (nextPage: Pagina) => {
+    setPagina(nextPage);
+    navigateToPage(nextPage);
+  };
+
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const canonicalPath = pathFromPage(pagina);
+    if (window.location.pathname !== canonicalPath) {
+      window.history.replaceState(
+        {},
+        '',
+        `${canonicalPath}${window.location.search}`
+      );
+    }
+  }, [loading, pagina, user]);
 
   if (loading) {
     return (
@@ -304,7 +346,7 @@ function ProtectedLayout() {
 
   return (
     <div className="min-h-screen bg-off-white">
-      <Navbar paginaAtual={pagina} onNavigate={setPagina} />
+      <Navbar paginaAtual={pagina} onNavigate={handleNavigate} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <ErrorBoundary key={pagina}>
           <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
