@@ -25,10 +25,18 @@ describe('AuthGuard', () => {
     
     // Configurar variáveis de ambiente mock para testes locais
     process.env.NODE_ENV = 'production'; // Forçar caminho de auth real
+    delete process.env.ALLOW_MOCK_AUTH;
+    delete process.env.VERCEL;
+    delete process.env.MOCK_FIREBASE_UID;
+    delete process.env.MOCK_FIREBASE_EMAIL;
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete process.env.ALLOW_MOCK_AUTH;
+    delete process.env.VERCEL;
+    delete process.env.MOCK_FIREBASE_UID;
+    delete process.env.MOCK_FIREBASE_EMAIL;
   });
 
   const mockExecutionContext = (headers: Record<string, string>, reqObject: any = {}): ExecutionContext => {
@@ -104,18 +112,46 @@ describe('AuthGuard', () => {
     expect(request.user).toEqual({ id: 'pg-uuid-1', legacyId: 'real-firebase-uid' });
   });
 
-  it('should set id: null if user is not found in Postgres at all', async () => {
+  it('should reject a Firebase identity that is not provisioned in Postgres', async () => {
     const context = mockExecutionContext({ authorization: 'Bearer valid-token' });
     const decodedToken = { uid: 'uid123', email: 'notfound@example.com' };
     (getAuth().verifyIdToken as jest.Mock).mockResolvedValue(decodedToken);
-    
+
     mockPrisma.user.findFirst.mockResolvedValue(null);
 
-    const result = await guard.canActivate(context);
-    
-    expect(result).toBe(true);
-    const request = context.switchToHttp().getRequest();
-    // Isola e permite falhar graciosamente depois na stack se necessário, ou mock user
-    expect(request.user).toEqual({ id: null, legacyId: 'uid123' });
+    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('should allow the explicit local mock only outside Vercel', async () => {
+    process.env.ALLOW_MOCK_AUTH = 'true';
+    process.env.MOCK_FIREBASE_UID = 'uid123';
+    process.env.MOCK_FIREBASE_EMAIL = 'mock@example.com';
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: 'pg-uuid-1',
+      legacyId: 'uid123',
+      email: 'mock@example.com',
+    });
+
+    const context = mockExecutionContext({});
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('should never allow the local mock in Vercel', async () => {
+    process.env.ALLOW_MOCK_AUTH = 'true';
+    process.env.VERCEL = '1';
+    process.env.MOCK_FIREBASE_UID = 'uid123';
+    process.env.MOCK_FIREBASE_EMAIL = 'mock@example.com';
+
+    const context = mockExecutionContext({});
+
+    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('should reject a token without a Firebase email claim', async () => {
+    const context = mockExecutionContext({ authorization: 'Bearer valid-token' });
+    (getAuth().verifyIdToken as jest.Mock).mockResolvedValue({ uid: 'uid123' });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
   });
 });

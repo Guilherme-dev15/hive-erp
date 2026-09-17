@@ -19,33 +19,30 @@ export class AuthGuard implements CanActivate {
        return true;
     }
 
+    const allowMockAuth =
+      process.env.ALLOW_MOCK_AUTH === 'true' && process.env.VERCEL !== '1';
+
     if (!token) {
-      if (process.env.NODE_ENV !== 'production') {
-        firebaseUid = 'He8p0wAioIctG7ZBIIxG4C9YOmX2';
-        firebaseEmail = 'guibanks1@gmail.com';
+      if (allowMockAuth) {
+        firebaseUid = process.env.MOCK_FIREBASE_UID;
+        firebaseEmail = process.env.MOCK_FIREBASE_EMAIL;
       } else {
         throw new UnauthorizedException('Token não fornecido');
       }
-    } else if (token === 'mock-token' && process.env.NODE_ENV !== 'production') {
-      firebaseUid = 'He8p0wAioIctG7ZBIIxG4C9YOmX2';
-      firebaseEmail = 'guibanks1@gmail.com';
+    } else if (token === 'mock-token' && allowMockAuth) {
+      firebaseUid = process.env.MOCK_FIREBASE_UID;
+      firebaseEmail = process.env.MOCK_FIREBASE_EMAIL;
     } else {
       try {
         const decodedToken = await getAuth().verifyIdToken(token);
         firebaseUid = decodedToken.uid;
         firebaseEmail = decodedToken.email;
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          this.logger.warn('Fallback AuthGuard Local - Token Firebase Inválido mas aceito para simular dev.');
-          firebaseUid = 'He8p0wAioIctG7ZBIIxG4C9YOmX2';
-          firebaseEmail = 'guibanks1@gmail.com';
-        } else {
-          throw new UnauthorizedException('Token inválido ou expirado');
-        }
+      } catch {
+        throw new UnauthorizedException('Token inválido ou expirado');
       }
     }
 
-    if (!firebaseUid) {
+    if (!firebaseUid || !firebaseEmail) {
       throw new UnauthorizedException('Não foi possível identificar o usuário');
     }
 
@@ -59,22 +56,27 @@ export class AuthGuard implements CanActivate {
     });
 
     if (!user) {
-      request.user = { legacyId: firebaseUid, id: null };
-    } else {
-      if (user.legacyId !== firebaseUid && user.email === firebaseEmail) {
-        try {
-          await this.prisma.user.update({
-            where: { id: user.id },
-            data: { legacyId: firebaseUid }
-          });
-          this.logger.log(`Healed legacyId for user ${user.id} (${firebaseEmail})`);
-        } catch (e) {
-          this.logger.error(`Failed to heal legacyId for user ${user.id}:`, e instanceof Error ? e.stack : e);
-        }
-      }
-      
-      request.user = { id: user.id, legacyId: firebaseUid };
+      throw new UnauthorizedException(
+        'Registro do usuário não encontrado no banco de dados da plataforma.'
+      );
     }
+
+    if (user.legacyId !== firebaseUid && user.email === firebaseEmail) {
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { legacyId: firebaseUid },
+        });
+        this.logger.log(`Healed legacyId for user ${user.id} (${firebaseEmail})`);
+      } catch (e) {
+        this.logger.error(
+          `Failed to heal legacyId for user ${user.id}:`,
+          e instanceof Error ? e.stack : e
+        );
+      }
+    }
+
+    request.user = { id: user.id, legacyId: firebaseUid };
 
     return true;
   }
