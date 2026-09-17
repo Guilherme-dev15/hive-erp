@@ -8,6 +8,8 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "scripts": {
+    "migrate:legacy": "ts-node prisma/seed.ts",
+    "migrate:legacy:dry-run": "ts-node prisma/seed.ts --dry-run",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",

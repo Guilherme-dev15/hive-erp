@@ -1,18 +1,27 @@
 import { PrismaClient } from '@prisma/client';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { parseMigrationOptions } from './migration-preflight';
 
-// Pass string explicitly
-const serviceAccount = require('../../serviceAccountKey.json');
+const migrationOptions = parseMigrationOptions();
 
-try {
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
-} catch (e) {}
+if (migrationOptions.dryRun) {
+  console.log('Migration preflight passed; dry-run requested, no data will be written.');
+  process.exit(0);
+}
+
+initializeApp({
+  credential: cert(migrationOptions.credentials),
+});
 
 const prisma = new PrismaClient();
 const db = getFirestore();
+let migrationFailures = 0;
+
+function recordMigrationFailure(message: string): void {
+  migrationFailures += 1;
+  console.error(`\n❌ Migration record failed: ${message}`);
+}
 
 async function getUserId(legacyId: string): Promise<string | null> {
   const user = await prisma.user.findUnique({ where: { legacyId } });
@@ -44,7 +53,7 @@ async function migrateUsers() {
       });
       process.stdout.write('.');
     } catch (e: any) {
-      console.error(`\n❌ Failed to migrate user ${doc.id}: ${e.message}`);
+      recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
     }
   }
   console.log('\n✅ Users migration complete.');
@@ -74,7 +83,7 @@ async function migrateCategories() {
       });
       process.stdout.write('.');
     } catch (e: any) {
-      console.error(`\n❌ Failed to migrate category ${doc.id}: ${e.message}`);
+      recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
     }
   }
   console.log('\n✅ Categories migration complete.');
@@ -110,7 +119,7 @@ async function migrateSuppliers() {
       });
       process.stdout.write('.');
     } catch (e: any) {
-      console.error(`\n❌ Failed to migrate supplier ${doc.id}: ${e.message}`);
+      recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
     }
   }
   console.log('\n✅ Suppliers migration complete.');
@@ -167,7 +176,7 @@ async function migrateProducts() {
       });
       process.stdout.write('.');
     } catch (e: any) {
-      console.error(`\n❌ Failed to migrate product ${doc.id}: ${e.message}`);
+      recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
     }
   }
   console.log('\n✅ Products migration complete.');
@@ -235,7 +244,7 @@ async function migrateOrders() {
       }
       process.stdout.write('.');
     } catch (e: any) {
-      console.error(`\n❌ Failed to migrate order ${doc.id}: ${e.message}`);
+      recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
     }
   }
   console.log('\n✅ Orders migration complete.');
@@ -282,7 +291,7 @@ async function migrateTransactions() {
       });
       process.stdout.write('.');
     } catch (e: any) {
-      console.error(`\n❌ Failed to migrate transaction ${doc.id}: ${e.message}`);
+      recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
     }
   }
   console.log('\n✅ Transactions migration complete.');
@@ -298,15 +307,18 @@ async function main() {
   await migrateOrders();
   await migrateTransactions();
 
+  if (migrationFailures > 0) {
+    throw new Error(`Migration finished with ${migrationFailures} failed record(s).`);
+  }
+
   console.log('\n🎉 ETL Migration Finished!');
 }
 
 main()
   .catch((e) => {
-    console.error('\nFatal Migration Error:', e);
-    process.exit(1);
+    console.error('\nFatal Migration Error:', e instanceof Error ? e.message : 'unknown error');
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();
-    process.exit(0);
   });
