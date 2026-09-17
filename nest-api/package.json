@@ -47,6 +47,7 @@
     "@jest/globals": "^30.4.1",
     "@jest/transform": "^30.4.1",
     "@nestjs/testing": "^11.2.3",
+    "@nestjs/cli": "11.0.24",
     "@swc/core": "^1.4.0",
     "@swc/jest": "^0.2.36",
     "@types/aws-lambda": "^8.10.162",

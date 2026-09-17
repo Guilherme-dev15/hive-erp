@@ -1,0 +1,6 @@
+# Never upload local credentials or environment files
+serviceAccountKey.json
+**/serviceAccountKey.json
+.env
+.env.*
+!.env.example
