@@ -1,53 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
-  "builds": [
-    {
-      "src": "nest-api/src/serverless.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "nest-api/prisma/**",
-          "nest-api/node_modules/.prisma/client/**"
-        ]
-      }
-    },
-    {
-      "src": "app-admin/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist",
-        "zeroConfig": true
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "nest-api/src/serverless.ts",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
-      }
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/app-admin/dist/assets/$1"
-    },
-    {
-      "src": "/pwa-(.*)",
-      "dest": "/app-admin/dist/pwa-$1"
-    },
-    {
-      "src": "/(manifest\\.json|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-.*\\.js)",
-      "dest": "/app-admin/dist/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",

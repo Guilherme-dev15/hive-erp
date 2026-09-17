@@ -120,25 +120,69 @@ export const deleteAdminOrder = async (orderId: string): Promise<void> => {
 // ============================================================================
 // DOMÍNIO: FINANCEIRO & TRANSAÇÕES
 // ============================================================================
+type ApiTransactionType = 'VENDA' | 'DESPESA' | 'CAPITAL';
+type ApiTransaction = Omit<Transacao, 'type'> & {
+  type: ApiTransactionType;
+};
+
+const toApiTransactionType = (
+  type: Transacao['type']
+): ApiTransactionType => {
+  switch (type) {
+    case 'despesa':
+      return 'DESPESA';
+    case 'capital':
+      return 'CAPITAL';
+    case 'venda':
+    default:
+      return 'VENDA';
+  }
+};
+
+const fromApiTransactionType = (type: string): Transacao['type'] => {
+  switch (type.toUpperCase()) {
+    case 'DESPESA':
+      return 'despesa';
+    case 'CAPITAL':
+      return 'capital';
+    case 'VENDA':
+    default:
+      return 'venda';
+  }
+};
+
+const normalizeTransaction = (transaction: ApiTransaction): Transacao => ({
+  ...transaction,
+  type: fromApiTransactionType(String(transaction.type)),
+});
+
 export const getTransacoes = async (): Promise<Transacao[]> => {
-  const { data } = await apiClient.get('/api/v2/transactions');
-  return data;
+  const { data } = await apiClient.get<ApiTransaction[]>('/api/v2/transactions');
+  return data.map(normalizeTransaction);
 };
 export const createTransacao = async (
   transacaoData: Omit<Transacao, 'id'>
 ): Promise<Transacao> => {
-  const { data } = await apiClient.post('/api/v2/transactions', transacaoData);
-  return data;
+  const { data } = await apiClient.post<ApiTransaction>('/api/v2/transactions', {
+    ...transacaoData,
+    type: toApiTransactionType(transacaoData.type),
+  });
+  return normalizeTransaction(data);
 };
 export const updateTransacao = async (
   id: string,
   transacaoData: Partial<Transacao>
 ): Promise<Transacao> => {
-  const { data } = await apiClient.put(
+  const { data } = await apiClient.put<ApiTransaction>(
     `/api/v2/transactions/${id}`,
-    transacaoData
+    {
+      ...transacaoData,
+      ...(transacaoData.type
+        ? { type: toApiTransactionType(transacaoData.type) }
+        : {}),
+    }
   );
-  return data;
+  return normalizeTransaction(data);
 };
 export const deleteTransacao = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v2/transactions/${id}`);
