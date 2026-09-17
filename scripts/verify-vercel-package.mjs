@@ -25,7 +25,11 @@ assert(config.buildCommand === 'npm run build:vercel', 'root buildCommand must u
 assert(config.outputDirectory === 'app-admin/dist', 'Admin outputDirectory is not configured');
 assert(rootFunction && wildcardFunction, 'both API adapters must have function configuration');
 assert(
-  JSON.stringify(rootFunction.includeFiles) === JSON.stringify(wildcardFunction.includeFiles),
+  typeof rootFunction.includeFiles === 'string',
+  'api/index.js includeFiles must be a string'
+);
+assert(
+  rootFunction.includeFiles === wildcardFunction.includeFiles,
   'API adapters must use the same includeFiles configuration'
 );
 for (const requiredPath of [
