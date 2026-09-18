@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { parseMigrationOptions } from './migration-preflight';
+import { dateValue, finiteNumber, orderStatus, requiredText, transactionType } from './migration-mappers';
 
 const migrationOptions = parseMigrationOptions();
 
@@ -48,7 +49,7 @@ async function migrateUsers() {
           name: data.name || 'User Migration',
           active: data.active !== false,
           role: data.role === 'SELLER' ? 'SELLER' : 'OWNER',
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          createdAt: dateValue(data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt, 'createdAt'),
         }
       });
       process.stdout.write('.');
@@ -73,12 +74,12 @@ async function migrateCategories() {
     try {
       await prisma.category.upsert({
         where: { legacyId: doc.id },
-        update: { name: data.name },
+        update: { name: requiredText(data.name, 'name') },
         create: {
           legacyId: doc.id,
           userId,
-          name: data.name,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          name: requiredText(data.name, 'name'),
+          createdAt: dateValue(data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt, 'createdAt'),
         }
       });
       process.stdout.write('.');
@@ -104,17 +105,17 @@ async function migrateSuppliers() {
       await prisma.supplier.upsert({
         where: { legacyId: doc.id },
         update: {
-          name: data.name,
+          name: requiredText(data.name, 'name'),
           contactPhone: data.contactPhone || null,
           email: data.email || null,
         },
         create: {
           legacyId: doc.id,
           userId,
-          name: data.name,
+          name: requiredText(data.name, 'name'),
           contactPhone: data.contactPhone || null,
           email: data.email || null,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          createdAt: dateValue(data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt, 'createdAt'),
         }
       });
       process.stdout.write('.');
@@ -152,10 +153,10 @@ async function migrateProducts() {
       await prisma.product.upsert({
         where: { legacyId: doc.id },
         update: {
-          name: data.name,
-          salePrice: Number(data.salePrice) || 0,
-          costPrice: Number(data.costPrice) || 0,
-          quantity: Number(data.quantity) || 0,
+          name: requiredText(data.name, 'name'),
+          salePrice: finiteNumber(data.salePrice, 'salePrice'),
+          costPrice: finiteNumber(data.costPrice, 'costPrice'),
+          quantity: finiteNumber(data.quantity, 'quantity'),
           status: data.status === 'INATIVO' ? 'INATIVO' : 'ATIVO',
           categoryId,
           supplierId,
@@ -163,15 +164,15 @@ async function migrateProducts() {
         create: {
           legacyId: doc.id,
           userId,
-          name: data.name,
-          salePrice: Number(data.salePrice) || 0,
-          costPrice: Number(data.costPrice) || 0,
-          quantity: Number(data.quantity) || 0,
+          name: requiredText(data.name, 'name'),
+          salePrice: finiteNumber(data.salePrice, 'salePrice'),
+          costPrice: finiteNumber(data.costPrice, 'costPrice'),
+          quantity: finiteNumber(data.quantity, 'quantity'),
           status: data.status === 'INATIVO' ? 'INATIVO' : 'ATIVO',
           categoryId,
           supplierId,
           imageUrl: data.imageUrl || null,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          createdAt: dateValue(data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt, 'createdAt'),
         }
       });
       process.stdout.write('.');
@@ -194,54 +195,56 @@ async function migrateOrders() {
     if (!userId) continue;
 
     try {
-      const order = await prisma.order.upsert({
-        where: { legacyId: doc.id },
-        update: {
-          customerName: data.customerName || 'Cliente Migração',
-          customerPhone: data.customerPhone || null,
-          status: data.status || 'CONCLUIDO',
-          subtotal: Number(data.subtotal) || 0,
-          discount: Number(data.discount) || 0,
-          total: Number(data.total) || 0,
-          notes: data.notes || null,
-        },
-        create: {
-          legacyId: doc.id,
-          userId,
-          customerName: data.customerName || 'Cliente Migração',
-          customerPhone: data.customerPhone || null,
-          status: data.status || 'CONCLUIDO',
-          subtotal: Number(data.subtotal) || 0,
-          discount: Number(data.discount) || 0,
-          total: Number(data.total) || 0,
-          notes: data.notes || null,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      await prisma.$transaction(async (tx) => {
+        const order = await tx.order.upsert({
+          where: { legacyId: doc.id },
+          update: {
+            customerName: requiredText(data.customerName, 'customerName'),
+            customerPhone: data.customerPhone || null,
+            status: orderStatus(data.status || 'CONCLUIDO'),
+            subtotal: finiteNumber(data.subtotal, 'subtotal'),
+            discount: finiteNumber(data.discount, 'discount'),
+            total: finiteNumber(data.total, 'total'),
+            notes: data.notes || null,
+          },
+          create: {
+            legacyId: doc.id,
+            userId,
+            customerName: requiredText(data.customerName, 'customerName'),
+            customerPhone: data.customerPhone || null,
+            status: orderStatus(data.status || 'CONCLUIDO'),
+            subtotal: finiteNumber(data.subtotal, 'subtotal'),
+            discount: finiteNumber(data.discount, 'discount'),
+            total: finiteNumber(data.total, 'total'),
+            notes: data.notes || null,
+            createdAt: dateValue(data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt, 'createdAt'),
+          },
+        });
+
+        if (data.items && Array.isArray(data.items)) {
+          await tx.orderItem.deleteMany({ where: { orderId: order.id } });
+          const itemsToInsert = [];
+          for (const item of data.items) {
+            let productId = null;
+            if (item.productId) {
+              const prod = await tx.product.findUnique({ where: { legacyId: item.productId } });
+              productId = prod?.id || null;
+            }
+            itemsToInsert.push({
+              orderId: order.id,
+              productId,
+              name: requiredText(item.name || 'Produto Migrado', 'item.name'),
+              code: item.code || null,
+              salePrice: finiteNumber(item.salePrice, 'item.salePrice'),
+              quantity: finiteNumber(item.quantity, 'item.quantity', 1),
+              imageUrl: item.imageUrl || null,
+            });
+          }
+          if (itemsToInsert.length > 0) {
+            await tx.orderItem.createMany({ data: itemsToInsert });
+          }
         }
       });
-
-      if (data.items && Array.isArray(data.items)) {
-         await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
-         const itemsToInsert = [];
-         for (const item of data.items) {
-           let productId = null;
-           if (item.productId) {
-             const prod = await prisma.product.findUnique({ where: { legacyId: item.productId } });
-             productId = prod?.id || null;
-           }
-           itemsToInsert.push({
-             orderId: order.id,
-             productId,
-             name: item.name || 'Produto Migrado',
-             code: item.code || null,
-             salePrice: Number(item.salePrice) || 0,
-             quantity: Number(item.quantity) || 1,
-             imageUrl: item.imageUrl || null,
-           });
-         }
-         if (itemsToInsert.length > 0) {
-           await prisma.orderItem.createMany({ data: itemsToInsert });
-         }
-      }
       process.stdout.write('.');
     } catch (e: any) {
       recordMigrationFailure(e instanceof Error ? e.message : 'unknown error');
@@ -271,22 +274,22 @@ async function migrateTransactions() {
       await prisma.transaction.upsert({
         where: { legacyId: doc.id },
         update: {
-          type: data.type || 'VENDA',
-          amount: Number(data.amount) || 0,
-          description: data.description || 'Transação Migrada',
+          type: transactionType(data.type || 'VENDA'),
+          amount: finiteNumber(data.amount, 'amount'),
+          description: requiredText(data.description || 'Transação Migrada', 'description'),
           category: data.category || null,
           orderId,
         },
         create: {
           legacyId: doc.id,
           userId,
-          type: data.type || 'VENDA',
-          amount: Number(data.amount) || 0,
-          description: data.description || 'Transação Migrada',
+          type: transactionType(data.type || 'VENDA'),
+          amount: finiteNumber(data.amount, 'amount'),
+          description: requiredText(data.description || 'Transação Migrada', 'description'),
           category: data.category || null,
-          date: data.date?.toDate ? data.date.toDate() : new Date(),
+          date: dateValue(data.date?.toDate ? data.date.toDate() : data.date, 'date') || new Date(),
           orderId,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          createdAt: dateValue(data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt, 'createdAt'),
         }
       });
       process.stdout.write('.');
