@@ -40,7 +40,7 @@ Logo, trocar apenas `/orders` por `/api/v2/orders` não é uma correção válid
 
 Para suportar catálogo público por `slug` ou `storeId`, a API precisa de endpoints públicos próprios com isolamento de tenant, validação de identificador e resposta mínima. Não se deve reutilizar endpoints administrativos protegidos nem confiar em `storeId` enviado pelo cliente sem autorização server-side.
 
-A definição desses endpoints e do contrato de resposta fica para uma etapa posterior, depois de revisão de produto e segurança. Esta etapa não altera rotas, cliente ou produção.
+A definição desses endpoints e do contrato de resposta fica para a etapa ROUTE-REL-03, depois de revisão de produto e segurança. A matriz consolidada está em `docs/ROUTE-REL-03-route-matrix.md`. Esta etapa não altera rotas, cliente ou produção.
 
 ## Referências de código
 
