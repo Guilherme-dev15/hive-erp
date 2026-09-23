@@ -73,8 +73,17 @@ export const configSchema = z.object({
   whatsappNumber: z.string().optional(),
   monthlyGoal: z.coerce.number().min(0).optional(),
 
+  // Identidade pública
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido')
+    .min(3)
+    .max(63)
+    .optional(),
+
   // White-Label (Visual)
   storeName: z.string().min(1, 'Nome da loja é obrigatório'),
+  bannerUrl: z.string().optional(),
   primaryColor: hexColor.default('#D4AF37'),
   secondaryColor: hexColor.default('#343434'),
   banners: z.array(z.string()).optional(),

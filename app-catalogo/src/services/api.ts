@@ -1,63 +1,50 @@
 import axios from 'axios';
-import { OrderPayload } from '../types';
+import { OrderPayload, PublicCatalogResponse } from '../types';
 
-// 1. Definição da URL (Aponte para a Vercel como fallback para evitar erros em produção)
-const API_URL =
-  import.meta.env.VITE_API_URL || 'https://hiveerp-api.vercel.app';
+const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const isProductionBuild = import.meta.env.PROD;
 
-// 2. Criação da instância
+if (isProductionBuild && !configuredApiUrl) {
+  throw new Error('VITE_API_URL is required for the catalog production build');
+}
+
+const API_URL = configuredApiUrl || 'http://localhost:3005';
+
 export const apiClient = axios.create({ baseURL: API_URL });
 
 /**
- * Salva o pedido no banco de dados.
+ * Salva o pedido. Pedidos públicos permanecem fora do contrato v1.
  */
 export const saveOrder = (data: OrderPayload) =>
-  apiClient.post('/orders', data).then((res) => res.data); // <--- Retorna .data direto!
+  apiClient.post('/orders', data).then((res) => res.data);
 
 /**
- * Valida o cupom de desconto.
+ * Valida o cupom. Cupons públicos permanecem fora do contrato v1.
  */
 export const checkCoupon = async (code: string, storeId: string) => {
   const response = await apiClient.post('/validate-coupon', { code, storeId });
   return response.data;
 };
 
-/**
- * Busca todos os dados da loja (Produtos, Configs, Categorias)
- */
-export const fetchCatalogData = async (storeId: string) => {
-  const [prodRes, confRes, catRes] = await Promise.all([
-    apiClient
-      .get('/products-public', { params: { storeId } })
-      .catch(() => ({ data: [] })),
-    apiClient
-      .get('/config-public', { params: { storeId } })
-      .catch(() => ({ data: null })),
-    apiClient
-      .get('/categories-public', { params: { storeId } })
-      .catch(() => ({ data: [] })),
-  ]);
+export const fetchCatalogData = async (slug: string): Promise<PublicCatalogResponse['data']> => {
+  const response = await apiClient.get<PublicCatalogResponse>('/api/v1/public/catalog', {
+    params: { slug },
+  });
 
-  return {
-    produtos: prodRes.data,
-    config: confRes.data,
-    categorias: catRes.data,
-  };
+  if (response.data.version !== 'v1' || !response.data.data) {
+    throw new Error('Resposta inválida do catálogo');
+  }
+
+  return response.data.data;
 };
 
-// 3. Função para criar o Payment Intent
+/**
+ * Cria um Payment Intent. Pagamentos públicos permanecem fora do contrato v1.
+ */
 export const createPaymentIntent = async (amount: number, storeId: string) => {
   const response = await apiClient.post('/create-payment-intent', {
     amount,
     storeId,
   });
-  return response.data;
-};
-
-/**
- * Busca o ID da loja baseado no nome amigável (slug)
- */
-export const fetchStoreBySlug = async (slug: string) => {
-  const response = await apiClient.get('/config-by-slug', { params: { slug } });
   return response.data;
 };

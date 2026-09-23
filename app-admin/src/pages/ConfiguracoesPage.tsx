@@ -148,10 +148,17 @@ export function ConfiguracoesPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        ...formData,
-        banners: [formData.bannerUrl],
-        cardFeePercent: Number(formData.cardFee) || 0,
-        packingCost: Number(formData.packagingCost) || 0,
+        storeName: formData.storeName,
+        slug: formData.slug,
+        whatsappNumber: formData.whatsappNumber || undefined,
+        monthlyGoal: Number(formData.monthlyGoal) || 0,
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        banners: formData.bannerUrl ? [formData.bannerUrl] : [],
+        cardFee: Number(formData.cardFee) || 0,
+        packagingCost: Number(formData.packagingCost) || 0,
+        lowStockThreshold: Number(formData.lowStockThreshold) || 0,
+        warrantyText: formData.warrantyText || '',
       };
 
       await saveConfig(payload);

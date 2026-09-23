@@ -1,25 +1,29 @@
-// Importa o tipo do outro arquivo de tipos
-import { ProdutoVariante } from '../../app-admin/src/types';
+export interface ProdutoVariante {
+  id: string;
+  sku_sufixo: string;
+  valor_ajuste: number;
+  medida: string | null;
+  estoque: number;
+  sob_consulta: boolean;
+}
 
 export interface ProdutoCatalogo {
   variantes: ProdutoVariante[];
   id: string;
   name: string;
-  code?: string;
-  category?: string;
-  description?: string;
+  code?: string | null;
+  category?: string | null;
+  description?: string | null;
   salePrice: number;
-  costPrice?: number;
   status?: 'ativo' | 'inativo';
-  imageUrl?: string;
+  imageUrl?: string | null;
   quantity?: number;
-  subcategory?: string;
+  subcategory?: string | null;
   promotionalPrice?: number;
   isOnSale?: boolean;
 }
 
 export interface ConfigPublica {
-  storeId?: string;
   lowStockThreshold: number;
   whatsappNumber: string | null;
   storeName: string;
@@ -27,6 +31,15 @@ export interface ConfigPublica {
   secondaryColor: string;
   banners?: string[];
   slug?: string;
+}
+
+export interface PublicCatalogResponse {
+  version: 'v1';
+  data: {
+    config: ConfigPublica;
+    produtos: ProdutoCatalogo[];
+    categorias: Array<{ id: string; name: string }>;
+  };
 }
 
 export interface ItemCarrinho {

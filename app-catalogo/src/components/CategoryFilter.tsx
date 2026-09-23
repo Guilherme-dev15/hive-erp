@@ -36,7 +36,7 @@ export function CategoryFilter({
     const subs = new Set(
       products
         .filter((p) => p.category === selectedCategory && p.subcategory)
-        .map((p) => p.subcategory)
+        .map((p) => p.subcategory as string)
     );
     return Array.from(subs).sort();
   }, [products, selectedCategory]);
