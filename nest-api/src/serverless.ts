@@ -20,7 +20,7 @@ async function bootstrap() {
 
     // Configurando CORS seguro
     const allowedOrigins = process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',')
+      ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
       : [
           'https://hive-erp.vercel.app',
           'https://hiveerp-catalogo.vercel.app'
@@ -36,7 +36,7 @@ async function bootstrap() {
         }
       },
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      preflightContinue: true,
+      preflightContinue: false,
       optionsSuccessStatus: 204,
       credentials: true,
     });

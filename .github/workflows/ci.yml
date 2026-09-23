@@ -61,6 +61,13 @@ jobs:
           DATABASE_URL: "postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
         run: npm run test:e2e -- --runInBand
 
+      - name: Build NestJS serverless artifact
+        run: npm run build:nest
+
+      - name: Verify NestJS serverless artifact
+        shell: bash
+        run: test -f nest-api/dist/serverless.js
+
   test-react-frontend:
     name: Test React Frontend (Vitest)
     runs-on: ubuntu-latest
@@ -78,6 +85,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Unit Tests (Vitest)
+      - name: Run Root Contract Tests (Vitest)
+        run: npm test -- --run
+
+      - name: Run Admin Unit Tests (Vitest)
         working-directory: ./app-admin
         run: npm run test
+
+      - name: Build Admin
+        run: npm run build --workspace=app-admin
+
+      - name: Build Catalog
+        run: npm run build --workspace=app-catalogo
+
+      - name: Verify Vercel package
+        run: npm run build:vercel && node scripts/verify-vercel-package.mjs
+
+      - name: Check stale catalog API host is absent from active source
+        shell: bash
+        run: '! grep -R "hiveerp-api.vercel.app" app-catalogo/src'
+
+      - name: Check legacy catalog routes are absent from active source
+        shell: bash
+        run: '! grep -R -E "config-by-slug|products-public|config-public|categories-public" app-catalogo/src'
+
+      - name: Check Vercel configuration
+        run: node scripts/verify-vercel-package.mjs

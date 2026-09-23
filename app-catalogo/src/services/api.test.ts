@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.stubEnv('PROD', false);
+
 const { getMock, postMock, createMock } = vi.hoisted(() => {
   const getMock = vi.fn();
   const postMock = vi.fn();
@@ -17,7 +19,6 @@ import {
   checkCoupon,
   createPaymentIntent,
   fetchCatalogData,
-  fetchStoreBySlug,
   saveOrder,
 } from './api';
 
@@ -29,8 +30,7 @@ describe('catalog API contract', () => {
 
   it('creates the client without making a network request', () => {
     expect(createMock).toHaveBeenCalledOnce();
-    const createOptions = createMock.mock.calls[0]?.[0] as { baseURL?: string };
-    expect(createOptions).toEqual({
+    expect(createMock).toHaveBeenCalledWith({
       baseURL: expect.any(String),
     });
   });
@@ -60,28 +60,43 @@ describe('catalog API contract', () => {
     expect(postMock).toHaveBeenCalledWith('/validate-coupon', { code: 'SAVE10', storeId: 'store-1' });
   });
 
-  it('loads catalog resources in parallel and preserves independent fallbacks', async () => {
-    getMock.mockImplementation((path: string) => {
-      if (path === '/products-public') return Promise.reject(new Error('unavailable'));
-      if (path === '/config-public') return Promise.resolve({ data: { storeName: 'Hive' } });
-      return Promise.resolve({ data: [{ id: 'category-1' }] });
-    });
+  it('loads the versioned catalog envelope using only the public slug', async () => {
+    const catalog = {
+      version: 'v1',
+      data: {
+        config: {
+          storeName: 'Hive',
+          slug: 'hive',
+          primaryColor: '#D4AF37',
+          secondaryColor: '#343434',
+          whatsappNumber: null,
+          banners: [],
+          lowStockThreshold: 5,
+        },
+        produtos: [],
+        categorias: [],
+      },
+    };
+    getMock.mockResolvedValue({ data: catalog });
 
-    await expect(fetchCatalogData('store-1')).resolves.toEqual({
-      produtos: [],
-      config: { storeName: 'Hive' },
-      categorias: [{ id: 'category-1' }],
-    });
-    expect(getMock).toHaveBeenCalledWith('/products-public', { params: { storeId: 'store-1' } });
-    expect(getMock).toHaveBeenCalledWith('/config-public', { params: { storeId: 'store-1' } });
-    expect(getMock).toHaveBeenCalledWith('/categories-public', { params: { storeId: 'store-1' } });
+    await expect(fetchCatalogData('hive')).resolves.toEqual(catalog.data);
+    expect(getMock).toHaveBeenCalledWith('/api/v1/public/catalog', { params: { slug: 'hive' } });
   });
 
-  it('resolves a store by slug using the observed request', async () => {
-    getMock.mockResolvedValue({ data: { storeId: 'store-1', storeName: 'Hive' } });
+  it('propagates catalog request failures instead of returning an empty catalog', async () => {
+    getMock.mockRejectedValue(new Error('unavailable'));
 
-    await expect(fetchStoreBySlug('hive')).resolves.toEqual({ storeId: 'store-1', storeName: 'Hive' });
-    expect(getMock).toHaveBeenCalledWith('/config-by-slug', { params: { slug: 'hive' } });
+    await expect(fetchCatalogData('hive')).rejects.toThrow('unavailable');
+  });
+
+  it('rejects an invalid response envelope', async () => {
+    getMock.mockResolvedValue({ data: { version: 'v2', data: {} } });
+
+    await expect(fetchCatalogData('hive')).rejects.toThrow('Resposta inválida do catálogo');
+  });
+
+  it('does not expose a store-id based catalog request', () => {
+    expect(fetchCatalogData).toBeTypeOf('function');
   });
 
   it('creates a payment intent using the observed request', async () => {

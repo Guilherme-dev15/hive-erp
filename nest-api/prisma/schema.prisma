@@ -77,6 +77,7 @@ model Config {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   storeName         String   @map("store_name")
+  publicSlug        String?  @unique @map("public_slug")
   primaryColor      String   @default("#D4AF37") @map("primary_color")
   secondaryColor    String   @default("#343434") @map("secondary_color")
   whatsappNumber    String?  @map("whatsapp_number")

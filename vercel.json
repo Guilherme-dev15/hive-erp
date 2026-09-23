@@ -1,5 +1,33 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci --include=dev",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "app-admin/dist",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "nest-api/dist/**,nest-api/prisma/**,node_modules/.prisma/client/**,node_modules/@prisma/client/**"
+    },
+    "api/[...path].js": {
+      "includeFiles": "nest-api/dist/**,nest-api/prisma/**,node_modules/.prisma/client/**,node_modules/@prisma/client/**"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/[...path]"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/admin(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

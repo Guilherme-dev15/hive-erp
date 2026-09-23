@@ -1,24 +1,34 @@
 # ROUTE-REL-03 — Matriz consolidada de rotas
 
-> Diagnóstico de release. Este documento não cria endpoints, não remapeia clientes e não autoriza publicar rotas públicas.
+> Estado de release atualizado após a implementação do contrato público v1. A matriz não autoriza promoção de produção; Preview, smoke e gates continuam obrigatórios.
 
 ## Catálogo público
 
-| Fluxo | Call-site | Método/rota atual | Auth/tenant observado | API Nest equivalente | Classificação |
+| Fluxo | Call-site | Método/rota v1 | Auth/tenant | Implementação | Classificação |
 | --- | --- | --- | --- | --- | --- |
-| Resolver loja | `app-catalogo/src/App.tsx` → `fetchStoreBySlug` | `GET /config-by-slug?slug=...` | Pública presumida; resposta não confirmada | Nenhum | **Gap bloqueante** |
-| Listar produtos | `App.tsx` → `fetchCatalogData` | `GET /products-public?storeId=...` | Pública presumida; `storeId` vem do cliente | `GET /api/v2/products`, AuthGuard + tenant por usuário | **Não reutilizar** |
-| Ler configuração | `App.tsx` → `fetchCatalogData` | `GET /config-public?storeId=...` | Pública presumida; resposta não confirmada | `GET /api/v2/config`, AuthGuard + tenant por usuário | **Não reutilizar** |
-| Listar categorias | `App.tsx` → `fetchCatalogData` | `GET /categories-public?storeId=...` | Pública presumida | Nenhum controller/módulo | **Gap bloqueante** |
-| Salvar pedido | Export sem call-site no catálogo | `POST /orders` | Auth não definida no legado | `POST /api/v2/orders`, AuthGuard + DTO diferente | **Futuro; não abrir agora** |
-| Validar cupom | Export sem call-site no catálogo | `POST /validate-coupon` | Pública presumida | `/api/v2/coupons`, AuthGuard | **Futuro; não abrir agora** |
-| Criar pagamento | Export sem call-site no catálogo | `POST /create-payment-intent` | Pública presumida | Apenas webhook; adapter real fail-closed | **Adiado por decisão de produto** |
+| Resolver e carregar loja | `app-catalogo/src/App.tsx` → `fetchCatalogData` | `GET /api/v1/public/catalog?slug=...` | Sem AuthGuard; slug resolve `Config.publicSlug` + `User.active` server-side | `PublicCatalogController`/`PublicCatalogService` | **Implementado em código; validar Preview** |
+| Listar produtos | envelope v1 `data.produtos` | Incluído na mesma resposta | Filtrado por `userId` resolvido e `status=ATIVO` | serializer público com `select` explícito | **Implementado em código; validar isolamento** |
+| Ler configuração | envelope v1 `data.config` | Incluído na mesma resposta | Somente campos storefront; sem IDs internos | `mapPublicConfig` | **Implementado em código; validar payload** |
+| Listar categorias | envelope v1 `data.categorias` | Incluído na mesma resposta | Categorias filtradas pelo tenant resolvido | `category.findMany` com `userId` + IDs referenciados | **Implementado em código; validar payload** |
+| Salvar pedido | Sem call-site público | Nenhuma rota pública | Não habilitado | `/api/v2/orders` continua protegido e com DTO administrativo | **Futuro; não abrir agora** |
+| Validar cupom | Sem call-site público | Nenhuma rota pública | Não habilitado | `/api/v2/coupons` continua protegido | **Futuro; não abrir agora** |
+| Criar pagamento | Sem call-site público | Nenhuma rota pública | Não habilitado | Adapter fail-closed; apenas webhook interno | **Adiado por decisão de produto** |
 
-### Política de erro atual
+### Contrato público v1
 
-`fetchCatalogData` captura cada erro e retorna `[]` para produtos/categorias ou `null` para configuração. Isso diferencia “sem dados” de “erro” apenas no código, não na interface do usuário. A remoção desse fallback silencioso depende da decisão de disponibilidade do catálogo e deve ser tratada junto com o contrato público.
+- Identificador aceito: `slug` com formato lowercase alfanumérico/hífen, 3–63 caracteres.
+- `storeId`, `userId`, parâmetros extras e slug ausente/inválido não são caminhos de compatibilidade.
+- A API não usa `Origin`, `Referer` ou `Host` para escolher o tenant.
+- `400` para locator inválido; `404` para slug inexistente/tenant inativo.
+- Produtos são somente `ATIVO`; preços/ajustes são números; status é lowercase.
+- A resposta não contém custos, margens, fornecedores, IDs de tenant, pedidos, cupons ou pagamentos.
+- `Cache-Control: no-store` até decisão explícita de cache/invalidação.
 
-O fallback de base URL `https://hiveerp-api.vercel.app` é legado e não deve ser tratado como disponibilidade comprovada.
+### Política de erro
+
+`fetchCatalogData` não converte falhas em `[]`/`null`: uma falha HTTP ou envelope inválido chega ao estado “Loja indisponível”. Um catálogo vazio válido é distinguível de indisponibilidade pelo envelope v1 bem-sucedido.
+
+O fallback `https://hiveerp-api.vercel.app` foi removido do fluxo ativo e não deve ser reativado.
 
 ## Admin → Nest
 
@@ -37,23 +47,15 @@ O fallback de base URL `https://hiveerp-api.vercel.app` é legado e não deve se
 | suppliers/categories | `/api/v2/suppliers`, `/api/v2/categories` | Não há módulos no AppModule | Gap administrativo |
 | coupons/config/dashboard/team/inventory | `/api/v2/...` | Módulos/controllers correspondentes | Validar DTOs individualmente |
 
-A matriz administrativa não autoriza corrigir todos os gaps neste PR; eles devem ser priorizados por uso real e tratados em mudanças isoladas.
+As rotas administrativas permanecem separadas da API pública e não devem ser reutilizadas pelo catálogo.
 
-## Decisão bloqueante para a PUBLIC-CATALOG API
+## Deployment/runtime bloqueante
 
-Antes de implementar qualquer endpoint público, produto/arquitetura deve escolher:
+O projeto Vercel raiz precisa construir NestJS antes de empacotar `api/index.js`/`api/[...path].js`:
 
-1. **Catálogo integrado:** endpoints públicos próprios na API NestJS, com tenant resolvido server-side por slug/domínio e resposta mínima; ou
-2. **Catálogo separado:** backend público dedicado, com contrato, deploy e observabilidade próprios.
+- `npm run build:vercel` gera `nest-api/dist` e `app-admin/dist`;
+- `vercel.json` encaminha `/api/(.*)` antes do filesystem/fallback SPA;
+- `includeFiles` inclui `nest-api/dist/**`, Prisma e clients gerados;
+- `scripts/verify-vercel-package.mjs` impede build sem artefato ou adapters.
 
-Em ambos os casos, são obrigatórios:
-
-- validação de slug/domínio;
-- resolução server-side do tenant;
-- isolamento comprovado entre tenants;
-- nenhum acesso público a rotas administrativas;
-- payload/response versionados;
-- pedidos e cupons explicitamente habilitados ou marcados como indisponíveis;
-- gateway real mantido fora desta fase.
-
-`storeId` fornecido diretamente pelo navegador não é prova de autorização e não deve ser usado sozinho para escolher dados de um tenant.
+A implementação local ainda requer Preview para confirmar que o runtime e `DATABASE_URL` estão operacionais. Qualquer `FUNCTION_INVOCATION_FAILED`, erro Prisma/módulo, CORS inválido ou 5xx bloqueia a release.
