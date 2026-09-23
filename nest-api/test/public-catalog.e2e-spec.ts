@@ -48,7 +48,7 @@ describe('PublicCatalogController (e2e)', () => {
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS'));
+          callback(null, false);
         }
       },
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
@@ -193,6 +193,7 @@ describe('PublicCatalogController (e2e)', () => {
       .set('Origin', 'https://not-allowed.example')
       .set('Access-Control-Request-Method', 'GET')
       .expect((response) => {
+        expect(response.status).toBeLessThan(500);
         expect(response.headers['access-control-allow-origin']).toBeUndefined();
       });
   });
