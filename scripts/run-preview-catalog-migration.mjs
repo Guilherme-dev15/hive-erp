@@ -9,6 +9,7 @@ const endpoint = required('PREVIEW_MIGRATION_URL');
 if (!endpoint.startsWith('https://')) throw new Error('PREVIEW_MIGRATION_URL must use HTTPS');
 if (process.env.PREVIEW_MIGRATION_URL.includes('?')) throw new Error('PREVIEW_MIGRATION_URL must not include query parameters');
 const secret = required('PREVIEW_MIGRATION_SECRET');
+const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const ownerEmail = required('PREVIEW_MIGRATION_OWNER_EMAIL');
 const operationId = process.env.PREVIEW_MIGRATION_OPERATION_ID || `catalog-${Date.now()}`;
 const batchSize = Math.min(Math.max(Number(process.env.PREVIEW_MIGRATION_BATCH_SIZE || 25), 1), 50);
@@ -54,6 +55,7 @@ async function sendBatch(batch) {
       'x-preview-migration-timestamp': String(timestamp),
       'x-preview-migration-nonce': nonce,
       'x-preview-migration-signature': sign(body, timestamp, nonce),
+      ...(vercelBypassSecret ? { 'x-vercel-protection-bypass': vercelBypassSecret } : {}),
     },
     body,
   });
