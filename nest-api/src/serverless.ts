@@ -30,7 +30,11 @@ function createServerlessRequestHandler(
 
 async function bootstrap() {
   if (!cachedServer) {
-    const app = await NestFactory.create(AppModule, { bufferLogs: true });
+    const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+
+    const httpApp = app.getHttpAdapter().getInstance();
+    httpApp.use(require('express').json({ limit: '256kb' }));
+    httpApp.use(require('express').urlencoded({ extended: true, limit: '256kb' }));
 
     app.useLogger(app.get(Logger));
 

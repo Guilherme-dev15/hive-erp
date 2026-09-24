@@ -14,6 +14,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PaymentsModule } from './payments/payments.module';
 import { LoggerModule } from 'nestjs-pino';
 import { PublicCatalogModule } from './public-catalog/public-catalog.module';
+import { PreviewMigrationModule } from './preview-migration/preview-migration.module';
 
 @Module({
   imports: [
@@ -41,7 +42,8 @@ import { PublicCatalogModule } from './public-catalog/public-catalog.module';
     ConfigModule, 
     DashboardModule,
     PaymentsModule,
-    PublicCatalogModule
+    PublicCatalogModule,
+    PreviewMigrationModule
   ],
   controllers: [AppController],
   providers: [AppService],
