@@ -15,7 +15,10 @@ const CREATE_BATCH_TABLE = `
     "operation_id" TEXT NOT NULL,
     "batch_id" TEXT NOT NULL,
     "body_hash" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'accepted',
+    "result" JSONB,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "completed_at" TIMESTAMPTZ,
     CONSTRAINT "preview_migration_batches_operation_batch_key" UNIQUE ("operation_id", "batch_id")
   )
 `;

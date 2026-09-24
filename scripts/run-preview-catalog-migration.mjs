@@ -6,6 +6,8 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const endpoint = required('PREVIEW_MIGRATION_URL');
+if (!endpoint.startsWith('https://')) throw new Error('PREVIEW_MIGRATION_URL must use HTTPS');
+if (process.env.PREVIEW_MIGRATION_URL.includes('?')) throw new Error('PREVIEW_MIGRATION_URL must not include query parameters');
 const secret = required('PREVIEW_MIGRATION_SECRET');
 const ownerEmail = required('PREVIEW_MIGRATION_OWNER_EMAIL');
 const operationId = process.env.PREVIEW_MIGRATION_OPERATION_ID || `catalog-${Date.now()}`;

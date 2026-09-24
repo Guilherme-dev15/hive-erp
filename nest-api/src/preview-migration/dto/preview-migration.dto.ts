@@ -39,6 +39,7 @@ export class PreviewMigrationCategoryDto {
 }
 
 export class PreviewMigrationVariantDto {
+  @IsOptional()
   @IsString()
   @MaxLength(128)
   legacyId?: string;
