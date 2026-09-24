@@ -64,6 +64,29 @@ export class PreviewMigrationGuard implements CanActivate {
 
     const batch = this.extractBatchIdentity(request.body);
     await this.prisma.$executeRawUnsafe(CREATE_BATCH_TABLE);
+
+    const byNonce = await this.prisma.$queryRaw<Array<{ operation_id: string; batch_id: string; body_hash: string }>>`
+      SELECT "operation_id", "batch_id", "body_hash"
+      FROM "preview_migration_batches"
+      WHERE "nonce" = ${nonce}
+    `;
+    if (byNonce.length > 0) {
+      if (byNonce[0].operation_id !== batch.operationId || byNonce[0].batch_id !== batch.batchId || byNonce[0].body_hash !== bodyHash) {
+        throw new ConflictException('Nonce já utilizado');
+      }
+      return true;
+    }
+
+    const byBatch = await this.prisma.$queryRaw<Array<{ nonce: string; body_hash: string }>>`
+      SELECT "nonce", "body_hash"
+      FROM "preview_migration_batches"
+      WHERE "operation_id" = ${batch.operationId} AND "batch_id" = ${batch.batchId}
+    `;
+    if (byBatch.length > 0) {
+      if (byBatch[0].body_hash !== bodyHash) throw new ConflictException('Lote já utilizado com payload diferente');
+      return true;
+    }
+
     try {
       await this.prisma.$executeRaw`
         INSERT INTO "preview_migration_batches" ("nonce", "operation_id", "batch_id", "body_hash")

@@ -4,7 +4,7 @@ import { PreviewMigrationGuard } from '../src/preview-migration/preview-migratio
 
 describe('PreviewMigrationGuard', () => {
   const previous = { ...process.env };
-  const guard = new PreviewMigrationGuard({ $executeRawUnsafe: jest.fn(), $executeRaw: jest.fn() } as never);
+  const guard = new PreviewMigrationGuard({ $executeRawUnsafe: jest.fn(), $executeRaw: jest.fn(), $queryRaw: jest.fn().mockResolvedValue([]) } as never);
 
   afterEach(() => {
     process.env = { ...previous };
