@@ -11,7 +11,7 @@ const TENANT_A = {
   slug: 'm73-tenant-a',
   categoryLegacyId: `${FIXTURE_PREFIX}-category-a`,
   productLegacyId: `${FIXTURE_PREFIX}-product-a`,
-};
+} as const;
 const TENANT_B = {
   email: `${FIXTURE_PREFIX}-b@example.invalid`,
   legacyId: `${FIXTURE_PREFIX}-user-b`,
@@ -19,7 +19,7 @@ const TENANT_B = {
   slug: 'm73-tenant-b',
   categoryLegacyId: `${FIXTURE_PREFIX}-category-b`,
   productLegacyId: `${FIXTURE_PREFIX}-product-b`,
-};
+} as const;
 const FIXTURE_TENANTS = [TENANT_A, TENANT_B] as const;
 
 @Injectable()
@@ -30,15 +30,110 @@ export class PreviewFixtureService {
     return action === 'seed' ? this.seed() : this.cleanup();
   }
 
+  private async findFixtureUsers(tx: Prisma.TransactionClient) {
+    const users = await tx.user.findMany({
+      where: {
+        OR: FIXTURE_TENANTS.flatMap(({ email, legacyId }) => [{ email }, { legacyId }]),
+      },
+      select: { id: true, email: true, legacyId: true, name: true, role: true, active: true },
+    });
+    const fixtureUsers = new Map<string, (typeof users)[number]>();
+
+    for (const user of users) {
+      const tenant = FIXTURE_TENANTS.find(({ email, legacyId }) => email === user.email || legacyId === user.legacyId);
+      if (
+        !tenant ||
+        user.email !== tenant.email ||
+        user.legacyId !== tenant.legacyId ||
+        user.name !== tenant.name ||
+        user.role !== 'OWNER' ||
+        user.active !== true
+      ) {
+        throw new ConflictException('Fixture reservada contém usuário com identidade ou estado inesperado');
+      }
+      fixtureUsers.set(tenant.email, user);
+    }
+
+    return fixtureUsers;
+  }
+
+  private async assertUserHasOnlyFixtureData(
+    tx: Prisma.TransactionClient,
+    tenant: (typeof FIXTURE_TENANTS)[number],
+    userId: string,
+  ) {
+    const [config, categories, products, suppliers, coupons, orders, transactions, inventoryLogs, dashboardStats] = await Promise.all([
+      tx.config.findUnique({ where: { userId }, select: { storeName: true, publicSlug: true } }),
+      tx.category.findMany({ where: { userId }, select: { id: true, legacyId: true, name: true } }),
+      tx.product.findMany({ where: { userId }, select: { id: true, legacyId: true, categoryId: true } }),
+      tx.supplier.findMany({ where: { userId }, select: { id: true } }),
+      tx.coupon.findMany({ where: { userId }, select: { id: true } }),
+      tx.order.findMany({ where: { userId }, select: { id: true } }),
+      tx.transaction.findMany({ where: { userId }, select: { id: true } }),
+      tx.inventoryLog.findMany({ where: { userId }, select: { id: true } }),
+      tx.dashboardStat.findMany({ where: { userId }, select: { id: true } }),
+    ]);
+
+    if (config && (config.storeName !== tenant.name || config.publicSlug !== tenant.slug)) {
+      throw new ConflictException('Fixture reservada contém configuração não reconhecida');
+    }
+
+    const category = categories.find(({ legacyId }) => legacyId === tenant.categoryLegacyId);
+    if (
+      categories.some(({ legacyId, name }) => legacyId !== tenant.categoryLegacyId || name !== 'M7.3 Sintéticos') ||
+      products.some(({ legacyId }) => legacyId !== tenant.productLegacyId) ||
+      suppliers.length > 0 || coupons.length > 0 || orders.length > 0 || transactions.length > 0 ||
+      inventoryLogs.length > 0 || dashboardStats.length > 0
+    ) {
+      throw new ConflictException('Fixture reservada está associada a dados fora do escopo sintético');
+    }
+
+    const product = products[0];
+    if (product && category && product.categoryId !== category.id) {
+      throw new ConflictException('Fixture reservada contém produto associado a categoria inesperada');
+    }
+
+    if (category) {
+      const categoryProducts = await tx.product.findMany({
+        where: { categoryId: category.id },
+        select: { id: true, userId: true, legacyId: true },
+      });
+      if (categoryProducts.some(({ userId: ownerId, legacyId }) => ownerId !== userId || legacyId !== tenant.productLegacyId)) {
+        throw new ConflictException('Categoria da fixture está associada a produto fora do escopo sintético');
+      }
+    }
+
+    if (product) {
+      const productIds = [product.id];
+      const [variants, orderItems, productTransactions, productInventoryLogs] = await Promise.all([
+        tx.productVariant.findMany({ where: { productId: { in: productIds } }, select: { id: true } }),
+        tx.orderItem.findMany({ where: { productId: { in: productIds } }, select: { id: true } }),
+        tx.transaction.findMany({ where: { productId: { in: productIds } }, select: { id: true } }),
+        tx.inventoryLog.findMany({ where: { productId: { in: productIds } }, select: { id: true } }),
+      ]);
+      if (variants.length > 0 || orderItems.length > 0 || productTransactions.length > 0 || productInventoryLogs.length > 0) {
+        throw new ConflictException('Produto da fixture está associado a registros que não pertencem à fixture');
+      }
+    }
+
+    return { category, product };
+  }
+
   private async seed() {
     return this.prisma.$transaction(async (tx) => {
+      const existingUsers = await this.findFixtureUsers(tx);
       let categories = 0;
       let products = 0;
 
       for (const tenant of FIXTURE_TENANTS) {
-        const existingUser = await tx.user.findUnique({ where: { email: tenant.email } });
-        if (existingUser && existingUser.legacyId !== tenant.legacyId) {
-          throw new ConflictException('Fixture reservada já contém dados desconhecidos');
+        const existingUser = existingUsers.get(tenant.email);
+        if (existingUser) {
+          await this.assertUserHasOnlyFixtureData(tx, tenant, existingUser.id);
+        }
+
+        const slugOwner = await tx.config.findUnique({ where: { publicSlug: tenant.slug }, select: { userId: true } });
+        if (slugOwner && slugOwner.userId !== existingUser?.id) {
+          throw new ConflictException('Slug da fixture já pertence a outro tenant');
         }
 
         const user = await tx.user.upsert({
@@ -54,33 +149,39 @@ export class PreviewFixtureService {
         });
 
         const existingCategory = await tx.category.findUnique({ where: { legacyId: tenant.categoryLegacyId } });
-        if (existingCategory && existingCategory.userId !== user.id) {
-          throw new ConflictException('Fixture reservada contém categoria de outro tenant');
+        if (existingCategory && (existingCategory.userId !== user.id || existingCategory.name !== 'M7.3 Sintéticos')) {
+          throw new ConflictException('Fixture reservada contém categoria de outro tenant ou conteúdo inesperado');
         }
-        const category = existingCategory
-          ? await tx.category.update({ where: { id: existingCategory.id }, data: { name: 'M7.3 Sintéticos' } })
-          : await tx.category.create({ data: { userId: user.id, legacyId: tenant.categoryLegacyId, name: 'M7.3 Sintéticos' } });
+        const category = existingCategory ?? await tx.category.create({
+          data: { userId: user.id, legacyId: tenant.categoryLegacyId, name: 'M7.3 Sintéticos' },
+        });
         categories += 1;
 
         const existingProduct = await tx.product.findUnique({ where: { legacyId: tenant.productLegacyId } });
-        if (existingProduct && existingProduct.userId !== user.id) {
-          throw new ConflictException('Fixture reservada contém produto de outro tenant');
+        if (
+          existingProduct &&
+          (existingProduct.userId !== user.id || existingProduct.categoryId !== category.id ||
+            existingProduct.name !== `Produto ${tenant.name}` || existingProduct.code !== tenant.productLegacyId ||
+            existingProduct.description !== 'Fixture sintética M7.3' || Number(existingProduct.salePrice) !== 10 ||
+            Number(existingProduct.costPrice) !== 2 || existingProduct.quantity !== 5 || existingProduct.status !== ProductStatus.ATIVO)
+        ) {
+          throw new ConflictException('Fixture reservada contém produto de outro tenant ou conteúdo inesperado');
         }
-        const productData = {
-          userId: user.id,
-          categoryId: category.id,
-          name: `Produto ${tenant.name}`,
-          code: tenant.productLegacyId,
-          description: 'Fixture sintética M7.3',
-          salePrice: 10,
-          costPrice: 2,
-          quantity: 5,
-          status: ProductStatus.ATIVO,
-        } satisfies Prisma.ProductUncheckedUpdateInput;
-        if (existingProduct) {
-          await tx.product.update({ where: { id: existingProduct.id }, data: productData });
-        } else {
-          await tx.product.create({ data: { ...productData, legacyId: tenant.productLegacyId } });
+        if (!existingProduct) {
+          await tx.product.create({
+            data: {
+              userId: user.id,
+              categoryId: category.id,
+              name: `Produto ${tenant.name}`,
+              code: tenant.productLegacyId,
+              description: 'Fixture sintética M7.3',
+              salePrice: 10,
+              costPrice: 2,
+              quantity: 5,
+              status: ProductStatus.ATIVO,
+              legacyId: tenant.productLegacyId,
+            },
+          });
         }
         products += 1;
       }
@@ -91,33 +192,58 @@ export class PreviewFixtureService {
 
   private async cleanup() {
     return this.prisma.$transaction(async (tx) => {
-      const users = await tx.user.findMany({
-        where: {
-          OR: FIXTURE_TENANTS.map((tenant) => ({ email: tenant.email, legacyId: tenant.legacyId })),
-        },
-        select: { id: true },
-      });
-      const userIds = users.map((user) => user.id);
-      if (userIds.length === 0) {
+      const fixtureUsers = await this.findFixtureUsers(tx);
+      if (fixtureUsers.size === 0) {
+        const [categories, products] = await Promise.all([
+          tx.category.findMany({ where: { legacyId: { in: FIXTURE_TENANTS.map(({ categoryLegacyId }) => categoryLegacyId) } }, select: { id: true } }),
+          tx.product.findMany({ where: { legacyId: { in: FIXTURE_TENANTS.map(({ productLegacyId }) => productLegacyId) } }, select: { id: true } }),
+        ]);
+        if (categories.length > 0 || products.length > 0) {
+          throw new ConflictException('Fixture reservada contém registros sem usuário proprietário reconhecido');
+        }
         return { fixture: PREVIEW_FIXTURE_NAME, action: 'cleanup', tenants: 0, categories: 0, products: 0 };
       }
 
-      const productIds = (await tx.product.findMany({
-        where: { legacyId: { in: FIXTURE_TENANTS.map((tenant) => tenant.productLegacyId) }, userId: { in: userIds } },
-        select: { id: true },
-      })).map((product) => product.id);
-      if (productIds.length > 0) {
-        await tx.productVariant.deleteMany({ where: { productId: { in: productIds } } });
-        await tx.product.deleteMany({ where: { id: { in: productIds } } });
+      const cleanupTargets: Array<{
+        tenant: (typeof FIXTURE_TENANTS)[number];
+        userId: string;
+        categoryId?: string;
+        productId?: string;
+      }> = [];
+
+      for (const tenant of FIXTURE_TENANTS) {
+        const user = fixtureUsers.get(tenant.email);
+        if (!user) continue;
+        const { category, product } = await this.assertUserHasOnlyFixtureData(tx, tenant, user.id);
+        cleanupTargets.push({ tenant, userId: user.id, categoryId: category?.id, productId: product?.id });
       }
 
-      const deletedCategories = await tx.category.deleteMany({
-        where: { legacyId: { in: FIXTURE_TENANTS.map((tenant) => tenant.categoryLegacyId) }, userId: { in: userIds } },
-      });
-      await tx.config.deleteMany({ where: { userId: { in: userIds }, publicSlug: { in: FIXTURE_TENANTS.map((tenant) => tenant.slug) } } });
-      await tx.user.deleteMany({ where: { id: { in: userIds } } });
+      let deletedCategories = 0;
+      let deletedProducts = 0;
+      for (const target of cleanupTargets) {
+        if (target.productId) {
+          const deleted = await tx.product.deleteMany({
+            where: { id: target.productId, userId: target.userId, legacyId: target.tenant.productLegacyId },
+          });
+          deletedProducts += deleted.count;
+        }
+        if (target.categoryId) {
+          const deleted = await tx.category.deleteMany({
+            where: { id: target.categoryId, userId: target.userId, legacyId: target.tenant.categoryLegacyId },
+          });
+          deletedCategories += deleted.count;
+        }
+        await tx.config.deleteMany({ where: { userId: target.userId, publicSlug: target.tenant.slug } });
+        await tx.user.delete({ where: { id: target.userId } });
+      }
 
-      return { fixture: PREVIEW_FIXTURE_NAME, action: 'cleanup', tenants: users.length, categories: deletedCategories.count, products: productIds.length };
+      return {
+        fixture: PREVIEW_FIXTURE_NAME,
+        action: 'cleanup',
+        tenants: cleanupTargets.length,
+        categories: deletedCategories,
+        products: deletedProducts,
+      };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 }

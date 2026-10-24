@@ -16,9 +16,9 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_USER: johndoe
-          POSTGRES_PASSWORD: randompassword
-          POSTGRES_DB: mydb
+          POSTGRES_USER: hive_e2e
+          POSTGRES_PASSWORD: e2e_only_password
+          POSTGRES_DB: hive_erp_e2e
         ports:
           - 5432:5432
         # Aguarda até o banco estar pronto para receber conexões
@@ -48,7 +48,7 @@ jobs:
       - name: Run Prisma Migrations
         working-directory: ./nest-api
         env:
-          DATABASE_URL: "postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
+          DATABASE_URL: "postgresql://hive_e2e:e2e_only_password@localhost:5432/hive_erp_e2e?schema=public"
         run: npx prisma migrate deploy
 
       - name: Run Unit Tests (NestJS)
@@ -58,7 +58,8 @@ jobs:
       - name: Run E2E Tests (NestJS)
         working-directory: ./nest-api
         env:
-          DATABASE_URL: "postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
+          HIVE_E2E_DB_ENABLED: 'true'
+          DATABASE_URL: "postgresql://hive_e2e:e2e_only_password@localhost:5432/hive_erp_e2e?schema=public"
         run: npm run test:e2e -- --runInBand
 
       - name: Build NestJS serverless artifact

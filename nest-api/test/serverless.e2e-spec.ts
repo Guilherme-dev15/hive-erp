@@ -1,4 +1,5 @@
 import request from 'supertest';
+const { assertE2EDatabase } = require('./e2e-db-safety') as { assertE2EDatabase: () => void };
 let handler: typeof import('../dist/serverless').default;
 
 describe('serverless CORS adapter (e2e)', () => {
@@ -7,6 +8,7 @@ describe('serverless CORS adapter (e2e)', () => {
   const allowedOrigin = 'https://catalog.preview.example';
 
   beforeAll(async () => {
+    assertE2EDatabase();
     process.env.NODE_ENV = 'test';
     handler = (await import('../dist/serverless')).default;
     process.env.ALLOWED_ORIGINS = ` https://ignored.example, ${allowedOrigin} `;

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsEnum,
   IsInt,
@@ -121,6 +122,13 @@ export class PreviewMigrationProductDto {
 
   @IsEnum(PreviewMigrationProductStatus)
   status!: PreviewMigrationProductStatus;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PreviewMigrationVariantDto)
+  @ArrayMaxSize(20)
+  variants?: PreviewMigrationVariantDto[];
 }
 
 export class PreviewMigrationBatchDto {

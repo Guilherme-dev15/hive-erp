@@ -5,6 +5,7 @@ import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthGuard } from '../src/auth/auth.guard';
 import { ProductStatus } from '@prisma/client';
+const { assertE2EDatabase } = require('./e2e-db-safety') as { assertE2EDatabase: () => void };
 
 describe('Business Rules - Estoque & Inventário (e2e)', () => {
   let app: INestApplication;
@@ -13,6 +14,8 @@ describe('Business Rules - Estoque & Inventário (e2e)', () => {
   const MOCK_USER_ID = '00000000-0000-4000-8000-000000000001';
 
   beforeAll(async () => {
+    assertE2EDatabase();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -34,13 +37,12 @@ describe('Business Rules - Estoque & Inventário (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Purifica o banco antes de cada iteração para evitar estado fantasma
-    await prisma.inventoryLog.deleteMany({});
-    await prisma.product.deleteMany({});
-    await prisma.user.deleteMany({});
-
-    await prisma.user.create({
-      data: {
+    await prisma.inventoryLog.deleteMany({ where: { userId: MOCK_USER_ID } });
+    await prisma.product.deleteMany({ where: { userId: MOCK_USER_ID } });
+    await prisma.user.upsert({
+      where: { id: MOCK_USER_ID },
+      update: { legacyId: 'fake-tenant-biz', email: 'loja@business.com', name: 'Loja Business' },
+      create: {
         id: MOCK_USER_ID,
         legacyId: 'fake-tenant-biz',
         email: 'loja@business.com',

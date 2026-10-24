@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,7 +7,7 @@ import { ProductStatus } from '@prisma/client';
 describe('ProductsService Bulk M3', () => {
   let service: ProductsService;
   let prisma: {
-    product: { findMany: jest.Mock, update: jest.Mock, updateMany: jest.Mock };
+    product: { findMany: jest.Mock, findFirst: jest.Mock, update: jest.Mock, updateMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -14,6 +15,7 @@ describe('ProductsService Bulk M3', () => {
     prisma = {
       product: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn()
       },
@@ -28,6 +30,39 @@ describe('ProductsService Bulk M3', () => {
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
+  });
+
+  describe('update', () => {
+    it('deve atualizar somente o produto pertencente ao tenant e retornar o produto', async () => {
+      const updatedProduct = { id: 'prod-1', userId: 'tenant-a', name: 'Produto atualizado' };
+      prisma.product.updateMany.mockResolvedValue({ count: 1 });
+      prisma.product.findFirst.mockResolvedValue(updatedProduct);
+
+      await expect(service.update('prod-1', { name: 'Produto atualizado' }, 'tenant-a')).resolves.toEqual(updatedProduct);
+
+      expect(prisma.product.updateMany).toHaveBeenCalledWith({
+        where: { id: 'prod-1', userId: 'tenant-a' },
+        data: { name: 'Produto atualizado' }
+      });
+      expect(prisma.product.findFirst).toHaveBeenCalledWith({
+        where: { id: 'prod-1', userId: 'tenant-a' }
+      });
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    it('deve retornar 404 sem consultar o produto quando o tenant não possui o id', async () => {
+      prisma.product.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.update('prod-1', { name: 'Tentativa' }, 'tenant-b'))
+        .rejects.toThrow(new NotFoundException('Produto não encontrado'));
+
+      expect(prisma.product.updateMany).toHaveBeenCalledWith({
+        where: { id: 'prod-1', userId: 'tenant-b' },
+        data: { name: 'Tentativa' }
+      });
+      expect(prisma.product.findFirst).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateBulkMarkup', () => {

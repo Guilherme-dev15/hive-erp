@@ -18,6 +18,7 @@ describe('Integração Multitenant (e2e)', () => {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       deleteMany: jest.fn()
     }
   };
@@ -73,40 +74,87 @@ describe('Integração Multitenant (e2e)', () => {
       });
     });
 
-    it('Tenant B recebe 404 ao tentar atualizar Produto do Tenant A (Tentativa Direta)', async () => {
-      // Simulando que o Prisma não achou o Produto para este Tenant
+    it('Tenant B recebe 404 ao tentar consultar Produto do Tenant A (Tentativa de Leitura)', async () => {
       prismaMock.product.findFirst.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .get('/api/v2/products/produto-pertencente-ao-tenant-a')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(404);
+
+      expect(prismaMock.product.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'produto-pertencente-ao-tenant-a',
+          userId: 'uuid-tenant-B'
+        }
+      });
+    });
+
+    it('Tenant B não consegue alterar status de Produto do Tenant A via bulk-status', async () => {
+      prismaMock.product.updateMany.mockResolvedValue({ count: 0 });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v2/products/bulk-status')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .send({ productIds: ['produto-pertencente-ao-tenant-a'], status: 'INATIVO' })
+        .expect(201);
+
+      expect(res.body).toEqual({ updatedCount: 0 });
+      expect(prismaMock.product.updateMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'uuid-tenant-B',
+          OR: [
+            { id: { in: ['produto-pertencente-ao-tenant-a'] } },
+            { legacyId: { in: ['produto-pertencente-ao-tenant-a'] } }
+          ]
+        },
+        data: { status: 'INATIVO' }
+      });
+    });
+
+    it('Tenant B recebe 404 ao tentar atualizar Produto do Tenant A (Tentativa Direta)', async () => {
+      // A escrita tenant-scoped não encontra o Produto para este Tenant.
+      prismaMock.product.updateMany.mockResolvedValue({ count: 0 });
 
       await request(app.getHttpServer())
         .put('/api/v2/products/produto-pertencente-ao-tenant-a')
         .set('x-tenant-id', 'uuid-tenant-B')
         .send({ name: 'Hackeado' })
-        .expect(404); // O Prisma respondeu Vazio, o Service soltou NotFound.
+        .expect(404);
 
-      // Auditoria: O banco tentou procurar cruzando o ID do recurso COM a chave restritiva do Inquilino
-      expect(prismaMock.product.findFirst).toHaveBeenCalledWith({
+      expect(prismaMock.product.updateMany).toHaveBeenCalledWith({
         where: {
           id: 'produto-pertencente-ao-tenant-a',
-          userId: 'uuid-tenant-B' // Chave do Invasor isola a query!
-        }
+          userId: 'uuid-tenant-B'
+        },
+        data: { name: 'Hackeado' }
       });
 
-      // Auditoria Crítica: A tentativa de alteração real nunca chega a ser disparada
+      // A tentativa de alteração real nunca usa uma escrita sem escopo de tenant.
       expect(prismaMock.product.update).not.toHaveBeenCalled();
+      expect(prismaMock.product.findFirst).not.toHaveBeenCalled();
     });
 
     it('O Service NUNCA deve omitir o userId nas escritas', async () => {
-      // Mock do produto existindo
-      prismaMock.product.findFirst.mockResolvedValue({ id: 'meu-prod', userId: 'uuid-tenant-A' });
-      prismaMock.product.update.mockResolvedValue({ id: 'meu-prod' });
+      const updatedProduct = { id: 'meu-prod', userId: 'uuid-tenant-A', name: 'Meu Pote de Prata' };
+      prismaMock.product.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.product.findFirst.mockResolvedValue(updatedProduct);
 
       await request(app.getHttpServer())
         .put('/api/v2/products/meu-prod')
         .set('x-tenant-id', 'uuid-tenant-A')
         .send({ name: 'Meu Pote de Prata' })
-        .expect(200);
+        .expect(200)
+        .expect(updatedProduct);
 
-      expect(prismaMock.product.update).toHaveBeenCalled();
+      expect(prismaMock.product.updateMany).toHaveBeenCalledWith({
+        where: { id: 'meu-prod', userId: 'uuid-tenant-A' },
+        data: { name: 'Meu Pote de Prata' }
+      });
+      expect(prismaMock.product.update).not.toHaveBeenCalled();
+      expect(prismaMock.product.findFirst).toHaveBeenCalledWith({
+        where: { id: 'meu-prod', userId: 'uuid-tenant-A' }
+      });
     });
   });
 });
