@@ -2,12 +2,18 @@ import { AuthGuard } from './auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
+jest.mock('firebase-admin/app', () => ({
+  getApps: jest.fn().mockReturnValue([]),
+  initializeApp: jest.fn(),
+}));
+
 jest.mock('firebase-admin/auth', () => ({
   getAuth: jest.fn().mockReturnValue({
     verifyIdToken: jest.fn(),
   }),
 }));
 
+import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
 describe('AuthGuard', () => {
@@ -108,14 +114,30 @@ describe('AuthGuard', () => {
     const context = mockExecutionContext({ authorization: 'Bearer valid-token' });
     const decodedToken = { uid: 'uid123', email: 'notfound@example.com' };
     (getAuth().verifyIdToken as jest.Mock).mockResolvedValue(decodedToken);
-    
+
     mockPrisma.user.findFirst.mockResolvedValue(null);
 
     const result = await guard.canActivate(context);
-    
+
     expect(result).toBe(true);
     const request = context.switchToHttp().getRequest();
     // Isola e permite falhar graciosamente depois na stack se necessário, ou mock user
     expect(request.user).toEqual({ id: null, legacyId: 'uid123' });
+  });
+
+  it('should initialize firebase-admin app when getApps is empty', async () => {
+    const context = mockExecutionContext({ authorization: 'Bearer valid-token' });
+    const decodedToken = { uid: 'uid123', email: 'test@example.com' };
+    (getAuth().verifyIdToken as jest.Mock).mockResolvedValue(decodedToken);
+    (getApps as jest.Mock).mockReturnValue([]);
+    mockPrisma.user.findFirst.mockResolvedValue({ id: 'pg-uuid-1', legacyId: 'uid123', email: 'test@example.com' });
+
+    await guard.canActivate(context);
+
+    expect(initializeApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: expect.any(String),
+      })
+    );
   });
 });
