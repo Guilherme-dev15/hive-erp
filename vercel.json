@@ -20,7 +20,11 @@
       "handle": "filesystem"
     },
     {
-      "src": "/(.*)",
+      "src": "/admin(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/",
       "dest": "/index.html"
     }
   ],
