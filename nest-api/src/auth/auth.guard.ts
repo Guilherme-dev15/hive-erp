@@ -1,6 +1,17 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
+
+export function ensureFirebaseApp(): void {
+  if (getApps().length === 0) {
+    const projectId =
+      process.env.FIREBASE_PROJECT_ID ||
+      process.env.VITE_FIREBASE_PROJECT_ID ||
+      'hive-1874c';
+    initializeApp({ projectId });
+  }
+}
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -31,6 +42,7 @@ export class AuthGuard implements CanActivate {
       firebaseEmail = 'guibanks1@gmail.com';
     } else {
       try {
+        ensureFirebaseApp();
         const decodedToken = await getAuth().verifyIdToken(token);
         firebaseUid = decodedToken.uid;
         firebaseEmail = decodedToken.email;
@@ -40,6 +52,7 @@ export class AuthGuard implements CanActivate {
           firebaseUid = 'He8p0wAioIctG7ZBIIxG4C9YOmX2';
           firebaseEmail = 'guibanks1@gmail.com';
         } else {
+          this.logger.error('Erro na validação do token Firebase:', error instanceof Error ? error.message : error);
           throw new UnauthorizedException('Token inválido ou expirado');
         }
       }
