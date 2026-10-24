@@ -3,12 +3,38 @@ import { ValidationPipe } from '@nestjs/common';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { AppModule } from './app.module';
 import { Logger } from 'nestjs-pino';
+import { createCorsPreflightHandler } from './serverless-cors';
+
+export { createCorsPreflightHandler } from './serverless-cors';
 
 let cachedServer: (req: IncomingMessage, res: ServerResponse) => void;
 
+function getAllowedOrigins(): string[] {
+  return process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : [
+        'https://hive-erp.vercel.app',
+        'https://hiveerp-catalogo.vercel.app',
+      ];
+}
+
+function createServerlessRequestHandler(
+  server: (req: IncomingMessage, res: ServerResponse) => void,
+  allowedOrigins: string[],
+) {
+  const handlePreflight = createCorsPreflightHandler(allowedOrigins);
+  return (req: IncomingMessage, res: ServerResponse): void => {
+    if (!handlePreflight(req, res)) server(req, res);
+  };
+}
+
 async function bootstrap() {
   if (!cachedServer) {
-    const app = await NestFactory.create(AppModule, { bufferLogs: true });
+    const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+
+    const httpApp = app.getHttpAdapter().getInstance();
+    httpApp.use(require('express').json({ limit: '256kb' }));
+    httpApp.use(require('express').urlencoded({ extended: true, limit: '256kb' }));
 
     app.useLogger(app.get(Logger));
 
@@ -19,17 +45,12 @@ async function bootstrap() {
     }));
 
     // Configurando CORS seguro
-    const allowedOrigins = process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
-      : [
-          'https://hive-erp.vercel.app',
-          'https://hiveerp-catalogo.vercel.app'
-        ];
+    const allowedOrigins = getAllowedOrigins();
 
     app.enableCors({
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         // Permitimos ausência de origin (ex: chamadas Server-to-Server ou curl), ou origins homologados
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+        if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
           callback(null, false);
@@ -44,7 +65,7 @@ async function bootstrap() {
     await app.init();
 
     const expressApp = app.getHttpAdapter().getInstance();
-    cachedServer = expressApp;
+    cachedServer = createServerlessRequestHandler(expressApp, allowedOrigins);
   }
   return cachedServer;
 }

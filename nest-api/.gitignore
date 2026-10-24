@@ -6,3 +6,14 @@ node_modules
 
 .vercel
 .env*
+
+# Scratch and ad-hoc scripts
+fix_user.js
+test_db.js
+
+# Transpiled JS artifacts
+prisma/*.js
+test/*.e2e-spec.js
+test/*.spec.js
+test/*.test.js
+test/mocks/*.js

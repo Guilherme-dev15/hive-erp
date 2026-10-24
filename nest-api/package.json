@@ -23,6 +23,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.js",
+    "test:e2e:safety": "jest --config ./jest.config.js --runInBand --no-cache test/e2e-db-safety.spec.ts src/preview-migration/dto/preview-migration.dto.spec.ts",
     "postinstall": "npx prisma generate"
   },
   "keywords": [],

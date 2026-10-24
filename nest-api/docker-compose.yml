@@ -12,6 +12,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+  postgres-e2e:
+    image: postgres:15-alpine
+    container_name: hive-postgres-e2e
+    environment:
+      POSTGRES_USER: hive_e2e
+      POSTGRES_PASSWORD: hive_e2e_local_only
+      POSTGRES_DB: hive_erp_e2e
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_e2e_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  postgres_e2e_data:

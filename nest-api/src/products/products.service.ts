@@ -49,12 +49,16 @@ export class ProductsService {
   }
 
   async update(id: string, data: UpdateProductDto, userId: string) {
-    await this.findOne(id, userId);
-
-    return this.prisma.product.update({
-      where: { id },
+    const result = await this.prisma.product.updateMany({
+      where: { id, userId },
       data
     });
+
+    if (result.count === 0) {
+      throw new NotFoundException('Produto não encontrado');
+    }
+
+    return this.findOne(id, userId);
   }
 
   /**
