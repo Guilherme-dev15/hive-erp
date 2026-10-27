@@ -13,6 +13,7 @@ import { ProdutoCatalogo, ConfigPublica, ItemCarrinho } from './types';
 import { fetchCatalogData } from './services/api';
 import { BannerCarousel } from './components/BannerCarousel';
 import { CardProduto } from './components/CardProduto';
+import { ModalCarrinho } from './components/ModalCarrinho';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { CategoryFilter } from './components/CategoryFilter';
 
@@ -385,6 +386,15 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <ModalCarrinho
+        isOpen={cart.isAberto}
+        onClose={() => cart.setIsAberto(false)}
+        itens={cart.itens}
+        setCarrinho={cart.setCarrinho}
+        whatsappNumber={config.whatsappNumber}
+        config={config}
+      />
 
       <ProductDetailsModal
         isOpen={!!selectedProduct}
