@@ -9,9 +9,9 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
 
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true, 
-    forbidNonWhitelisted: true, 
-    transform: true, 
+    whitelist: true,
+    forbidNonWhitelisted: false,
+    transform: true,
   }));
 
   // CORS de Desenvolvimento

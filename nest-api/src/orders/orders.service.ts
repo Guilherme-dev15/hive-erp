@@ -138,4 +138,20 @@ export class OrdersService {
     };
     return transitions[currentStatus] || [];
   }
+
+  async remove(id: string, userId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id, userId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+
+    await this.prisma.order.delete({
+      where: { id },
+    });
+
+    return { success: true, id };
+  }
 }
