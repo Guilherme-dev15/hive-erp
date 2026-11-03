@@ -11,12 +11,14 @@ import {
   Phone,
   FileText,
   Trash2,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 import { ItemCarrinho, ConfigPublica } from '../types';
 import { formatCurrency } from '../utils/format';
 import { buildOrderWhatsAppMessage, formatWhatsAppUrl } from '../utils/whatsapp';
+import { createPublicOrder } from '../services/api';
 
 interface ModalCarrinhoProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export function ModalCarrinho({
   const [nome, setNome] = useState('');
   const [tel, setTel] = useState('');
   const [obs, setObs] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const { subtotal, total } = useMemo(() => {
     const sub = itens.reduce(
@@ -87,7 +90,7 @@ export function ModalCarrinho({
     toast.success('Item removido do carrinho.', { id: `rem-${id}` });
   };
 
-  const finalizarWhatsApp = () => {
+  const finalizarWhatsApp = async () => {
     const targetWhatsapp = whatsappNumber || config.whatsappNumber;
 
     if (!targetWhatsapp || !targetWhatsapp.trim()) {
@@ -105,6 +108,42 @@ export function ModalCarrinho({
       return;
     }
 
+    setSubmitting(true);
+    let orderNumber: string | undefined;
+
+    if (config.slug) {
+      try {
+        const orderRes = await createPublicOrder({
+          slug: config.slug,
+          customerName: nome.trim(),
+          customerPhone: tel.trim(),
+          subtotal,
+          total,
+          notes: obs.trim() || undefined,
+          items: itens.map((item) => ({
+            productId: item.produto.id,
+            name: item.produto.name,
+            code: item.produto.code || undefined,
+            salePrice: item.produto.salePrice,
+            quantity: item.quantidade,
+            imageUrl: item.produto.imageUrl || undefined,
+          })),
+        });
+
+        if (orderRes?.orderId) {
+          orderNumber = orderRes.orderId.slice(0, 8).toUpperCase();
+        }
+      } catch (err: any) {
+        console.error('Erro ao registrar pedido:', err);
+        const errorMsg =
+          err?.response?.data?.message ||
+          'Não foi possível registrar seu pedido. Verifique a disponibilidade dos itens.';
+        toast.error(errorMsg);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const orderItems = itens.map((item) => ({
       name: item.produto.name,
       quantity: item.quantidade,
@@ -118,7 +157,7 @@ export function ModalCarrinho({
       customerPhone: tel,
       items: orderItems,
       total,
-      notes: obs,
+      notes: orderNumber ? `${obs ? obs.trim() + ' | ' : ''}Ref: Pedido #${orderNumber}` : obs,
     });
 
     const linkZap = formatWhatsAppUrl(targetWhatsapp, message);
@@ -128,8 +167,9 @@ export function ModalCarrinho({
     setNome('');
     setTel('');
     setObs('');
+    setSubmitting(false);
     onClose();
-    toast.success('Pedido encaminhado para o WhatsApp!');
+    toast.success('Pedido registrado com sucesso e encaminhado para o WhatsApp!');
   };
 
   return (
@@ -315,12 +355,21 @@ export function ModalCarrinho({
 
                 <button
                   onClick={finalizarWhatsApp}
-                  disabled={itens.length === 0}
+                  disabled={itens.length === 0 || submitting}
                   className="w-full py-3.5 px-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   style={{ backgroundColor: '#25D366' }}
                 >
-                  <Send size={18} />
-                  Finalizar no WhatsApp
+                  {submitting ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Registrando pedido...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      Finalizar no WhatsApp
+                    </>
+                  )}
                 </button>
               </div>
             )}
