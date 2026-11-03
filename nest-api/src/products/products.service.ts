@@ -11,49 +11,6 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  private mapProductToResponse(product: any, categoryMap?: Map<string, string>) {
-    if (!product) return null;
-
-    const categoryName =
-      (product.categoryId && categoryMap?.get(product.categoryId)) ||
-      product.category?.name ||
-      product.subcategory ||
-      '';
-
-    return {
-      id: product.id,
-      name: product.name,
-      code: product.code || '',
-      category: categoryName,
-      categoryId: product.categoryId || null,
-      subcategory: product.subcategory || '',
-      description: product.description || '',
-      imageUrl: product.imageUrl || '',
-      costPrice: Number(product.costPrice || 0),
-      salePrice: Number(product.salePrice || 0),
-      marginPercent:
-        product.marginPercent !== null && product.marginPercent !== undefined
-          ? Number(product.marginPercent)
-          : undefined,
-      quantity: product.quantity,
-      weight: Number(product.weight || 0),
-      status: String(product.status).toUpperCase() === 'INATIVO' ? 'inativo' : 'ativo',
-      supplierId: product.supplierId || '',
-      supplierProductUrl: product.supplierProductUrl || '',
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
-      legacyId: product.legacyId,
-      variantes: (product.variants || []).map((v: any) => ({
-        id: v.id,
-        sku_sufixo: v.skuSuffix,
-        valor_ajuste: Number(v.adjustmentValue),
-        medida: v.measurement || '',
-        estoque: v.stock,
-        sob_consulta: v.onDemand,
-      })),
-    };
-  }
-
   private async resolveCategoryId(
     userId: string,
     categoryId?: string,
@@ -125,7 +82,21 @@ export class ProductsService {
       }
     }
 
-    return products.map((p) => this.mapProductToResponse(p, categoryMap));
+    return products.map((product) => {
+      const categoryName =
+        (product.categoryId && categoryMap?.get(product.categoryId)) ||
+        (product as any).category?.name ||
+        product.subcategory ||
+        '';
+
+      return {
+        ...product,
+        category: categoryName,
+        status: String(product.status).toUpperCase() === 'INATIVO' ? 'inativo' : 'ativo',
+        costPrice: Number(product.costPrice || 0),
+        salePrice: Number(product.salePrice || 0),
+      };
+    });
   }
 
   async findOne(id: string, userId: string) {
@@ -137,21 +108,7 @@ export class ProductsService {
       throw new NotFoundException('Produto não encontrado');
     }
 
-    let categoryMap: Map<string, string> | undefined;
-    if (product.categoryId && this.prisma.category?.findUnique) {
-      try {
-        const cat = await this.prisma.category.findUnique({
-          where: { id: product.categoryId },
-        });
-        if (cat) {
-          categoryMap = new Map([[cat.id, cat.name]]);
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    return this.mapProductToResponse(product, categoryMap);
+    return product;
   }
 
   async create(data: CreateProductDto, userId: string) {
@@ -161,7 +118,7 @@ export class ProductsService {
 
     const { category, markup, gramPrice, cm, mm, variantes, ...cleanData } = data;
 
-    const createPayload: any = {
+    const payload: any = {
       name: cleanData.name,
       code: cleanData.code || undefined,
       categoryId: categoryId || undefined,
@@ -181,22 +138,19 @@ export class ProductsService {
     };
 
     if (data.legacyId) {
-      const upserted = await this.prisma.product.upsert({
+      return this.prisma.product.upsert({
         where: { legacyId: data.legacyId },
         update: {
-          ...createPayload,
+          ...payload,
           updatedAt: new Date(),
         },
-        create: createPayload,
+        create: payload,
       });
-      return this.mapProductToResponse(upserted);
     }
 
-    const created = await this.prisma.product.create({
-      data: createPayload,
+    return this.prisma.product.create({
+      data: payload,
     });
-
-    return this.mapProductToResponse(created);
   }
 
   async update(id: string, data: UpdateProductDto, userId: string) {
