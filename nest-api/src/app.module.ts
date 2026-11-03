@@ -3,6 +3,8 @@ import { AppService } from "./app.service";
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
+import { CategoriesModule } from './categories/categories.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 import { OrdersModule } from './orders/orders.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { InventoryModule } from './inventory/inventory.module';
@@ -31,15 +33,17 @@ import { PreviewMigrationModule } from './preview-migration/preview-migration.mo
         }),
       },
     }),
-    PrismaModule, 
-    ProductsModule, 
-    OrdersModule, 
-    TransactionsModule, 
-    InventoryModule, 
-    TeamModule, 
-    AuthModule, 
-    CouponsModule, 
-    ConfigModule, 
+    PrismaModule,
+    ProductsModule,
+    CategoriesModule,
+    SuppliersModule,
+    OrdersModule,
+    TransactionsModule,
+    InventoryModule,
+    TeamModule,
+    AuthModule,
+    CouponsModule,
+    ConfigModule,
     DashboardModule,
     PaymentsModule,
     PublicCatalogModule,

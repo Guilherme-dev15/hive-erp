@@ -3,14 +3,99 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { BulkMarkupDto, BulkStatusDto } from './dto/bulk-update.dto';
+import { ProductStatus } from '@prisma/client';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
+  private async resolveCategoryId(
+    userId: string,
+    categoryId?: string,
+    categoryName?: string,
+  ): Promise<string | null> {
+    if (categoryId && UUID_REGEX.test(categoryId.trim())) {
+      return categoryId.trim();
+    }
+
+    if (categoryName && categoryName.trim() && this.prisma.category) {
+      const trimmed = categoryName.trim();
+      try {
+        const existing = await this.prisma.category.findFirst({
+          where: {
+            userId,
+            name: { equals: trimmed, mode: 'insensitive' },
+          },
+        });
+
+        if (existing) {
+          return existing.id;
+        }
+
+        const created = await this.prisma.category.create({
+          data: {
+            userId,
+            name: trimmed.toUpperCase(),
+          },
+        });
+        return created.id;
+      } catch {
+        // Fallback gracefully
+      }
+    }
+
+    return null;
+  }
+
+  private resolveSupplierId(supplierId?: string): string | null {
+    if (supplierId && UUID_REGEX.test(supplierId.trim())) {
+      return supplierId.trim();
+    }
+    return null;
+  }
+
+  private resolveStatus(status?: any): ProductStatus {
+    if (typeof status === 'string' && status.trim().toUpperCase() === 'INATIVO') {
+      return ProductStatus.INATIVO;
+    }
+    return ProductStatus.ATIVO;
+  }
+
   async findAll(userId: string) {
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: { userId },
+    });
+
+    let categoryMap: Map<string, string> | undefined;
+    if (this.prisma.category?.findMany) {
+      try {
+        const categories = await this.prisma.category.findMany({
+          where: { userId },
+        });
+        if (Array.isArray(categories)) {
+          categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return products.map((product) => {
+      const categoryName =
+        (product.categoryId && categoryMap?.get(product.categoryId)) ||
+        (product as any).category?.name ||
+        product.subcategory ||
+        '';
+
+      return {
+        ...product,
+        category: categoryName,
+        status: String(product.status).toUpperCase() === 'INATIVO' ? 'inativo' : 'ativo',
+        costPrice: Number(product.costPrice || 0),
+        salePrice: Number(product.salePrice || 0),
+      };
     });
   }
 
@@ -22,36 +107,90 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException('Produto não encontrado');
     }
+
     return product;
   }
 
   async create(data: CreateProductDto, userId: string) {
+    const categoryId = await this.resolveCategoryId(userId, data.categoryId, data.category);
+    const supplierId = this.resolveSupplierId(data.supplierId);
+    const status = this.resolveStatus(data.status);
+
+    const { category, markup, gramPrice, cm, mm, variantes, ...cleanData } = data;
+
+    const payload: any = {
+      name: cleanData.name,
+      code: cleanData.code || undefined,
+      categoryId: categoryId || undefined,
+      subcategory: cleanData.subcategory || undefined,
+      description: cleanData.description || undefined,
+      imageUrl: cleanData.imageUrl || undefined,
+      costPrice: cleanData.costPrice !== undefined ? cleanData.costPrice : 0,
+      salePrice: cleanData.salePrice !== undefined ? cleanData.salePrice : 0,
+      marginPercent: cleanData.marginPercent !== undefined ? cleanData.marginPercent : undefined,
+      quantity: cleanData.quantity !== undefined ? cleanData.quantity : 0,
+      weight: cleanData.weight !== undefined ? cleanData.weight : undefined,
+      status,
+      supplierId: supplierId || undefined,
+      supplierProductUrl: cleanData.supplierProductUrl || undefined,
+      legacyId: cleanData.legacyId || undefined,
+      userId,
+    };
+
     if (data.legacyId) {
       return this.prisma.product.upsert({
         where: { legacyId: data.legacyId },
         update: {
-          ...data,
-          updatedAt: new Date()
+          ...payload,
+          updatedAt: new Date(),
         },
-        create: {
-          ...data,
-          userId
-        }
+        create: payload,
       });
     }
 
     return this.prisma.product.create({
-      data: {
-        ...data,
-        userId
-      }
+      data: payload,
     });
   }
 
   async update(id: string, data: UpdateProductDto, userId: string) {
+    let categoryId: string | null | undefined = undefined;
+    if (data.categoryId !== undefined || data.category !== undefined) {
+      categoryId = await this.resolveCategoryId(userId, data.categoryId, data.category);
+    }
+
+    let supplierId: string | null | undefined = undefined;
+    if (data.supplierId !== undefined) {
+      supplierId = this.resolveSupplierId(data.supplierId);
+    }
+
+    let status: ProductStatus | undefined = undefined;
+    if (data.status !== undefined) {
+      status = this.resolveStatus(data.status);
+    }
+
+    const { category, markup, gramPrice, cm, mm, variantes, ...cleanData } = data;
+
+    const updatePayload: any = {
+      ...(cleanData.name !== undefined ? { name: cleanData.name } : {}),
+      ...(cleanData.code !== undefined ? { code: cleanData.code } : {}),
+      ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(cleanData.subcategory !== undefined ? { subcategory: cleanData.subcategory } : {}),
+      ...(cleanData.description !== undefined ? { description: cleanData.description } : {}),
+      ...(cleanData.imageUrl !== undefined ? { imageUrl: cleanData.imageUrl } : {}),
+      ...(cleanData.costPrice !== undefined ? { costPrice: cleanData.costPrice } : {}),
+      ...(cleanData.salePrice !== undefined ? { salePrice: cleanData.salePrice } : {}),
+      ...(cleanData.marginPercent !== undefined ? { marginPercent: cleanData.marginPercent } : {}),
+      ...(cleanData.quantity !== undefined ? { quantity: cleanData.quantity } : {}),
+      ...(cleanData.weight !== undefined ? { weight: cleanData.weight } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(supplierId !== undefined ? { supplierId } : {}),
+      ...(cleanData.supplierProductUrl !== undefined ? { supplierProductUrl: cleanData.supplierProductUrl } : {}),
+    };
+
     const result = await this.prisma.product.updateMany({
       where: { id, userId },
-      data
+      data: updatePayload,
     });
 
     if (result.count === 0) {
@@ -59,6 +198,31 @@ export class ProductsService {
     }
 
     return this.findOne(id, userId);
+  }
+
+  async remove(id: string, userId: string) {
+    const existing = await this.prisma.product.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Produto não encontrado');
+    }
+
+    await this.prisma.product.delete({
+      where: { id },
+    });
+
+    return { success: true, id };
+  }
+
+  async importBulk(products: any[], userId: string) {
+    let count = 0;
+    for (const prod of products) {
+      await this.create(prod, userId);
+      count++;
+    }
+    return { count };
   }
 
   /**
@@ -71,14 +235,14 @@ export class ProductsService {
         OR: [
           { categoryId: data.categoryId },
           { category: { legacyId: data.categoryId } },
-          { category: { name: data.categoryId } }
-        ]
-      }
+          { category: { name: data.categoryId } },
+        ],
+      },
     });
 
     if (products.length === 0) return { updatedCount: 0 };
 
-    const updatePromises = products.map(product => {
+    const updatePromises = products.map((product) => {
       let newSalePrice = Number(product.salePrice);
       const weight = Number(product.weight || 0);
       const costPrice = Number(product.costPrice || 0);
@@ -94,8 +258,8 @@ export class ProductsService {
         where: { id: product.id },
         data: {
           marginPercent: data.markup,
-          salePrice: newSalePrice
-        }
+          salePrice: newSalePrice,
+        },
       });
     });
 
@@ -114,12 +278,12 @@ export class ProductsService {
         userId,
         OR: [
           { id: { in: data.productIds } },
-          { legacyId: { in: data.productIds } }
-        ]
+          { legacyId: { in: data.productIds } },
+        ],
       },
       data: {
-        status: data.status
-      }
+        status: data.status,
+      },
     });
 
     return { updatedCount: updateQuery.count };
