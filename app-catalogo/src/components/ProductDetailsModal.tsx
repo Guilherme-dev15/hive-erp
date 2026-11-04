@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica, ProdutoVariante } from '../types';
 import { formatCurrency } from '../utils/format';
+import { getContrastColor } from '../utils/theme';
 import { ImageZoomModal } from './ImageZoomModal';
 
 const MARKUP_PADRAO = 2.0;
@@ -234,17 +235,20 @@ export function ProductDetailsModal({
                       onClose();
                     }}
                     className={`
-                      w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
+                      w-full py-4 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
                       ${
                         isSobConsulta
-                          ? 'bg-gray-300 cursor-not-allowed grayscale'
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed grayscale'
                           : 'hover:brightness-110 active:scale-[0.98]'
                       }
                     `}
                     style={{
                       backgroundColor: isSobConsulta
                         ? '#cbd5e1'
-                        : config.secondaryColor,
+                        : (config.primaryColor || '#D4AF37'),
+                      color: isSobConsulta
+                        ? '#64748b'
+                        : getContrastColor(config.primaryColor || '#D4AF37'),
                     }}
                   >
                     <Plus size={22} strokeWidth={3} />

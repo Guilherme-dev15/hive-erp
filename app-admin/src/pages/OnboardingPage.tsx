@@ -132,7 +132,7 @@ export function OnboardingPage() {
             </div>
             <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
               <CheckCircle2 size={13} className="text-emerald-500" />
-              Sua vitrine será: <span className="font-semibold text-carvao">hiveerp-catalogo.vercel.app/?slug={slug || 'sua-loja'}</span>
+              Sua vitrine será: <span className="font-semibold text-carvao">hiveerp-catalogo.vercel.app/{slug || 'sua-loja'}</span>
             </p>
           </div>
 

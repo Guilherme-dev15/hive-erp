@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 import { ConfigFormData } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { getContrastColor } from '../utils/themeUtils';
 
 // --- VARIANTES DE ANIMAÇÃO ---
 const containerVariants = {
@@ -69,6 +71,7 @@ const InputGroup = ({ label, children, description }: InputGroupProps) => (
 );
 
 export function ConfiguracoesPage() {
+  const { setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
     whatsappNumber: '',
     monthlyGoal: 0,
@@ -133,6 +136,12 @@ export function ConfiguracoesPage() {
         .replace(/\s+/g, '-')
         .replace(/[^\w-]/g, '');
       setFormData((prev) => ({ ...prev, slug: formattedSlug }));
+    } else if (name === 'primaryColor' || name === 'secondaryColor') {
+      let colorVal = value.trim();
+      if (colorVal && !colorVal.startsWith('#')) {
+        colorVal = '#' + colorVal;
+      }
+      setFormData((prev) => ({ ...prev, [name]: colorVal }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -162,6 +171,12 @@ export function ConfiguracoesPage() {
       };
 
       await saveConfig(payload);
+      setTheme({
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        storeName: formData.storeName,
+        slug: formData.slug,
+      });
       toast.success('Loja atualizada com sucesso!');
     } catch (error) {
       toast.error('Erro ao salvar.');
@@ -199,7 +214,7 @@ export function ConfiguracoesPage() {
         </div>
         {formData.slug && (
           <a
-            href={`https://hiveerp-catalogo.vercel.app/?loja=${formData.slug}`}
+            href={`https://hiveerp-catalogo.vercel.app/${formData.slug}`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg font-bold hover:bg-indigo-100 transition-colors"
@@ -317,6 +332,47 @@ export function ConfiguracoesPage() {
                     />
                   </div>
                 </InputGroup>
+              </div>
+
+              {/* Prévia em Tempo Real */}
+              <div className="p-4 bg-gray-50/80 rounded-xl border border-gray-200 space-y-3">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  Prévia em Tempo Real da Sua Marca
+                </p>
+                <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm"
+                      style={{
+                        backgroundColor: formData.primaryColor,
+                        color: getContrastColor(formData.primaryColor),
+                      }}
+                    >
+                      {formData.storeName?.charAt(0) || 'L'}
+                    </div>
+                    <div>
+                      <p
+                        className="text-sm font-bold truncate max-w-[150px]"
+                        style={{ color: formData.secondaryColor }}
+                      >
+                        {formData.storeName || 'Sua Loja'}
+                      </p>
+                      <p className="text-xs text-gray-400 font-mono">
+                        {formData.slug || 'sua-loja'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm transition"
+                    style={{
+                      backgroundColor: formData.primaryColor,
+                      color: getContrastColor(formData.primaryColor),
+                    }}
+                  >
+                    Botão Principal
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
