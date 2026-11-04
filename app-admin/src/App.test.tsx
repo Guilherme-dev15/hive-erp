@@ -49,6 +49,21 @@ vi.mock('./contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('./contexts/ThemeContext', () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useTheme: () => ({
+    theme: {
+      primaryColor: '#D4AF37',
+      secondaryColor: '#343434',
+      storeName: 'Hive ERP',
+      slug: 'hive',
+    },
+    setTheme: vi.fn(),
+    refreshTheme: vi.fn(),
+    loadingTheme: false,
+  }),
+}));
+
 vi.mock('./hooks/useAuth', () => ({
   useAuth: () => authState,
 }));
@@ -87,6 +102,8 @@ vi.mock('lucide-react', () => {
     Briefcase: Icon,
     Calculator: Icon,
     DollarSign: Icon,
+    ExternalLink: Icon,
+    Globe: Icon,
     LayoutDashboard: Icon,
     Loader2: Icon,
     LogOut: Icon,

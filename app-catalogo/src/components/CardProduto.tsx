@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Package, Plus, Ruler, TrendingDown } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica, ProdutoVariante } from '../types';
 import { formatCurrency } from '../utils/format';
+import { getContrastColor } from '../utils/theme';
 
 interface CardProdutoProps {
   produto: ProdutoCatalogo;
@@ -217,7 +218,10 @@ export function CardProduto({
                 ? {
                     backgroundColor: temDesconto
                       ? '#DC2626'
-                      : config.primaryColor,
+                      : (config.primaryColor || '#D4AF37'),
+                    color: temDesconto
+                      ? '#ffffff'
+                      : getContrastColor(config.primaryColor || '#D4AF37'),
                   }
                 : {}
             } // Botão vermelho se for promo

@@ -49,7 +49,7 @@ describe('OnboardingPage', () => {
     const slugInput = screen.getByPlaceholderText('minha-loja');
     expect(slugInput).toHaveValue('joalheria-pratas-do-sul');
     expect(
-      screen.getByText(/hiveerp-catalogo\.vercel\.app\/\?slug=joalheria-pratas-do-sul/i),
+      screen.getByText(/hiveerp-catalogo\.vercel\.app\/joalheria-pratas-do-sul/i),
     ).toBeInTheDocument();
   });
 
