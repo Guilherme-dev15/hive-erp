@@ -58,6 +58,9 @@ export class PublicCatalogService {
         quantity: true,
         status: true,
         variants: {
+          where: {
+            skuSuffix: { not: '__CAMPAIGN_BACKUP__' },
+          },
           select: {
             id: true,
             skuSuffix: true,

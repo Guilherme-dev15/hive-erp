@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 
@@ -22,9 +22,25 @@ export class TransactionsService {
     });
   }
 
+  async update(id: string, data: Partial<CreateTransactionDto>, userId: string) {
+    const existing = await this.prisma.transaction.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Transação não encontrada');
+    }
+
+    return this.prisma.transaction.update({
+      where: { id },
+      data,
+    });
+  }
+
   async remove(id: string, userId: string) {
     return this.prisma.transaction.deleteMany({
       where: { id, userId },
     });
   }
 }
+
