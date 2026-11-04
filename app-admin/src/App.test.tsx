@@ -6,6 +6,7 @@ import App from './App';
 type AuthState = {
   user: { email: string } | null;
   userData: { name: string; role: 'owner' } | null;
+  needsOnboarding?: boolean;
   loading: boolean;
   logout: ReturnType<typeof vi.fn>;
 };
@@ -14,6 +15,7 @@ const { authState, dashboardGate } = vi.hoisted(() => {
   const state: AuthState = {
     user: { email: 'owner@example.com' },
     userData: { name: 'Owner', role: 'owner' },
+    needsOnboarding: false,
     loading: false,
     logout: vi.fn(),
   };
@@ -57,6 +59,10 @@ vi.mock('react-hot-toast', () => ({
 
 vi.mock('./pages/LoginPage.tsx', () => ({
   LoginPage: () => <div>Login page</div>,
+}));
+
+vi.mock('./pages/OnboardingPage.tsx', () => ({
+  OnboardingPage: () => <div>Onboarding page</div>,
 }));
 
 vi.mock('./pages/DashboardPage', () => ({
@@ -127,9 +133,20 @@ describe('App shell com páginas sob demanda', () => {
   it('mantém o login como fallback quando não há usuário autenticado', () => {
     authState.user = null;
     authState.userData = null;
+    authState.needsOnboarding = false;
 
     render(<App />);
 
     expect(screen.getByText('Login page')).toBeInTheDocument();
+  });
+
+  it('renderiza OnboardingPage quando needsOnboarding for true', () => {
+    authState.user = { email: 'novolojista@example.com' };
+    authState.userData = null;
+    authState.needsOnboarding = true;
+
+    render(<App />);
+
+    expect(screen.getByText('Onboarding page')).toBeInTheDocument();
   });
 });

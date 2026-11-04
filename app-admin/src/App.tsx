@@ -24,6 +24,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/LoginPage.tsx';
+import { OnboardingPage } from './pages/OnboardingPage.tsx';
 
 // Importa as páginas sob demanda para manter o shell inicial enxuto.
 const ProdutosPage = lazy(() =>
@@ -245,7 +246,7 @@ function PageLoadingFallback() {
 
 // --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
-  const { user, loading } = useAuth();
+  const { user, needsOnboarding, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
 
   // Tratamento de QR Code
@@ -264,6 +265,10 @@ function ProtectedLayout() {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingPage />;
   }
 
   const renderizarPagina = () => {

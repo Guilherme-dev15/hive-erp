@@ -342,3 +342,16 @@ export const removeTeamMember = async (email: string) => {
   const { data } = await apiClient.delete(`/api/v2/team/${email}`);
   return data;
 };
+
+export interface OnboardData {
+  storeName: string;
+  name?: string;
+  email?: string;
+  slug?: string;
+}
+
+export const onboardMerchant = async (data: OnboardData) => {
+  const response = await apiClient.post('/api/v2/auth/onboard', data);
+  return response.data;
+};
+
