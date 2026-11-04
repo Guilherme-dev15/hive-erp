@@ -13,10 +13,24 @@ export class InventoryController {
     return this.inventoryService.getLogs(productId, req.user.id);
   }
 
+  @Get(':productId/logs')
+  getLogsByParam(@Param('productId') productId: string, @Request() req: any) {
+    return this.inventoryService.getLogs(productId, req.user.id);
+  }
+
   @Post('adjust')
   adjustInventory(@Body('productId') productId: string, @Body() adjustDto: AdjustInventoryDto, @Request() req: any) {
     // O Express antigo usava { productId, type, quantity, userName } direto no body.
     // Preservamos o contrato: extraímos productId e passamos o resto como DTO.
+    return this.inventoryService.adjustInventory(productId, adjustDto, req.user.id);
+  }
+
+  @Post(':productId/adjust')
+  adjustInventoryByParam(
+    @Param('productId') productId: string,
+    @Body() adjustDto: AdjustInventoryDto,
+    @Request() req: any,
+  ) {
     return this.inventoryService.adjustInventory(productId, adjustDto, req.user.id);
   }
 }
