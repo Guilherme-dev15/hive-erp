@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { AuthGuard } from '../auth/auth.guard';
@@ -18,8 +18,18 @@ export class TransactionsController {
     return this.transactionsService.create(createTransactionDto, req.user.id);
   }
 
+  @Put(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateTransactionDto: Partial<CreateTransactionDto>,
+    @Request() req: any,
+  ) {
+    return this.transactionsService.update(id, updateTransactionDto, req.user.id);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req: any) {
     return this.transactionsService.remove(id, req.user.id);
   }
 }
+

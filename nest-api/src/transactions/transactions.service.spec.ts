@@ -18,7 +18,9 @@ describe('TransactionsService', () => {
     prisma = {
       transaction: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
         deleteMany: jest.fn(),
       },
     };
@@ -76,6 +78,33 @@ describe('TransactionsService', () => {
       expect(callArg.data.legacyId).toBe('legacy-1');
       expect(callArg.data.date).toBeInstanceOf(Date);
       expect(result).toEqual(created);
+    });
+  });
+
+  describe('update', () => {
+    it('deve atualizar transação existente com isolamento multitenant', async () => {
+      const existing = { id: 't1', userId: 'u1', amount: 100, description: 'Antiga' };
+      prisma.transaction.findFirst.mockResolvedValue(existing);
+      prisma.transaction.update.mockResolvedValue({ ...existing, amount: 120 });
+
+      const res = await service.update('t1', { amount: 120 }, 'u1');
+
+      expect(prisma.transaction.findFirst).toHaveBeenCalledWith({
+        where: { id: 't1', userId: 'u1' },
+      });
+      expect(prisma.transaction.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { amount: 120 },
+      });
+      expect(res.amount).toBe(120);
+    });
+
+    it('deve lançar erro se a transação não pertencer ao tenant', async () => {
+      prisma.transaction.findFirst.mockResolvedValue(null);
+
+      await expect(service.update('t-outro', { amount: 120 }, 'u1')).rejects.toThrow(
+        'Transação não encontrada',
+      );
     });
   });
 

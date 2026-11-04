@@ -22,20 +22,4 @@ export class CouponsController {
   remove(@Request() req: any, @Param('id') id: string) {
     return this.couponsService.remove(req.user.id, id);
   }
-
-  // Campaign Mock (Compatibilidade Frontend)
-  @Post('campaign/simulate')
-  simulateCampaign() {
-    return { success: true };
-  }
-
-  @Post('campaign/apply')
-  applyCampaign() {
-    return { success: true };
-  }
-
-  @Post('campaign/revert')
-  revertCampaign() {
-    return { success: true };
-  }
 }
