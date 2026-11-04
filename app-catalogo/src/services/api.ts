@@ -38,6 +38,42 @@ export const fetchCatalogData = async (slug: string): Promise<PublicCatalogRespo
   return response.data.data;
 };
 
+export interface CreatePublicOrderPayload {
+  slug: string;
+  customerName: string;
+  customerPhone: string;
+  subtotal: number;
+  discount?: number;
+  total: number;
+  notes?: string;
+  items: Array<{
+    productId?: string;
+    name: string;
+    code?: string;
+    salePrice: number;
+    quantity: number;
+    imageUrl?: string;
+  }>;
+}
+
+export interface PublicOrderResponse {
+  success: boolean;
+  orderId: string;
+  status: string;
+  total: number;
+  createdAt: string;
+}
+
+export const createPublicOrder = async (
+  data: CreatePublicOrderPayload
+): Promise<PublicOrderResponse> => {
+  const response = await apiClient.post<PublicOrderResponse>(
+    '/api/v1/public/orders',
+    data
+  );
+  return response.data;
+};
+
 /**
  * Cria um Payment Intent. Pagamentos públicos permanecem fora do contrato v1.
  */

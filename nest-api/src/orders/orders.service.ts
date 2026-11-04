@@ -1,24 +1,71 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, TransactionType } from '@prisma/client';
+
+export const STATUS_UI_TO_PRISMA: Record<string, OrderStatus> = {
+  'Aguardando Pagamento': OrderStatus.AGUARDANDO_PAGAMENTO,
+  'Pago': OrderStatus.PAGO,
+  'Em Produção': OrderStatus.EM_PRODUCAO,
+  'Em Separação': OrderStatus.EM_SEPARACAO,
+  'Enviado': OrderStatus.ENVIADO,
+  'Concluído': OrderStatus.CONCLUIDO,
+  'Cancelado': OrderStatus.CANCELADO,
+  // Also support direct string keys
+  AGUARDANDO_PAGAMENTO: OrderStatus.AGUARDANDO_PAGAMENTO,
+  PAGO: OrderStatus.PAGO,
+  EM_PRODUCAO: OrderStatus.EM_PRODUCAO,
+  EM_SEPARACAO: OrderStatus.EM_SEPARACAO,
+  ENVIADO: OrderStatus.ENVIADO,
+  CONCLUIDO: OrderStatus.CONCLUIDO,
+  CANCELADO: OrderStatus.CANCELADO,
+};
+
+export const STATUS_PRISMA_TO_UI: Record<OrderStatus, string> = {
+  [OrderStatus.AGUARDANDO_PAGAMENTO]: 'Aguardando Pagamento',
+  [OrderStatus.PAGO]: 'Aguardando Pagamento',
+  [OrderStatus.EM_PRODUCAO]: 'Em Produção',
+  [OrderStatus.EM_SEPARACAO]: 'Em Separação',
+  [OrderStatus.ENVIADO]: 'Enviado',
+  [OrderStatus.CONCLUIDO]: 'Concluído',
+  [OrderStatus.CANCELADO]: 'Cancelado',
+};
 
 @Injectable()
 export class OrdersService {
   constructor(private prisma: PrismaService) {}
 
+  normalizeStatus(status: string | OrderStatus): OrderStatus {
+    const mapped = STATUS_UI_TO_PRISMA[status];
+    if (mapped) return mapped;
+    if (Object.values(OrderStatus).includes(status as OrderStatus)) {
+      return status as OrderStatus;
+    }
+    throw new BadRequestException(`Status de pedido inválido: ${status}`);
+  }
+
+  formatOrderForUi(order: any) {
+    if (!order) return order;
+    return {
+      ...order,
+      status: STATUS_PRISMA_TO_UI[order.status as OrderStatus] || order.status,
+      rawStatus: order.status,
+    };
+  }
+
   async findAll(userId: string) {
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: { userId },
       include: { items: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
+    return orders.map((order) => this.formatOrderForUi(order));
   }
 
   async findOne(id: string, userId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id, userId },
-      include: { items: true }
+      include: { items: true },
     });
 
     if (!order) {
@@ -42,13 +89,26 @@ export class OrdersService {
           }
 
           if (product.quantity < item.quantity) {
-            throw new BadRequestException(`Estoque insuficiente para o produto ${product.name}. Disponível: ${product.quantity}, Solicitado: ${item.quantity}`);
+            throw new BadRequestException(
+              `Estoque insuficiente para o produto ${product.name}. Disponível: ${product.quantity}, Solicitado: ${item.quantity}`,
+            );
           }
 
           // Decrementa o estoque
-          await tx.product.update({
+          const updatedProduct = await tx.product.update({
             where: { id: product.id },
             data: { quantity: { decrement: item.quantity } },
+          });
+
+          await tx.inventoryLog.create({
+            data: {
+              productId: product.id,
+              userId,
+              type: 'VENDA_MANUAL',
+              change: item.quantity,
+              newQuantity: updatedProduct?.quantity ?? 0,
+              userName: 'Sistema',
+            },
           });
         }
       }
@@ -59,44 +119,49 @@ export class OrdersService {
         // Upsert order
         const existingOrder = await tx.order.findUnique({ where: { legacyId: data.legacyId } });
         if (existingOrder) {
-           return tx.order.update({
-             where: { id: existingOrder.id },
-             data: {
-               customerName: data.customerName,
-               customerPhone: data.customerPhone,
-               status: data.status || 'AGUARDANDO_PAGAMENTO',
-               subtotal: data.subtotal,
-               discount: data.discount,
-               total: data.total,
-               notes: data.notes,
-               financialRegistered: data.financialRegistered,
-             }
-           });
+          return tx.order.update({
+            where: { id: existingOrder.id },
+            data: {
+              customerName: data.customerName,
+              customerPhone: data.customerPhone,
+              status: data.status ? this.normalizeStatus(data.status) : OrderStatus.AGUARDANDO_PAGAMENTO,
+              subtotal: data.subtotal,
+              discount: data.discount,
+              total: data.total,
+              notes: data.notes,
+              financialRegistered: data.financialRegistered,
+            },
+          });
         }
       }
 
-      return tx.order.create({
+      const { items, ...orderData } = data;
+      const createdOrder = await tx.order.create({
         data: {
-          ...data,
+          ...orderData,
+          status: data.status ? this.normalizeStatus(data.status) : OrderStatus.AGUARDANDO_PAGAMENTO,
           userId,
           items: {
-            create: data.items.map(item => ({
+            create: items.map((item) => ({
               productId: item.productId,
               name: item.name,
               code: item.code,
               salePrice: item.salePrice,
               quantity: item.quantity,
-              imageUrl: item.imageUrl
-            }))
-          }
+              imageUrl: item.imageUrl,
+            })),
+          },
         },
-        include: { items: true }
+        include: { items: true },
       });
+
+      return this.formatOrderForUi(createdOrder);
     });
   }
 
-  async updateStatus(id: string, newStatus: OrderStatus, userId: string) {
+  async updateStatus(id: string, statusInput: string | OrderStatus, userId: string) {
     const order = await this.findOne(id, userId);
+    const newStatus = this.normalizeStatus(statusInput);
 
     // Validação de transição (Máquina de Estado portável do Express)
     const validTransitions = this.getValidTransitions(order.status);
@@ -105,36 +170,96 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Se estiver cancelando, precisamos restaurar o estoque
+      // 1. Se estiver cancelando, restaurar estoque e registrar log
       if (newStatus === OrderStatus.CANCELADO) {
         for (const item of order.items) {
           if (item.productId) {
-            await tx.product.update({
+            const restoredProduct = await tx.product.update({
               where: { id: item.productId },
-              data: { quantity: { increment: item.quantity } }
+              data: { quantity: { increment: item.quantity } },
+            });
+            await tx.inventoryLog.create({
+              data: {
+                productId: item.productId,
+                userId,
+                type: 'CANCELAMENTO_PEDIDO',
+                change: item.quantity,
+                newQuantity: restoredProduct?.quantity ?? 0,
+                userName: 'Sistema',
+              },
             });
           }
         }
       }
 
+      // 2. Se estiver concluindo ou pago, registrar transação no Financeiro se ainda não registrada
+      let financialRegistered = order.financialRegistered;
+      if (newStatus === OrderStatus.CONCLUIDO || newStatus === OrderStatus.PAGO) {
+        if (!order.financialRegistered) {
+          await tx.transaction.create({
+            data: {
+              userId,
+              type: TransactionType.VENDA,
+              amount: order.total,
+              description: `Venda Pedido #${order.id.slice(0, 8).toUpperCase()} - ${order.customerName}`,
+              date: new Date(),
+              orderId: order.id,
+            },
+          });
+          financialRegistered = true;
+        }
+      }
+
       // Atualiza o pedido
-      return tx.order.update({
+      const updatedOrder = await tx.order.update({
         where: { id },
-        data: { status: newStatus }
+        data: {
+          status: newStatus,
+          financialRegistered,
+        },
+        include: { items: true },
       });
+
+      return this.formatOrderForUi(updatedOrder);
     });
   }
 
-  // Máquina de estados baseada no legacy (order.service.js)
   private getValidTransitions(currentStatus: OrderStatus): OrderStatus[] {
     const transitions: Record<OrderStatus, OrderStatus[]> = {
-      AGUARDANDO_PAGAMENTO: [OrderStatus.PAGO, OrderStatus.EM_PRODUCAO, OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
-      PAGO: [OrderStatus.EM_PRODUCAO, OrderStatus.CANCELADO],
-      EM_PRODUCAO: [OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
-      EM_SEPARACAO: [OrderStatus.ENVIADO, OrderStatus.CONCLUIDO, OrderStatus.CANCELADO],
-      ENVIADO: [OrderStatus.CONCLUIDO, OrderStatus.CANCELADO], // As vezes pode cancelar/devolver após envio
-      CONCLUIDO: [],
-      CANCELADO: []
+      AGUARDANDO_PAGAMENTO: [
+        OrderStatus.PAGO,
+        OrderStatus.EM_PRODUCAO,
+        OrderStatus.EM_SEPARACAO,
+        OrderStatus.ENVIADO,
+        OrderStatus.CONCLUIDO,
+        OrderStatus.CANCELADO,
+      ],
+      PAGO: [
+        OrderStatus.EM_PRODUCAO,
+        OrderStatus.EM_SEPARACAO,
+        OrderStatus.ENVIADO,
+        OrderStatus.CONCLUIDO,
+        OrderStatus.CANCELADO,
+      ],
+      EM_PRODUCAO: [
+        OrderStatus.EM_SEPARACAO,
+        OrderStatus.ENVIADO,
+        OrderStatus.CONCLUIDO,
+        OrderStatus.CANCELADO,
+      ],
+      EM_SEPARACAO: [
+        OrderStatus.ENVIADO,
+        OrderStatus.CONCLUIDO,
+        OrderStatus.CANCELADO,
+      ],
+      ENVIADO: [
+        OrderStatus.CONCLUIDO,
+        OrderStatus.CANCELADO,
+      ],
+      CONCLUIDO: [
+        OrderStatus.CANCELADO,
+      ],
+      CANCELADO: [],
     };
     return transitions[currentStatus] || [];
   }

@@ -18,6 +18,7 @@ vi.mock('axios', () => ({
 import {
   checkCoupon,
   createPaymentIntent,
+  createPublicOrder,
   fetchCatalogData,
   saveOrder,
 } from './api';
@@ -51,6 +52,22 @@ describe('catalog API contract', () => {
 
     await expect(saveOrder(payload)).resolves.toEqual({ id: 'order-1' });
     expect(postMock).toHaveBeenCalledWith('/orders', payload);
+  });
+
+  it('posts public order to /api/v1/public/orders and returns response', async () => {
+    const payload = {
+      slug: 'hive',
+      customerName: 'Cliente teste',
+      customerPhone: '11999998888',
+      subtotal: 100,
+      total: 100,
+      items: [{ productId: 'p1', name: 'Item', salePrice: 100, quantity: 1 }],
+    };
+    const expectedRes = { success: true, orderId: 'ord-123', status: 'AGUARDANDO_PAGAMENTO', total: 100, createdAt: '2026-11-03' };
+    postMock.mockResolvedValue({ data: expectedRes });
+
+    await expect(createPublicOrder(payload)).resolves.toEqual(expectedRes);
+    expect(postMock).toHaveBeenCalledWith('/api/v1/public/orders', payload);
   });
 
   it('posts coupon validation with the observed input', async () => {

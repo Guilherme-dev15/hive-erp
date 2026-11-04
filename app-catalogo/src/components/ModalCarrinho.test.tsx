@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 
 import { ModalCarrinho } from './ModalCarrinho';
 import { ItemCarrinho, ConfigPublica } from '../types';
+import { createPublicOrder } from '../services/api';
+
+vi.mock('../services/api', () => ({
+  createPublicOrder: vi.fn().mockResolvedValue({ success: true, orderId: 'ord-12345678' }),
+}));
 
 vi.mock('react-hot-toast', () => ({
   toast: {
@@ -20,6 +25,7 @@ describe('ModalCarrinho', () => {
     primaryColor: '#D4AF37',
     secondaryColor: '#343434',
     lowStockThreshold: 5,
+    slug: 'hive',
   };
 
   const mockItens: ItemCarrinho[] = [
@@ -175,7 +181,7 @@ describe('ModalCarrinho', () => {
     openSpy.mockRestore();
   });
 
-  it('deve abrir o WhatsApp com mensagem formatada e limpar carrinho em caso de sucesso', () => {
+  it('deve registrar pedido na API pública, abrir o WhatsApp com mensagem formatada e limpar carrinho em caso de sucesso', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     const setCarrinhoMock = vi.fn();
     const onCloseMock = vi.fn();
@@ -202,15 +208,64 @@ describe('ModalCarrinho', () => {
     const btnFinalizar = screen.getByText('Finalizar no WhatsApp');
     fireEvent.click(btnFinalizar);
 
-    expect(openSpy).toHaveBeenCalledWith(
-      expect.stringContaining('https://wa.me/5511999998888?text='),
-      '_blank'
+    await waitFor(() => {
+      expect(createPublicOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slug: 'hive',
+          customerName: 'Guilherme Macedo',
+          customerPhone: '11988887777',
+          total: 280,
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/5511999998888?text='),
+        '_blank'
+      );
+      expect(setCarrinhoMock).toHaveBeenCalledWith({});
+      expect(onCloseMock).toHaveBeenCalled();
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('registrado com sucesso')
+      );
+    });
+
+    openSpy.mockRestore();
+  });
+
+  it('deve exibir toast de erro e não limpar carrinho se a API rejeitar o pedido por estoque insuficiente', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const setCarrinhoMock = vi.fn();
+    vi.mocked(createPublicOrder).mockRejectedValueOnce({
+      response: { data: { message: 'Estoque insuficiente para o produto Anel de Prata 925' } },
+    });
+
+    render(
+      <ModalCarrinho
+        isOpen={true}
+        onClose={vi.fn()}
+        itens={mockItens}
+        setCarrinho={setCarrinhoMock}
+        whatsappNumber={mockConfig.whatsappNumber}
+        config={mockConfig}
+      />
     );
-    expect(setCarrinhoMock).toHaveBeenCalledWith({});
-    expect(onCloseMock).toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith(
-      expect.stringContaining('Pedido encaminhado para o WhatsApp')
-    );
+
+    const inputNome = screen.getByLabelText(/Nome Completo/i);
+    const inputTel = screen.getByLabelText(/WhatsApp \(com DDD\)/i);
+
+    fireEvent.change(inputNome, { target: { value: 'Guilherme' } });
+    fireEvent.change(inputTel, { target: { value: '11988887777' } });
+
+    const btnFinalizar = screen.getByText('Finalizar no WhatsApp');
+    fireEvent.click(btnFinalizar);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Estoque insuficiente para o produto Anel de Prata 925');
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(setCarrinhoMock).not.toHaveBeenCalled();
+    });
 
     openSpy.mockRestore();
   });
