@@ -14,6 +14,11 @@ export class OrdersController {
     return this.ordersService.findAll(req.user.id);
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.findOne(id, req.user.id);
+  }
+
   @Post()
   create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     return this.ordersService.create(createOrderDto, req.user.id);

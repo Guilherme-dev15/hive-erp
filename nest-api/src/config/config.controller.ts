@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, UseGuards, Request } from '@nestjs/common';
 import { ConfigService } from './config.service';
 import { UpdateConfigDto } from './dto/update-config.dto';
 import { AuthGuard } from '../auth/auth.guard';
@@ -15,6 +15,11 @@ export class ConfigController {
 
   @Post()
   saveConfig(@Request() req: any, @Body() updateConfigDto: UpdateConfigDto) {
+    return this.configService.saveConfig(req.user.id, updateConfigDto);
+  }
+
+  @Put()
+  updateConfig(@Request() req: any, @Body() updateConfigDto: UpdateConfigDto) {
     return this.configService.saveConfig(req.user.id, updateConfigDto);
   }
 }
