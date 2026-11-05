@@ -67,6 +67,28 @@ describe('Sidebar & Topbar (Navegação SaaS Moderna)', () => {
       expect(screen.getByText('Marketing')).toBeInTheDocument();
       expect(screen.getByText('Gestão & DRE')).toBeInTheDocument();
       expect(screen.getByText('Configurações')).toBeInTheDocument();
+
+      // Verifica os itens de Catálogo incluindo Categorias
+      expect(screen.getByRole('button', { name: /Produtos/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Categorias/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Fornecedores/i })).toBeInTheDocument();
+    });
+
+    it('navega para a página de Categorias ao clicar no item correspondente', () => {
+      render(
+        <Sidebar
+          paginaAtual="dashboard"
+          onNavigate={mockNavigate}
+          mobileOpen={true}
+          onCloseMobile={mockCloseMobile}
+        />
+      );
+
+      const categoriasBtn = screen.getByRole('button', { name: /Categorias/i });
+      fireEvent.click(categoriasBtn);
+
+      expect(mockNavigate).toHaveBeenCalledWith('categorias');
+      expect(mockCloseMobile).toHaveBeenCalled();
     });
 
     it('dispara onNavigate e onCloseMobile ao clicar em um item de menu', () => {

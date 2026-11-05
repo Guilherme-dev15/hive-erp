@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db, auth } from '../services/firebase/firebaseConfig';
-import { updateBulkMarkup } from '../services/apiService';
-
-interface Category {
-  id: string;
-  name: string;
-}
+import { updateBulkMarkup, getCategories } from '../services/apiService';
+import type { Category } from '../types';
 
 interface BulkMarkupModalProps {
   isOpen: boolean;
@@ -35,28 +29,11 @@ export const BulkMarkupModal: React.FC<BulkMarkupModalProps> = ({
 
     const fetchCategories = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) {
-          setErrorMessage('Você precisa estar logado.');
-          return;
-        }
-
-        const categoriasQuery = query(
-          collection(db, 'categories'),
-          where('userId', '==', user.uid)
-        );
-        const querySnapshot = await getDocs(categoriasQuery);
-        const loadedCategories: Category[] = [];
-        querySnapshot.forEach((doc) => {
-          loadedCategories.push({
-            id: doc.id,
-            name: doc.data().name as string,
-          });
-        });
-        setCategories(loadedCategories);
+        const loadedCategories = await getCategories();
+        setCategories(Array.isArray(loadedCategories) ? loadedCategories : []);
       } catch (error) {
         console.error(error);
-        setErrorMessage('Erro ao carregar categorias do banco.');
+        setErrorMessage('Erro ao carregar categorias do servidor.');
       }
     };
 

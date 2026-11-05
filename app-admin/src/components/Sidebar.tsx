@@ -16,6 +16,7 @@ import {
   X,
   Globe,
   ExternalLink,
+  Tags,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,6 +26,7 @@ export type Pagina =
   | 'dashboard'
   | 'pedidos'
   | 'produtos'
+  | 'categorias'
   | 'fornecedores'
   | 'financeiro'
   | 'campanhas'
@@ -55,6 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Catálogo',
     items: [
       { id: 'produtos', label: 'Produtos', icon: Package },
+      { id: 'categorias', label: 'Categorias', icon: Tags },
       { id: 'fornecedores', label: 'Fornecedores', icon: Users },
     ],
   },
