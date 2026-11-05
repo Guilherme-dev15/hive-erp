@@ -17,6 +17,9 @@ import { Topbar } from './components/Topbar';
 const ProdutosPage = lazy(() =>
   import('./pages/ProdutosPage').then(({ ProdutosPage }) => ({ default: ProdutosPage }))
 );
+const CategoriasPage = lazy(() =>
+  import('./pages/CategoriasPage').then(({ CategoriasPage }) => ({ default: CategoriasPage }))
+);
 const FornecedoresPage = lazy(() =>
   import('./pages/FornecedoresPage').then(({ FornecedoresPage }) => ({ default: FornecedoresPage }))
 );
@@ -102,6 +105,8 @@ function ProtectedLayout() {
         return <PedidosPage />;
       case 'produtos':
         return <ProdutosPage />;
+      case 'categorias':
+        return <CategoriasPage />;
       case 'fornecedores':
         return <FornecedoresPage />;
       case 'financeiro':
