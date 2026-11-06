@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { getContrastColor } from '../utils/themeUtils';
+import { getCatalogUrl } from '../utils/catalogUrl';
 
 export type Pagina =
   | 'dashboard'
@@ -112,9 +113,7 @@ export function Sidebar({
     onCloseMobile();
   };
 
-  const catalogUrl = theme.slug
-    ? `https://hiveerp-catalogo.vercel.app/${theme.slug}`
-    : null;
+  const catalogUrl = getCatalogUrl(theme.slug);
 
   return (
     <>

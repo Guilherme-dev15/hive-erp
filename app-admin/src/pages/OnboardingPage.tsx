@@ -2,6 +2,7 @@ import React, { useState, useId } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Store, Globe, ArrowRight, Loader2, LogOut, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getCatalogDisplayUrl } from '../utils/catalogUrl';
 
 function slugify(text: string): string {
   return text
@@ -132,7 +133,7 @@ export function OnboardingPage() {
             </div>
             <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
               <CheckCircle2 size={13} className="text-emerald-500" />
-              Sua vitrine será: <span className="font-semibold text-carvao">hiveerp-catalogo.vercel.app/{slug || 'sua-loja'}</span>
+              Sua vitrine será: <span className="font-semibold text-carvao">{getCatalogDisplayUrl(slug)}</span>
             </p>
           </div>
 
