@@ -627,4 +627,53 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
       );
     });
   });
+
+  // ==========================================================================
+  // 11. ISOLAMENTO DE CLIENTES / CRM (NOVO DOMÍNIO)
+  // ==========================================================================
+  describe('11. Isolamento de Clientes (CRM)', () => {
+    it('Tenant B consulta clientes e a busca de pedidos é restrita exclusivamente a userId: Tenant B', async () => {
+      prismaMock.order.findMany.mockResolvedValue([
+        {
+          id: 'ord-b-1',
+          userId: 'uuid-tenant-B',
+          customerName: 'Cliente do Tenant B',
+          customerPhone: '11999998888',
+          status: OrderStatus.CONCLUIDO,
+          total: 199.9,
+          createdAt: new Date(),
+          items: [{ id: 'item-1' }],
+        },
+      ]);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v2/customers')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(200);
+
+      expect(res.body.total).toBe(1);
+      expect(res.body.data[0].name).toBe('Cliente do Tenant B');
+      expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'uuid-tenant-B' },
+        }),
+      );
+    });
+
+    it('Tenant B não consegue ler cliente que pertence exclusivamente aos pedidos do Tenant A', async () => {
+      // Mock retorna apenas pedidos do Tenant B (que não contém o cliente do Tenant A)
+      prismaMock.order.findMany.mockResolvedValue([]);
+
+      await request(app.getHttpServer())
+        .get('/api/v2/customers/11999991111') // Telefone do cliente do Tenant A
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(404);
+
+      expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'uuid-tenant-B' },
+        }),
+      );
+    });
+  });
 });

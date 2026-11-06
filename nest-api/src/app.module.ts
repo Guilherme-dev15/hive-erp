@@ -18,6 +18,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { PublicCatalogModule } from './public-catalog/public-catalog.module';
 import { PreviewMigrationModule } from './preview-migration/preview-migration.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
+import { CustomersModule } from './customers/customers.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
     PublicCatalogModule,
     PreviewMigrationModule,
     CampaignsModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

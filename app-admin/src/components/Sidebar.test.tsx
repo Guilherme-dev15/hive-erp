@@ -68,10 +68,32 @@ describe('Sidebar & Topbar (Navegação SaaS Moderna)', () => {
       expect(screen.getByText('Gestão & DRE')).toBeInTheDocument();
       expect(screen.getByText('Configurações')).toBeInTheDocument();
 
+      // Verifica os itens de Vendas & Operação incluindo Clientes
+      expect(screen.getByRole('button', { name: /Dashboard/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Pedidos/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Clientes/i })).toBeInTheDocument();
+
       // Verifica os itens de Catálogo incluindo Categorias
       expect(screen.getByRole('button', { name: /Produtos/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Categorias/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Fornecedores/i })).toBeInTheDocument();
+    });
+
+    it('navega para a página de Clientes ao clicar no item correspondente', () => {
+      render(
+        <Sidebar
+          paginaAtual="dashboard"
+          onNavigate={mockNavigate}
+          mobileOpen={true}
+          onCloseMobile={mockCloseMobile}
+        />
+      );
+
+      const clientesBtn = screen.getByRole('button', { name: /Clientes/i });
+      fireEvent.click(clientesBtn);
+
+      expect(mockNavigate).toHaveBeenCalledWith('clientes');
+      expect(mockCloseMobile).toHaveBeenCalled();
     });
 
     it('navega para a página de Categorias ao clicar no item correspondente', () => {

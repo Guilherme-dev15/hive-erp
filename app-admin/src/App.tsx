@@ -38,6 +38,9 @@ const ConfiguracoesPage = lazy(() =>
 const PedidosPage = lazy(() =>
   import('./pages/PedidosPage').then(({ PedidosPage }) => ({ default: PedidosPage }))
 );
+const ClientesPage = lazy(() =>
+  import('./pages/ClientesPage').then(({ ClientesPage }) => ({ default: ClientesPage }))
+);
 const RelatoriosPage = lazy(() =>
   import('./pages/RelatoriosPage').then(({ RelatoriosPage }) => ({ default: RelatoriosPage }))
 );
@@ -103,6 +106,8 @@ function ProtectedLayout() {
         return <DashboardPage />;
       case 'pedidos':
         return <PedidosPage />;
+      case 'clientes':
+        return <ClientesPage />;
       case 'produtos':
         return <ProdutosPage />;
       case 'categorias':

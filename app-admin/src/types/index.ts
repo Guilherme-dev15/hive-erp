@@ -204,3 +204,33 @@ export interface ABCReport {
   };
 }
 
+export interface CustomerOrderSummary {
+  id: string;
+  total: number;
+  status: string;
+  createdAt: string;
+  itemsCount: number;
+}
+
+export interface CustomerSummary {
+  id: string;
+  name: string;
+  phone: string;
+  cleanPhone: string;
+  totalOrders: number;
+  totalSpent: number;
+  averageTicket: number;
+  firstOrderDate: string;
+  lastOrderDate: string;
+  lastOrderStatus: string;
+  orders: CustomerOrderSummary[];
+}
+
+export interface CustomersListResponse {
+  data: CustomerSummary[];
+  total: number;
+  totalRevenue: number;
+  averageTicketGlobal: number;
+}
+
+

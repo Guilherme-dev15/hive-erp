@@ -6,6 +6,7 @@ import { Pagina } from './Sidebar';
 const TITULOS_PAGINA: Record<Pagina, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral e faturamento do seu negócio' },
   pedidos: { title: 'Gestão de Pedidos', subtitle: 'Acompanhe pedidos vindos do catálogo e balcão' },
+  clientes: { title: 'Gestão de Clientes', subtitle: 'Carteira de clientes, histórico de compras e LTV' },
   produtos: { title: 'Catálogo de Produtos', subtitle: 'Estoque, custos, preços e variantes' },
   categorias: { title: 'Gestão de Categorias', subtitle: 'Organize os grupos e filtros da sua vitrine online' },
   fornecedores: { title: 'Fornecedores', subtitle: 'Gestão de parceiros e cotações' },
