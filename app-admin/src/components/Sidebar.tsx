@@ -17,6 +17,7 @@ import {
   Globe,
   ExternalLink,
   Tags,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,6 +26,7 @@ import { getContrastColor } from '../utils/themeUtils';
 export type Pagina =
   | 'dashboard'
   | 'pedidos'
+  | 'clientes'
   | 'produtos'
   | 'categorias'
   | 'fornecedores'
@@ -51,6 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'pedidos', label: 'Pedidos', icon: ShoppingBag },
+      { id: 'clientes', label: 'Clientes', icon: UserCheck },
     ],
   },
   {

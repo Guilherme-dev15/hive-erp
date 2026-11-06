@@ -15,6 +15,8 @@ import {
   DashboardStats,
   ChartData,
   ABCReport,
+  CustomerSummary,
+  CustomersListResponse,
 } from '../types';
 
 
@@ -300,6 +302,25 @@ export const getChartData = async (): Promise<ChartData> => {
 };
 export const getABCReport = async (): Promise<ABCReport> => {
   const { data } = await apiClient.get('/api/v2/reports/abc');
+  return data;
+};
+
+// ============================================================================
+// DOMÍNIO: CLIENTES & CRM
+// ============================================================================
+export const getCustomers = async (query?: {
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}): Promise<CustomersListResponse> => {
+  const { data } = await apiClient.get('/api/v2/customers', { params: query });
+  return data;
+};
+
+export const getCustomer = async (
+  idOrPhone: string
+): Promise<CustomerSummary> => {
+  const { data } = await apiClient.get(`/api/v2/customers/${idOrPhone}`);
   return data;
 };
 

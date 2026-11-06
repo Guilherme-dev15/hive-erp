@@ -115,6 +115,7 @@ vi.mock('lucide-react', () => {
     ShoppingBag: Icon,
     Tags: Icon,
     Ticket: Icon,
+    UserCheck: Icon,
     Users: Icon,
     X: Icon,
   };
