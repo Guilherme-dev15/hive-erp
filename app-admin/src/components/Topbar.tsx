@@ -2,6 +2,7 @@ import React from 'react';
 import { Menu, Globe, ExternalLink } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Pagina } from './Sidebar';
+import { getCatalogUrl } from '../utils/catalogUrl';
 
 const TITULOS_PAGINA: Record<Pagina, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral e faturamento do seu negócio' },
@@ -28,9 +29,7 @@ export function Topbar({ paginaAtual, onOpenMobile }: TopbarProps) {
   const { theme } = useTheme();
   const info = TITULOS_PAGINA[paginaAtual] || { title: 'Painel', subtitle: '' };
 
-  const catalogUrl = theme.slug
-    ? `https://hiveerp-catalogo.vercel.app/${theme.slug}`
-    : null;
+  const catalogUrl = getCatalogUrl(theme.slug);
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur-md border-b border-gray-200/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between">

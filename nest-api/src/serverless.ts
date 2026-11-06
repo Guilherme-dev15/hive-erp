@@ -3,9 +3,9 @@ import { ValidationPipe } from '@nestjs/common';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { AppModule } from './app.module';
 import { Logger } from 'nestjs-pino';
-import { createCorsPreflightHandler } from './serverless-cors';
+import { createCorsPreflightHandler, isOriginAllowed } from './serverless-cors';
 
-export { createCorsPreflightHandler } from './serverless-cors';
+export { createCorsPreflightHandler, isOriginAllowed } from './serverless-cors';
 
 let cachedServer: (req: IncomingMessage, res: ServerResponse) => void;
 
@@ -49,8 +49,8 @@ async function bootstrap() {
 
     app.enableCors({
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Permitimos ausência de origin (ex: chamadas Server-to-Server ou curl), ou origins homologados
-        if (!origin || allowedOrigins.includes(origin)) {
+        // Permitimos ausência de origin (ex: chamadas Server-to-Server ou curl), ou origins homologados (incluindo wildcards)
+        if (isOriginAllowed(origin, allowedOrigins)) {
           callback(null, true);
         } else {
           callback(null, false);

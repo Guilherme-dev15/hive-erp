@@ -11,6 +11,7 @@ import { Toaster, toast } from 'react-hot-toast';
 
 import { ProdutoCatalogo, ConfigPublica, ItemCarrinho } from './types';
 import { fetchCatalogData } from './services/api';
+import { extractSlugFromLocation } from './utils/storeIdentity';
 import { BannerCarousel } from './components/BannerCarousel';
 import { CardProduto } from './components/CardProduto';
 import { ModalCarrinho } from './components/ModalCarrinho';
@@ -21,47 +22,21 @@ const useStoreIdentity = () => {
   const [slug, setSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const querySlug = params.get('loja') || params.get('slug');
-    const directStoreId = params.get('storeId');
-
-    if (directStoreId && !querySlug) {
-      setSlug(null);
-      return;
-    }
-
-    // 1. Suporte a Subdomínio Personalizado (ex: pratas.meudominio.com.br)
-    const host = window.location.hostname;
-    const parts = host.split('.');
-    const isCustomSubdomain =
-      !host.includes('localhost') &&
-      !host.includes('vercel.app') &&
-      parts.length >= 3 &&
-      !['www', 'app', 'admin', 'catalogo'].includes(parts[0].toLowerCase());
-
-    let detectedSlug: string | null = null;
-
-    if (isCustomSubdomain) {
-      detectedSlug = parts[0].toLowerCase();
-    } else if (querySlug) {
-      detectedSlug = querySlug.trim().toLowerCase();
-    } else {
-      // 2. Suporte a Clean Path URL (ex: hiveerp-catalogo.vercel.app/hive)
-      const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
-      const firstSegment = pathname.split('/')[0];
-      if (
-        firstSegment &&
-        !firstSegment.includes('.') &&
-        !['api', 'assets', 'sw.js', 'manifest.webmanifest', 'manifest.json'].includes(firstSegment.toLowerCase())
-      ) {
-        detectedSlug = firstSegment.toLowerCase();
-      }
-    }
+    const configuredBaseDomain = import.meta.env.VITE_CATALOG_BASE_DOMAIN as string | undefined;
+    const { slug: detectedSlug, isSubdomain } = extractSlugFromLocation(
+      {
+        hostname: window.location.hostname,
+        pathname: window.location.pathname,
+        search: window.location.search,
+      },
+      configuredBaseDomain
+    );
 
     if (detectedSlug) {
       setSlug(detectedSlug);
-      // Clean URL: se veio com ?loja= ou ?slug=, reescreve a barra de endereço para um path limpo e profissional
-      if (window.location.search && window.history.replaceState) {
+      // Clean URL: apenas se veio com ?loja= ou ?slug= no domínio apex/compartilhado (não no subdomínio),
+      // reescreve a barra de endereço para um path limpo e profissional
+      if (!isSubdomain && window.location.search && window.history.replaceState) {
         const cleanPath = `/${detectedSlug}`;
         if (window.location.pathname !== cleanPath) {
           window.history.replaceState({}, '', cleanPath);

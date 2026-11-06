@@ -20,6 +20,7 @@ import { getConfig, saveConfig } from '../services/apiService';
 import { ConfigFormData } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { getContrastColor } from '../utils/themeUtils';
+import { getCatalogDisplayUrl } from '../utils/catalogUrl';
 
 // --- VARIANTES DE ANIMAÇÃO ---
 const containerVariants = {
@@ -261,18 +262,37 @@ export function ConfiguracoesPage() {
                 label="Link Personalizado (Slug)"
                 description="O endereço da sua loja na internet."
               >
-                <div className="flex">
-                  <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-gray-200 bg-gray-100 text-gray-500 text-sm font-medium">
-                    hive-erp.../
-                  </span>
-                  <input
-                    name="slug"
-                    value={formData.slug}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 lowercase"
-                    placeholder="minha-loja"
-                  />
-                </div>
+                {(import.meta.env.VITE_CATALOG_BASE_DOMAIN as string | undefined)?.trim() ? (
+                  <div className="flex">
+                    <input
+                      name="slug"
+                      value={formData.slug}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-l-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 lowercase"
+                      placeholder="minha-loja"
+                    />
+                    <span className="inline-flex items-center px-4 rounded-r-xl border border-l-0 border-gray-200 bg-gray-100 text-gray-500 text-sm font-medium">
+                      .{(import.meta.env.VITE_CATALOG_BASE_DOMAIN as string).trim().replace(/^\.+/, '')}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex">
+                    <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-gray-200 bg-gray-100 text-gray-500 text-sm font-medium">
+                      hive-erp.../
+                    </span>
+                    <input
+                      name="slug"
+                      value={formData.slug}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 lowercase"
+                      placeholder="minha-loja"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                  <Globe size={13} className="text-indigo-500" />
+                  Vitrine pública: <span className="font-semibold text-gray-700">{getCatalogDisplayUrl(formData.slug)}</span>
+                </p>
               </InputGroup>
 
               <InputGroup
