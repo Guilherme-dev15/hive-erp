@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -10,12 +10,30 @@ import {
 } from 'firebase/auth';
 import { auth } from '../services/firebase/firebaseConfig';
 import toast from 'react-hot-toast';
-import { apiClient, onboardMerchant } from '../services/apiService';
+import {
+  apiClient,
+  onboardMerchant,
+  registerSubscriptionExpiredHandler,
+} from '../services/apiService';
+import type { SubscriptionSummary } from '../types';
+
+export interface StoreSummary {
+  id: string;
+  storeName: string;
+  slug: string | null;
+  primaryColor?: string;
+  secondaryColor?: string;
+}
 
 export interface UserData {
+  id?: string;
+  email?: string;
   name: string;
   role: 'admin' | 'editor' | 'viewer';
   active: boolean;
+  isSuperAdmin?: boolean;
+  store?: StoreSummary | null;
+  subscription?: SubscriptionSummary;
 }
 
 export interface AuthContextType {
@@ -25,6 +43,7 @@ export interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   completeOnboard: (storeName: string, slug?: string) => Promise<void>;
+  refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -61,6 +80,55 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const fetchAndApplyMe = useCallback(async (currentUser: User) => {
+    const token = await currentUser.getIdToken();
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+    const response = await apiClient.get('/api/v2/auth/me');
+    const meData = response.data as UserData;
+
+    if (meData && meData.active) {
+      setUserData(meData);
+      setUser(currentUser);
+      setNeedsOnboarding(false);
+    } else {
+      toast.error('Acesso negado. Usuário inativo no ERP.');
+      await signOut(auth);
+      setUser(null);
+      setUserData(null);
+      setNeedsOnboarding(false);
+      delete apiClient.defaults.headers.common['Authorization'];
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof registerSubscriptionExpiredHandler !== 'function') {
+      return undefined;
+    }
+
+    return registerSubscriptionExpiredHandler((blockedSub) => {
+      setUserData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          subscription: blockedSub ?? {
+            status: prev.subscription?.status ?? 'TRIAL',
+            effectiveStatus: 'EXPIRED',
+            isBlocked: true,
+            isExempt: false,
+            planCode: prev.subscription?.planCode ?? 'PRO_MONTHLY',
+            monthlyPriceCents: prev.subscription?.monthlyPriceCents ?? 9700,
+            trialStartsAt: prev.subscription?.trialStartsAt ?? new Date().toISOString(),
+            trialEndsAt: prev.subscription?.trialEndsAt ?? new Date().toISOString(),
+            currentPeriodStart: prev.subscription?.currentPeriodStart ?? null,
+            currentPeriodEnd: prev.subscription?.currentPeriodEnd ?? null,
+            daysRemaining: 0,
+          },
+        };
+      });
+    });
+  }, []);
+
   useEffect(() => {
     let active = true;
 
@@ -78,25 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.email) {
         try {
-          // Prepara o header de autorização ANTES de bater na API
-          const token = await currentUser.getIdToken();
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-          // Usa o backend NestJS(PostgreSQL) para verificar a saúde/perfil em vez do Firestore
-          const response = await apiClient.get('/api/v2/auth/me');
-
-          if (response.data && response.data.active) {
-            setUserData(response.data as UserData);
-            setUser(currentUser);
-            setNeedsOnboarding(false);
-          } else {
-            toast.error('Acesso negado. Usuário inativo no ERP.');
-            await signOut(auth);
-            setUser(null);
-            setUserData(null);
-            setNeedsOnboarding(false);
-            delete apiClient.defaults.headers.common['Authorization'];
-          }
+          await fetchAndApplyMe(currentUser);
         } catch (error: unknown) {
           const status = getHttpErrorStatus(error);
           if (status === 401 || status === 404) {
@@ -127,7 +177,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [fetchAndApplyMe]);
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -170,13 +220,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       slug: slug || undefined,
     });
     setUserData({
+      id: result.id,
+      email: result.email,
       name: result.name,
       role: result.role,
       active: result.active,
+      isSuperAdmin: result.isSuperAdmin,
+      store: result.store,
+      subscription: result.subscription,
     });
     setNeedsOnboarding(false);
     toast.success(`Loja "${storeName}" criada com sucesso!`);
   };
+
+  const refreshAuth = useCallback(async () => {
+    const activeUser = auth.currentUser ?? user;
+    if (!activeUser) return;
+    await fetchAndApplyMe(activeUser);
+  }, [user, fetchAndApplyMe]);
 
   const logout = async () => {
     await signOut(auth);
@@ -193,6 +254,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loading,
     signInWithGoogle,
     completeOnboard,
+    refreshAuth,
     logout,
   };
 

@@ -10,6 +10,8 @@ import {
   BarChart3,
   Calculator,
   Settings,
+  CreditCard,
+  ShieldCheck,
   LogOut,
   Shield,
   X,
@@ -36,6 +38,8 @@ export type Pagina =
   | 'precificacao'
   | 'relatorios'
   | 'equipe'
+  | 'assinatura'
+  | 'super-admin'
   | 'configuracoes';
 
 interface NavGroup {
@@ -83,9 +87,15 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Configurações',
     items: [
       { id: 'configuracoes', label: 'Config', icon: Settings },
+      { id: 'assinatura', label: 'Assinatura', icon: CreditCard },
     ],
   },
 ];
+
+const SUPER_ADMIN_GROUP: NavGroup = {
+  title: 'Plataforma',
+  items: [{ id: 'super-admin', label: 'Super Admin', icon: ShieldCheck }],
+};
 
 interface SidebarProps {
   paginaAtual: Pagina;
@@ -112,6 +122,7 @@ export function Sidebar({
   };
 
   const catalogUrl = getCatalogUrl(theme.slug);
+  const visibleGroups = userData?.isSuperAdmin ? [...NAV_GROUPS, SUPER_ADMIN_GROUP] : NAV_GROUPS;
 
   return (
     <>
@@ -186,7 +197,7 @@ export function Sidebar({
 
         {/* Lista de Navegação Agrupada */}
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5 no-scrollbar">
-          {NAV_GROUPS.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.title} className="space-y-1">
               <p className="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                 {group.title}
@@ -237,7 +248,9 @@ export function Sidebar({
                     {userData?.name || 'Lojista'}
                   </span>
                   {userData?.role === 'admin' && (
-                    <Shield size={11} style={{ color: primaryColor }} title="Administrador" />
+                    <span title="Administrador">
+                      <Shield size={11} style={{ color: primaryColor }} />
+                    </span>
                   )}
                 </div>
                 <p className="text-[10px] text-gray-400 truncate max-w-[110px]">

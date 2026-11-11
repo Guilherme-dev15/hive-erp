@@ -1,7 +1,16 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { PrismaService } from '../prisma/prisma.service';
+
+export interface AuthenticatedRequestUser {
+  id: string | null;
+  legacyId: string;
+  email: string | null;
+  role: Role | null;
+  isSuperAdmin: boolean;
+}
 
 export function ensureFirebaseApp(): void {
   if (getApps().length === 0) {
@@ -37,9 +46,10 @@ export class AuthGuard implements CanActivate {
 
     let firebaseUid: string | undefined;
     let firebaseEmail: string | undefined;
+    let emailVerified = true;
 
     if (request.method === 'OPTIONS') {
-       return true;
+      return true;
     }
 
     if (!token) {
@@ -58,6 +68,7 @@ export class AuthGuard implements CanActivate {
         const decodedToken = await getAuth().verifyIdToken(token);
         firebaseUid = decodedToken.uid;
         firebaseEmail = decodedToken.email;
+        emailVerified = decodedToken.email_verified !== false;
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
           this.logger.warn('Fallback AuthGuard Local - Token Firebase Inválido mas aceito para simular dev.');
@@ -76,7 +87,7 @@ export class AuthGuard implements CanActivate {
 
     const normalizedEmail = firebaseEmail?.trim().toLowerCase();
     const adminEmails = getAdminEmails();
-    const isAdmin = Boolean(normalizedEmail && adminEmails.includes(normalizedEmail));
+    const isAdmin = Boolean(normalizedEmail && emailVerified && adminEmails.includes(normalizedEmail));
 
     let user = await this.prisma.user.findFirst({
       where: {
@@ -91,13 +102,10 @@ export class AuthGuard implements CanActivate {
     });
 
     if (!user && isAdmin) {
-      // Procura admin/owner existente para reconciliar
+      // Reconcilia apenas entre contas pertencentes aos e-mails administrativos (nunca { role: 'OWNER' } global)
       const existingOwner = await this.prisma.user.findFirst({
         where: {
-          OR: [
-            { email: { in: adminEmails, mode: 'insensitive' as const } },
-            { role: 'OWNER' },
-          ],
+          email: { in: adminEmails, mode: 'insensitive' as const },
         },
         include: { config: true },
       });
@@ -115,7 +123,7 @@ export class AuthGuard implements CanActivate {
             include: { config: true },
           });
           this.logger.log(`Linked existing owner ${existingOwner.id} to admin ${normalizedEmail} (UID: ${firebaseUid})`);
-        } catch (linkErr) {
+        } catch {
           user = await this.prisma.user.update({
             where: { id: existingOwner.id },
             data: {
@@ -149,7 +157,7 @@ export class AuthGuard implements CanActivate {
             include: { config: true },
           });
           this.logger.log(`Auto-provisioned cold-start admin user ${user.id} (${normalizedEmail}) with store 'hive'`);
-        } catch (createErr) {
+        } catch {
           user = await this.prisma.user.create({
             data: {
               email: normalizedEmail!,
@@ -207,7 +215,7 @@ export class AuthGuard implements CanActivate {
             await this.prisma.config.create({
               data: {
                 userId: user.id,
-                storeName: 'Hive Pratas',
+                storeName: isAdmin ? 'Hive Pratas' : user.name || 'Minha Loja',
                 publicSlug: isAdmin ? 'hive' : undefined,
               },
             });
@@ -215,7 +223,7 @@ export class AuthGuard implements CanActivate {
             await this.prisma.config.create({
               data: {
                 userId: user.id,
-                storeName: 'Hive Pratas',
+                storeName: isAdmin ? 'Hive Pratas' : user.name || 'Minha Loja',
               },
             });
           }
@@ -225,9 +233,23 @@ export class AuthGuard implements CanActivate {
         }
       }
 
-      request.user = { id: user.id, legacyId: firebaseUid };
+      const authenticatedUser: AuthenticatedRequestUser = {
+        id: user.id,
+        legacyId: firebaseUid,
+        email: user.email ?? normalizedEmail ?? null,
+        role: user.role ?? null,
+        isSuperAdmin: isAdmin,
+      };
+      request.user = authenticatedUser;
     } else {
-      request.user = { legacyId: firebaseUid, id: null };
+      const unprovisionedUser: AuthenticatedRequestUser = {
+        id: null,
+        legacyId: firebaseUid,
+        email: normalizedEmail ?? null,
+        role: null,
+        isSuperAdmin: false,
+      };
+      request.user = unprovisionedUser;
     }
 
     return true;

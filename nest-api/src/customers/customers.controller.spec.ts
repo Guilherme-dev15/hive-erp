@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('CustomersController', () => {
   let controller: CustomersController;
@@ -40,6 +41,8 @@ describe('CustomersController', () => {
       ],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SubscriptionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

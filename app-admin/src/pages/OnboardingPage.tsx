@@ -81,6 +81,9 @@ export function OnboardingPage() {
           <p className="text-gray-600 text-sm mt-1">
             Você está a um passo de gerenciar estoque, vendas e catálogo online no HiveERP.
           </p>
+          <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700">
+            14 dias grátis • Sem cartão de crédito
+          </span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5" aria-label="form-onboarding">

@@ -19,6 +19,8 @@ import { PublicCatalogModule } from './public-catalog/public-catalog.module';
 import { PreviewMigrationModule } from './preview-migration/preview-migration.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { CustomersModule } from './customers/customers.module';
+import { BillingModule } from './billing/billing.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { CustomersModule } from './customers/customers.module';
       },
     }),
     PrismaModule,
+    BillingModule,
     ProductsModule,
     CategoriesModule,
     SuppliersModule,
@@ -52,6 +55,7 @@ import { CustomersModule } from './customers/customers.module';
     PreviewMigrationModule,
     CampaignsModule,
     CustomersModule,
+    SuperAdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

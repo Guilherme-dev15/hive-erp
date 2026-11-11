@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('TransactionsController', () => {
   let controller: TransactionsController;
@@ -26,7 +27,10 @@ describe('TransactionsController', () => {
         { provide: TransactionsService, useValue: service },
         { provide: PrismaService, useValue: mockPrismaService },
       ],
-    }).compile();
+    })
+      .overrideGuard(SubscriptionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<TransactionsController>(TransactionsController);
   });

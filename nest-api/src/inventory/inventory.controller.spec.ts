@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -15,7 +16,10 @@ describe('InventoryController', () => {
         { provide: InventoryService, useValue: mockInventoryService },
         { provide: PrismaService, useValue: mockPrismaService },
       ],
-    }).compile();
+    })
+      .overrideGuard(SubscriptionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<InventoryController>(InventoryController);
   });

@@ -17,6 +17,16 @@ import {
   ABCReport,
   CustomerSummary,
   CustomersListResponse,
+  BillingStatusResponse,
+  CheckoutIntentResponse,
+  ProductSetupRequestItem,
+  SetupBatchTier,
+  SetupRequestStatus,
+  SubscriptionSummary,
+  SuperAdminOverview,
+  SuperAdminSetupRequestItem,
+  SuperAdminSubscriptionAction,
+  SuperAdminTenantItem,
 } from '../types';
 
 
@@ -43,6 +53,32 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+type SubscriptionExpiredHandler = (subscription?: SubscriptionSummary) => void;
+let subscriptionExpiredHandler: SubscriptionExpiredHandler | null = null;
+
+export const registerSubscriptionExpiredHandler = (
+  handler: SubscriptionExpiredHandler | null
+): (() => void) => {
+  subscriptionExpiredHandler = handler;
+  return () => {
+    if (subscriptionExpiredHandler === handler) {
+      subscriptionExpiredHandler = null;
+    }
+  };
+};
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    if (status === 402 && data?.code === 'SUBSCRIPTION_EXPIRED') {
+      subscriptionExpiredHandler?.(data.subscription);
+    }
     return Promise.reject(error);
   }
 );
@@ -375,4 +411,123 @@ export const onboardMerchant = async (data: OnboardData) => {
   const response = await apiClient.post('/api/v2/auth/onboard', data);
   return response.data;
 };
+
+// ============================================================================
+// DOMÍNIO: ASSINATURA SAAS, ORDER BUMP DE SETUP & SUPER-ADMIN (FASE B)
+// ============================================================================
+export const getBillingStatus = async (): Promise<BillingStatusResponse> => {
+  const { data } = await apiClient.get<BillingStatusResponse>('/api/v2/billing/status');
+  return data;
+};
+
+export const createBillingCheckoutIntent = async (payload: {
+  setupBatchTier?: SetupBatchTier;
+  contactPhone?: string;
+  sourceDescription?: string;
+}): Promise<CheckoutIntentResponse> => {
+  const { data } = await apiClient.post<CheckoutIntentResponse>(
+    '/api/v2/billing/checkout-intent',
+    payload
+  );
+  return data;
+};
+
+export const createProductSetupRequest = async (payload: {
+  batchTier: SetupBatchTier;
+  includeMonthlyPlan?: boolean;
+  contactPhone?: string;
+  sourceDescription?: string;
+}): Promise<
+  ProductSetupRequestItem & {
+    pix: BillingStatusResponse['catalog']['pix'];
+    whatsappUrl: string | null;
+  }
+> => {
+  const { data } = await apiClient.post('/api/v2/billing/setup-requests', payload);
+  return data;
+};
+
+export const cancelProductSetupRequest = async (
+  id: string
+): Promise<ProductSetupRequestItem> => {
+  const { data } = await apiClient.patch<ProductSetupRequestItem>(
+    `/api/v2/billing/setup-requests/${id}/cancel`
+  );
+  return data;
+};
+
+export const getSuperAdminOverview = async (): Promise<SuperAdminOverview> => {
+  const { data } = await apiClient.get<SuperAdminOverview>('/api/v2/super-admin/overview');
+  return data;
+};
+
+export const getSuperAdminTenants = async (params?: {
+  search?: string;
+  status?: string;
+}): Promise<SuperAdminTenantItem[]> => {
+  const { data } = await apiClient.get<SuperAdminTenantItem[]>('/api/v2/super-admin/tenants', {
+    params,
+  });
+  return data;
+};
+
+export const updateTenantSubscription = async (
+  userId: string,
+  payload: {
+    action: SuperAdminSubscriptionAction;
+    days?: number;
+    isExempt?: boolean;
+    amountCents?: number;
+    note?: string;
+  }
+): Promise<{ userId: string; active: boolean; subscription: SubscriptionSummary }> => {
+  const { data } = await apiClient.patch(
+    `/api/v2/super-admin/tenants/${userId}/subscription`,
+    payload
+  );
+  return data;
+};
+
+export const getSuperAdminSetupRequests = async (params?: {
+  status?: string;
+  search?: string;
+}): Promise<SuperAdminSetupRequestItem[]> => {
+  const { data } = await apiClient.get<SuperAdminSetupRequestItem[]>(
+    '/api/v2/super-admin/setup-requests',
+    { params }
+  );
+  return data;
+};
+
+export const updateSuperAdminSetupRequest = async (
+  id: string,
+  payload: {
+    status: SetupRequestStatus;
+    adminNotes?: string;
+    importedCount?: number;
+    activateMonthlyPlanToo?: boolean;
+    monthlyDays?: number;
+  }
+): Promise<{
+  setupRequest: ProductSetupRequestItem;
+  activatedSubscription: SubscriptionSummary | null;
+}> => {
+  const { data } = await apiClient.patch(`/api/v2/super-admin/setup-requests/${id}`, payload);
+  return data;
+};
+
+export const importProductsForTenant = async (
+  userId: string,
+  payload: {
+    products: Partial<ProdutoAdmin>[];
+    setupRequestId?: string;
+  }
+): Promise<{ count: number }> => {
+  const { data } = await apiClient.post<{ count: number }>(
+    `/api/v2/super-admin/tenants/${userId}/import-products`,
+    payload
+  );
+  return data;
+};
+
 

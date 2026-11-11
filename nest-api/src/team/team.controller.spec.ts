@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TeamController } from './team.controller';
 import { TeamService } from './team.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('TeamController', () => {
   let controller: TeamController;
@@ -24,7 +25,10 @@ describe('TeamController', () => {
           useValue: {},
         }
       ],
-    }).compile();
+    })
+      .overrideGuard(SubscriptionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<TeamController>(TeamController);
     service = module.get<TeamService>(TeamService);

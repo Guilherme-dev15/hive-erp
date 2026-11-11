@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthGuard } from '../src/auth/auth.guard';
-import { OrderStatus, Role } from '@prisma/client';
+import { OrderStatus, Role, SubscriptionStatus } from '@prisma/client';
 
 /**
  * ============================================================================
@@ -81,6 +81,22 @@ describe('Integração Multitenant (e2e)', () => {
       delete: jest.fn(),
       create: jest.fn(),
     },
+    subscription: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    productSetupRequest: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    billingEvent: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
     $transaction: jest.fn((cb: any) => cb(prismaMock)),
   };
 
@@ -98,6 +114,8 @@ describe('Integração Multitenant (e2e)', () => {
         id: tenantId === 'unprovisioned' ? null : tenantId,
         legacyId: `firebase-uid-${tenantId}`,
         email: tenantEmail || `${tenantId}@lojista.com`,
+        role: Role.OWNER,
+        isSuperAdmin: false,
       };
       return true;
     }),
@@ -124,6 +142,20 @@ describe('Integração Multitenant (e2e)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const now = Date.now();
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      id: 'sub-default-trial',
+      userId: 'uuid-tenant-B',
+      status: SubscriptionStatus.TRIAL,
+      planCode: 'PRO_MONTHLY',
+      monthlyPriceCents: 9700,
+      trialStartsAt: new Date(now - 2 * 86_400_000),
+      trialEndsAt: new Date(now + 12 * 86_400_000),
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      isExempt: false,
+    });
+    prismaMock.billingEvent.create.mockResolvedValue({ id: 'evt-default' });
   });
 
   // ==========================================================================
@@ -145,6 +177,18 @@ describe('Integração Multitenant (e2e)', () => {
           id: 'cfg-tenant-b',
           storeName: 'Pratas do Brasil',
           publicSlug: 'pratas-brasil',
+          primaryColor: '#D4AF37',
+          secondaryColor: '#343434',
+        },
+        subscription: {
+          status: SubscriptionStatus.TRIAL,
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: new Date(),
+          trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          isExempt: false,
         },
       };
       prismaMock.user.create.mockResolvedValue(createdUser);
@@ -160,7 +204,7 @@ describe('Integração Multitenant (e2e)', () => {
         })
         .expect(201);
 
-      expect(res.body).toEqual({
+      expect(res.body).toMatchObject({
         id: 'uuid-tenant-B',
         name: 'Maria Joalheira',
         email: 'maria@pratasbrasil.com',

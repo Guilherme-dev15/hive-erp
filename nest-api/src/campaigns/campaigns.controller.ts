@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 import { CampaignsService } from './campaigns.service';
 import { ApplyCampaignDto, SimulateCampaignDto } from './dto/campaign.dto';
 
 @Controller('api/v2/campaign')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
