@@ -77,6 +77,9 @@ describe('Sidebar & Topbar (Navegação SaaS Moderna)', () => {
       expect(screen.getByRole('button', { name: /Produtos/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Categorias/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Fornecedores/i })).toBeInTheDocument();
+
+      // Contenção comercial: Equipe oculta até modelagem multi-usuário por loja
+      expect(screen.queryByRole('button', { name: /^Equipe$/i })).not.toBeInTheDocument();
     });
 
     it('navega para a página de Clientes ao clicar no item correspondente', () => {

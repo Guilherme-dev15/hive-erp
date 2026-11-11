@@ -17,6 +17,14 @@
       "dest": "/api/[...path]"
     },
     {
+      "src": "/((?!api/).*)",
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "Cross-Origin-Embedder-Policy": "unsafe-none"
+      },
+      "continue": true
+    },
+    {
       "handle": "filesystem"
     },
     {
@@ -26,21 +34,6 @@
     {
       "src": "/",
       "dest": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin-allow-popups"
-        },
-        {
-          "key": "Cross-Origin-Embedder-Policy",
-          "value": "unsafe-none"
-        }
-      ]
     }
   ]
 }

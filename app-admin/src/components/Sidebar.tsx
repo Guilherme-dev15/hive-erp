@@ -10,7 +10,6 @@ import {
   BarChart3,
   Calculator,
   Settings,
-  Briefcase,
   LogOut,
   Shield,
   X,
@@ -84,7 +83,6 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Configurações',
     items: [
       { id: 'configuracoes', label: 'Config', icon: Settings },
-      { id: 'equipe', label: 'Equipe', icon: Briefcase },
     ],
   },
 ];
