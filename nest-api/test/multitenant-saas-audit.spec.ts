@@ -21,8 +21,10 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
     user: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     config: {
       findUnique: jest.fn(),
@@ -674,6 +676,65 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
           where: { userId: 'uuid-tenant-B' },
         }),
       );
+    });
+  });
+
+  // ==========================================================================
+  // 12. ISOLAMENTO E CONTENÇÃO DE EQUIPE (TEAM MODULE)
+  // ==========================================================================
+  describe('12. Isolamento de Equipe (TeamModule)', () => {
+    it('GET /api/v2/team retorna apenas o próprio OWNER do Tenant B e nunca lista vendedores de outros tenants', async () => {
+      const ownerB = {
+        id: 'uuid-tenant-B',
+        name: 'Dono Tenant B',
+        email: 'tenant-b@lojista.com',
+        role: Role.OWNER,
+        active: true,
+        legacyId: 'firebase-uid-uuid-tenant-B',
+        createdAt: new Date('2026-11-01T10:00:00Z'),
+      };
+      prismaMock.user.findUnique.mockResolvedValue(ownerB);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v2/team')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(200);
+
+      expect(prismaMock.user.findMany).not.toHaveBeenCalled();
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].email).toBe('tenant-b@lojista.com');
+      expect(res.body[0]).not.toHaveProperty('legacyId');
+    });
+
+    it('POST /api/v2/team bloqueia criação de SELLER sem vínculo de loja com 403', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'uuid-tenant-B',
+        email: 'tenant-b@lojista.com',
+        role: Role.OWNER,
+      });
+
+      await request(app.getHttpServer())
+        .post('/api/v2/team')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .send({ name: 'Seller Invasor', email: 'seller-a@lojista.com' })
+        .expect(403);
+
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
+    });
+
+    it('DELETE /api/v2/team/:email retorna 404 para vendedor de outro tenant e nunca executa delete', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'uuid-tenant-B',
+        email: 'tenant-b@lojista.com',
+        role: Role.OWNER,
+      });
+
+      await request(app.getHttpServer())
+        .delete('/api/v2/team/seller-tenant-a@lojista.com')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(404);
+
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
     });
   });
 });
