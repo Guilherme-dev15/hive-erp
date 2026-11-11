@@ -2,9 +2,10 @@ import { Controller, Get, Post, Delete, Param, Body, UseGuards, Request } from '
 import { TeamService } from './team.service';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/team')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class TeamController {
   constructor(private readonly teamService: TeamService) {}
 

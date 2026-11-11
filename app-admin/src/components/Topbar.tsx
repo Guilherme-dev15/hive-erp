@@ -17,6 +17,8 @@ const TITULOS_PAGINA: Record<Pagina, { title: string; subtitle: string }> = {
   precificacao: { title: 'Calculadora de Preços', subtitle: 'Simulador de markup e margem de contribuição' },
   relatorios: { title: 'Relatórios & Inteligência', subtitle: 'Curva ABC, histórico de vendas e métricas' },
   equipe: { title: 'Equipe & Acessos', subtitle: 'Controle de colaboradores e permissões' },
+  assinatura: { title: 'Assinatura & Setup', subtitle: 'Plano mensal, período de teste e subida assistida de produtos' },
+  'super-admin': { title: 'Super Admin SaaS', subtitle: 'Gestão global de lojistas, assinaturas e solicitações de setup' },
   configuracoes: { title: 'Configurações da Loja', subtitle: 'Identidade visual, cores e regras de negócio' },
 };
 

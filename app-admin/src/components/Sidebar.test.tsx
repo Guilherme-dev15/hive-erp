@@ -9,10 +9,15 @@ const mockNavigate = vi.fn();
 const mockCloseMobile = vi.fn();
 const mockOpenMobile = vi.fn();
 
+const mockAuthState = vi.hoisted(() => ({
+  user: { email: 'lojista@pratas.com' },
+  userData: { name: 'Maria Joalheira', role: 'admin', isSuperAdmin: false as boolean },
+  logout: vi.fn(),
+}));
+
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({
-    user: { email: 'lojista@pratas.com' },
-    userData: { name: 'Maria Joalheira', role: 'admin' },
+    ...mockAuthState,
     logout: mockLogout,
   }),
 }));
@@ -34,6 +39,7 @@ vi.mock('../contexts/ThemeContext', () => ({
 describe('Sidebar & Topbar (Navegação SaaS Moderna)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthState.userData = { name: 'Maria Joalheira', role: 'admin', isSuperAdmin: false };
   });
 
   describe('Sidebar', () => {
@@ -80,6 +86,27 @@ describe('Sidebar & Topbar (Navegação SaaS Moderna)', () => {
 
       // Contenção comercial: Equipe oculta até modelagem multi-usuário por loja
       expect(screen.queryByRole('button', { name: /^Equipe$/i })).not.toBeInTheDocument();
+
+      // Assinatura visível e Super Admin oculto para lojista comum
+      expect(screen.getByRole('button', { name: /^Assinatura$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Super Admin/i })).not.toBeInTheDocument();
+    });
+
+    it('exibe grupo Plataforma e item Super Admin apenas quando isSuperAdmin for true', () => {
+      mockAuthState.userData = { name: 'Admin Plataforma', role: 'admin', isSuperAdmin: true };
+      render(
+        <Sidebar
+          paginaAtual="dashboard"
+          onNavigate={mockNavigate}
+          mobileOpen={false}
+          onCloseMobile={mockCloseMobile}
+        />
+      );
+
+      expect(screen.getByText('Plataforma')).toBeInTheDocument();
+      const superAdminBtn = screen.getByRole('button', { name: /Super Admin/i });
+      fireEvent.click(superAdminBtn);
+      expect(mockNavigate).toHaveBeenCalledWith('super-admin');
     });
 
     it('navega para a página de Clientes ao clicar no item correspondente', () => {

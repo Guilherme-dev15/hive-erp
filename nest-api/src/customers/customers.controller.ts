@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 import {
   CustomersQueryDto,
   CustomersListResponse,
@@ -15,7 +16,7 @@ import {
 } from './customers.types';
 
 @Controller('api/v2/customers')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 

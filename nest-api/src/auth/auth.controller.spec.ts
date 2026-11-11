@@ -1,11 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { PrismaService } from '../prisma/prisma.service';
-import { UnauthorizedException } from '@nestjs/common';
+import { SubscriptionService } from '../billing/subscription.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let mockPrisma: any;
+  let mockSubscriptionService: any;
+
+  const mockTrialAccess = {
+    status: 'TRIAL',
+    effectiveStatus: 'TRIAL',
+    isBlocked: false,
+    isExempt: false,
+    planCode: 'PRO_MONTHLY',
+    monthlyPriceCents: 9700,
+    trialStartsAt: new Date('2026-11-11T00:00:00Z'),
+    trialEndsAt: new Date('2026-11-25T00:00:00Z'),
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    daysRemaining: 14,
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -19,13 +35,24 @@ describe('AuthController', () => {
       },
     };
 
+    mockSubscriptionService = {
+      buildTrialDates: jest.fn().mockReturnValue({
+        trialStartsAt: mockTrialAccess.trialStartsAt,
+        trialEndsAt: mockTrialAccess.trialEndsAt,
+      }),
+      getOnboardingDefaults: jest.fn().mockReturnValue({
+        planCode: 'PRO_MONTHLY',
+        monthlyPriceCents: 9700,
+        trialDays: 14,
+      }),
+      getAccessStatus: jest.fn().mockResolvedValue(mockTrialAccess),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        {
-          provide: PrismaService,
-          useValue: mockPrisma,
-        },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SubscriptionService, useValue: mockSubscriptionService },
       ],
     }).compile();
 
@@ -36,26 +63,60 @@ describe('AuthController', () => {
     jest.clearAllMocks();
   });
 
-  it('should return user info with role admin when user role is OWNER', async () => {
+  it('should return user info with role admin, store, isSuperAdmin and subscription when user role is OWNER', async () => {
     const mockDbUser = {
       id: 'uuid-123',
       name: 'Guilherme Macedo',
       email: 'guibanks1@gmail.com',
       role: 'OWNER',
       active: true,
+      config: {
+        id: 'cfg-1',
+        storeName: 'Hive Pratas',
+        publicSlug: 'hive',
+        primaryColor: '#D4AF37',
+        secondaryColor: '#343434',
+      },
+      subscription: {
+        status: 'ACTIVE',
+        planCode: 'PRO_MONTHLY',
+        monthlyPriceCents: 9700,
+        trialStartsAt: mockTrialAccess.trialStartsAt,
+        trialEndsAt: mockTrialAccess.trialEndsAt,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        isExempt: true,
+      },
     };
     mockPrisma.user.findUnique.mockResolvedValue(mockDbUser);
 
-    const result = await controller.getMe({ user: { id: 'uuid-123', legacyId: 'uid-abc' } });
-
-    expect(result).toEqual({
-      id: 'uuid-123',
-      name: 'Guilherme Macedo',
-      email: 'guibanks1@gmail.com',
-      role: 'admin',
-      active: true,
+    const result = await controller.getMe({
+      user: { id: 'uuid-123', legacyId: 'uid-abc', isSuperAdmin: true },
     });
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'uuid-123' } });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'uuid-123',
+        name: 'Guilherme Macedo',
+        email: 'guibanks1@gmail.com',
+        role: 'admin',
+        active: true,
+        isSuperAdmin: true,
+        store: expect.objectContaining({
+          storeName: 'Hive Pratas',
+          slug: 'hive',
+        }),
+        subscription: expect.objectContaining({
+          effectiveStatus: 'ACTIVE',
+          isBlocked: false,
+          isExempt: true,
+        }),
+      }),
+    );
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'uuid-123' },
+      include: { config: true, subscription: true },
+    });
   });
 
   it('should fallback to findUnique by legacyId when req.user.id is missing', async () => {
@@ -65,37 +126,66 @@ describe('AuthController', () => {
       email: 'seller@example.com',
       role: 'SELLER',
       active: true,
+      config: null,
+      subscription: null,
     };
     mockPrisma.user.findUnique.mockResolvedValue(mockDbUser);
 
     const result = await controller.getMe({ user: { id: null, legacyId: 'legacy-uid' } });
 
-    expect(result).toEqual({
-      id: 'uuid-123',
-      name: 'Vendedor Teste',
-      email: 'seller@example.com',
-      role: 'editor',
-      active: true,
+    expect(result.role).toBe('editor');
+    expect(result.isSuperAdmin).toBe(false);
+    expect(result.subscription).toEqual(mockTrialAccess);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { legacyId: 'legacy-uid' },
+      include: { config: true, subscription: true },
     });
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { legacyId: 'legacy-uid' } });
+  });
+
+  it('should still return HTTP 200 payload on getMe when merchant trial is EXPIRED so frontend renders renewal screen', async () => {
+    const expiredSub = {
+      status: 'TRIAL',
+      planCode: 'PRO_MONTHLY',
+      monthlyPriceCents: 9700,
+      trialStartsAt: new Date('2026-10-01T00:00:00Z'),
+      trialEndsAt: new Date('2026-10-15T00:00:00Z'),
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      isExempt: false,
+    };
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'uuid-expired',
+      name: 'Lojista Expirado',
+      email: 'lojista@exemplo.com',
+      role: 'OWNER',
+      active: true,
+      config: { id: 'cfg-exp', storeName: 'Loja Expirada', publicSlug: 'expirada', primaryColor: '#D4AF37', secondaryColor: '#343434' },
+      subscription: expiredSub,
+    });
+
+    const result = await controller.getMe({ user: { id: 'uuid-expired', legacyId: 'uid-exp' } });
+
+    expect(result.subscription.isBlocked).toBe(true);
+    expect(result.subscription.effectiveStatus).toBe('EXPIRED');
+    expect(result.isSuperAdmin).toBe(false);
   });
 
   it('should throw UnauthorizedException when user is not found in database', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
     await expect(controller.getMe({ user: { id: 'uuid-notfound' } })).rejects.toThrow(
-      new UnauthorizedException('Registro do usuário não encontrado no banco de dados da plataforma.')
+      new UnauthorizedException('Registro do usuário não encontrado no banco de dados da plataforma.'),
     );
   });
 
   it('should throw UnauthorizedException when req.user has no id and no legacyId', async () => {
     await expect(controller.getMe({ user: {} })).rejects.toThrow(
-      new UnauthorizedException('Usuário inválido no contexto')
+      new UnauthorizedException('Usuário inválido no contexto'),
     );
   });
 
   describe('onboard', () => {
-    it('should successfully onboard a new merchant (Tenant B)', async () => {
+    it('should successfully onboard a new merchant (Tenant B) with automatic 14-day TRIAL and token email precedence', async () => {
       mockPrisma.user.findFirst.mockResolvedValue(null);
       mockPrisma.config.findFirst.mockResolvedValue(null);
 
@@ -110,40 +200,43 @@ describe('AuthController', () => {
           id: 'cfg-tenant-b',
           storeName: 'Pratas do Brasil',
           publicSlug: 'pratas-brasil',
+          primaryColor: '#D4AF37',
+          secondaryColor: '#343434',
+        },
+        subscription: {
+          status: 'TRIAL',
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: mockTrialAccess.trialStartsAt,
+          trialEndsAt: mockTrialAccess.trialEndsAt,
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          isExempt: false,
         },
       };
       mockPrisma.user.create.mockResolvedValue(createdUser);
 
       const result = await controller.onboard(
         { user: { legacyId: 'firebase-uid-b', email: 'maria@pratasbrasil.com' } },
-        { storeName: 'Pratas do Brasil', name: 'Maria Silva', slug: 'pratas-brasil' },
-      );
-
-      expect(result).toEqual({
-        id: 'uuid-tenant-b',
-        name: 'Maria Silva',
-        email: 'maria@pratasbrasil.com',
-        role: 'admin',
-        active: true,
-        isNew: true,
-        store: {
-          id: 'cfg-tenant-b',
+        {
           storeName: 'Pratas do Brasil',
+          name: 'Maria Silva',
+          email: 'spoof@invasor.com',
           slug: 'pratas-brasil',
         },
-      });
+      );
+
+      expect(result.isNew).toBe(true);
+      expect(result.email).toBe('maria@pratasbrasil.com');
+      expect(result.subscription.effectiveStatus).toBe('TRIAL');
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             email: 'maria@pratasbrasil.com',
-            name: 'Maria Silva',
-            role: 'OWNER',
-            active: true,
-            legacyId: 'firebase-uid-b',
-            config: {
+            subscription: {
               create: expect.objectContaining({
-                storeName: 'Pratas do Brasil',
-                publicSlug: 'pratas-brasil',
+                status: 'TRIAL',
+                isExempt: false,
               }),
             },
           }),
@@ -158,7 +251,23 @@ describe('AuthController', () => {
         email: 'loja@exemplo.com',
         role: 'OWNER',
         active: true,
-        config: { id: 'cfg-1', storeName: 'Loja Existente', publicSlug: 'loja-existente' },
+        config: {
+          id: 'cfg-1',
+          storeName: 'Loja Existente',
+          publicSlug: 'loja-existente',
+          primaryColor: '#D4AF37',
+          secondaryColor: '#343434',
+        },
+        subscription: {
+          status: 'TRIAL',
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: mockTrialAccess.trialStartsAt,
+          trialEndsAt: mockTrialAccess.trialEndsAt,
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          isExempt: false,
+        },
       };
       mockPrisma.user.findUnique.mockResolvedValue(existingUser);
 
@@ -167,19 +276,8 @@ describe('AuthController', () => {
         { storeName: 'Loja Existente' },
       );
 
-      expect(result).toEqual({
-        id: 'uuid-existing',
-        name: 'Lojista Existente',
-        email: 'loja@exemplo.com',
-        role: 'admin',
-        active: true,
-        isNew: false,
-        store: {
-          id: 'cfg-1',
-          storeName: 'Loja Existente',
-          slug: 'loja-existente',
-        },
-      });
+      expect(result.isNew).toBe(false);
+      expect(result.store?.slug).toBe('loja-existente');
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
     });
 

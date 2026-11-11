@@ -233,4 +233,162 @@ export interface CustomersListResponse {
   averageTicketGlobal: number;
 }
 
+// ============================================================================
+// 7. ASSINATURA SAAS, ORDER BUMP DE SETUP & SUPER-ADMIN (FASE B)
+// ============================================================================
+
+export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'EXPIRED' | 'CANCELED';
+
+export type SetupBatchTier = 'UP_TO_200' | 'UP_TO_300' | 'UP_TO_500';
+
+export type SetupRequestStatus =
+  | 'PENDING'
+  | 'PAID'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELED';
+
+export type SuperAdminSubscriptionAction =
+  | 'ACTIVATE_MONTHLY'
+  | 'EXTEND_TRIAL'
+  | 'GRANT_DAYS'
+  | 'SET_EXEMPT'
+  | 'EXPIRE_NOW'
+  | 'CANCEL'
+  | 'SUSPEND_ACCOUNT'
+  | 'REACTIVATE_ACCOUNT';
+
+export interface SubscriptionSummary {
+  status: SubscriptionStatus;
+  effectiveStatus: SubscriptionStatus;
+  isBlocked: boolean;
+  isExempt: boolean;
+  planCode: string;
+  monthlyPriceCents: number;
+  trialStartsAt: string;
+  trialEndsAt: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  daysRemaining: number | null;
+}
+
+export interface SetupBatchOption {
+  tier: SetupBatchTier;
+  label: string;
+  description: string;
+  maxProducts: number;
+  priceCents: number;
+}
+
+export interface BillingCatalogSummary {
+  trialDays: number;
+  monthlyPlan: {
+    code: string;
+    name: string;
+    priceCents: number;
+    description: string;
+  };
+  setupBatches: SetupBatchOption[];
+  pix: {
+    configured: boolean;
+    key: string | null;
+    keyType: string | null;
+    beneficiary: string | null;
+  };
+  supportWhatsapp: string | null;
+}
+
+export interface ProductSetupRequestItem {
+  id: string;
+  batchTier: SetupBatchTier;
+  maxProducts: number;
+  priceCents: number;
+  includeMonthlyPlan: boolean;
+  monthlyPlanPriceCents: number;
+  totalPriceCents: number;
+  status: SetupRequestStatus;
+  referenceCode: string;
+  contactPhone: string | null;
+  sourceDescription: string | null;
+  whatsappMessage: string | null;
+  adminNotes: string | null;
+  importedCount: number | null;
+  paidAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  canceledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BillingEventItem {
+  id: string;
+  action: string;
+  amountCents: number | null;
+  daysGranted: number | null;
+  referenceCode: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface BillingStatusResponse {
+  subscription: SubscriptionSummary;
+  catalog: BillingCatalogSummary;
+  setupRequests: ProductSetupRequestItem[];
+  recentBillingEvents: BillingEventItem[];
+}
+
+export interface CheckoutIntentResponse {
+  referenceCode: string;
+  monthlyPlanPriceCents: number;
+  setupBatchTier: SetupBatchTier | null;
+  setupBatchMaxProducts: number | null;
+  setupPriceCents: number;
+  totalPriceCents: number;
+  pix: BillingCatalogSummary['pix'];
+  supportWhatsapp: string | null;
+  whatsappMessage: string;
+  whatsappUrl: string | null;
+  setupRequestId: string | null;
+}
+
+export interface SuperAdminOverview {
+  totalTenants: number;
+  trialTenants: number;
+  activePaidTenants: number;
+  exemptTenants: number;
+  expiredOrCanceledTenants: number;
+  suspendedTenants: number;
+  pendingSetupRequests: number;
+  inProgressSetupRequests: number;
+  completedSetupRequests: number;
+  estimatedMrrCents: number;
+  setupRevenueCents: number;
+}
+
+export interface SuperAdminTenantItem {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  createdAt: string;
+  storeName: string;
+  slug: string | null;
+  whatsappNumber: string | null;
+  productsCount: number;
+  ordersCount: number;
+  openSetupRequestsCount: number;
+  subscription: SubscriptionSummary;
+}
+
+export interface SuperAdminSetupRequestItem extends ProductSetupRequestItem {
+  userId: string;
+  storeName: string;
+  slug: string | null;
+  ownerName: string;
+  ownerEmail: string;
+  storeWhatsapp: string | null;
+}
+
+
 
