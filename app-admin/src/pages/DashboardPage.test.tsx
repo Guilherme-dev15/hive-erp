@@ -10,6 +10,20 @@ type MockedFunction = Mock;
 // Mock Services
 vi.mock('../services/apiService', () => ({
   getDashboardStats: vi.fn(),
+  getConfig: vi.fn().mockResolvedValue(null),
+  getCategories: vi.fn().mockResolvedValue([]),
+  getAdminProdutos: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../contexts/ThemeContext', () => ({
+  useTheme: () => ({
+    theme: {
+      primaryColor: '#D4AF37',
+      secondaryColor: '#343434',
+      storeName: 'Hive ERP',
+      slug: 'hive',
+    },
+  }),
 }));
 
 // Mock framer-motion to avoid JSDOM errors
@@ -26,6 +40,12 @@ vi.mock('lucide-react', () => ({
   Download: () => <span data-testid="icon-download" />,
   Package: () => <span data-testid="icon-package" />,
   AlertCircle: () => <span data-testid="icon-alert" />,
+  ArrowRight: () => <span data-testid="icon-arrow-right" />,
+  CheckCircle2: () => <span data-testid="icon-check" />,
+  Circle: () => <span data-testid="icon-circle" />,
+  ExternalLink: () => <span data-testid="icon-external" />,
+  Sparkles: () => <span data-testid="icon-sparkles" />,
+  X: () => <span data-testid="icon-x" />,
 }));
 
 // Mock recharts because it uses ResizeObserver which doesn't exist in JSDOM
