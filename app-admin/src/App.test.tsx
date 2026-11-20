@@ -90,6 +90,16 @@ vi.mock('./pages/OnboardingPage.tsx', () => ({
   OnboardingPage: () => <div>Onboarding page</div>,
 }));
 
+vi.mock('./pages/LandingPage', () => ({
+  LandingPage: () => <div>Landing page</div>,
+}));
+
+vi.mock('./pages/LegalPage', () => ({
+  LegalPage: ({ document }: { document: 'terms' | 'privacy' }) => (
+    <div>Legal page ({document})</div>
+  ),
+}));
+
 vi.mock('./pages/DashboardPage', () => ({
   DashboardPage: () => {
     if (dashboardGate.pending) throw dashboardGate.promise;
@@ -152,6 +162,7 @@ describe('App shell com páginas sob demanda', () => {
     authState.needsOnboarding = false;
     authState.loading = false;
     dashboardGate.reset();
+    window.history.pushState({}, '', '/');
   });
 
   it('exibe fallback durante o carregamento e renderiza Dashboard após resolver o chunk', async () => {
@@ -263,5 +274,24 @@ describe('App shell com páginas sob demanda', () => {
     fireEvent.click(superAdminBtn);
 
     expect(await screen.findByText('SuperAdmin lazy page')).toBeInTheDocument();
+  });
+
+  it('renderiza LandingPage e páginas legais LGPD nas rotas públicas sem exigir autenticação', () => {
+    authState.user = null;
+    authState.userData = null;
+
+    window.history.pushState({}, '', '/landing');
+    const { unmount } = render(<App />);
+    expect(screen.getByText('Landing page')).toBeInTheDocument();
+    unmount();
+
+    window.history.pushState({}, '', '/termos');
+    const termsView = render(<App />);
+    expect(screen.getByText('Legal page (terms)')).toBeInTheDocument();
+    termsView.unmount();
+
+    window.history.pushState({}, '', '/privacidade');
+    render(<App />);
+    expect(screen.getByText('Legal page (privacy)')).toBeInTheDocument();
   });
 });

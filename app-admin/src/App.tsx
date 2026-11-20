@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
@@ -8,6 +8,9 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { OnboardingPage } from './pages/OnboardingPage.tsx';
+import { LandingPage } from './pages/LandingPage';
+import { LegalPage } from './pages/LegalPage';
+import { getAdminAppUrl, resolvePublicSurface } from './utils/publicRoutes';
 
 // Navegação Moderna SaaS (Sidebar + Topbar)
 import { Sidebar, Pagina } from './components/Sidebar';
@@ -85,11 +88,68 @@ function ProtectedLayout() {
   const { user, userData, needsOnboarding, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigatePublic = (nextPath: string) => {
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+      setPathname(nextPath);
+    }
+    window.scrollTo?.(0, 0);
+  };
+
+  const handleGoToApp = () => {
+    const target = getAdminAppUrl(window.location.hostname);
+    if (target.startsWith('http')) {
+      window.location.assign(target);
+      return;
+    }
+    navigatePublic(target);
+  };
 
   // Tratamento de QR Code
   const params = new URLSearchParams(window.location.search);
   if (params.get('q')) {
     localStorage.setItem('pending_qr_scan', params.get('q') || '');
+  }
+
+  const publicSurface = resolvePublicSurface(window.location.hostname, pathname);
+
+  if (publicSurface === 'terms') {
+    return (
+      <LegalPage
+        document="terms"
+        onNavigate={navigatePublic}
+        onGoToApp={handleGoToApp}
+      />
+    );
+  }
+
+  if (publicSurface === 'privacy') {
+    return (
+      <LegalPage
+        document="privacy"
+        onNavigate={navigatePublic}
+        onGoToApp={handleGoToApp}
+      />
+    );
+  }
+
+  if (publicSurface === 'landing') {
+    return (
+      <LandingPage
+        onStartTrial={handleGoToApp}
+        onNavigate={navigatePublic}
+      />
+    );
   }
 
   if (loading) {
@@ -101,11 +161,11 @@ function ProtectedLayout() {
   }
 
   if (!user) {
-    return <LoginPage />;
+    return <LoginPage onNavigate={navigatePublic} />;
   }
 
   if (needsOnboarding) {
-    return <OnboardingPage />;
+    return <OnboardingPage onNavigate={navigatePublic} />;
   }
 
   const isSubscriptionBlocked = Boolean(
@@ -134,7 +194,7 @@ function ProtectedLayout() {
   const renderizarPagina = () => {
     switch (pagina) {
       case 'dashboard':
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={setPagina} />;
       case 'pedidos':
         return <PedidosPage />;
       case 'clientes':

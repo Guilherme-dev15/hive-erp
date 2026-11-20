@@ -32,6 +32,22 @@
       "dest": "/index.html"
     },
     {
+      "src": "/termos(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/privacidade(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/landing(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/entrar(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
       "src": "/",
       "dest": "/index.html"
     }

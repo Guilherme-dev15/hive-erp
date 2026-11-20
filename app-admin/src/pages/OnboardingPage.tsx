@@ -16,7 +16,11 @@ function slugify(text: string): string {
     .slice(0, 63);
 }
 
-export function OnboardingPage() {
+interface OnboardingPageProps {
+  onNavigate?: (path: '/termos' | '/privacidade') => void;
+}
+
+export function OnboardingPage({ onNavigate }: OnboardingPageProps = {}) {
   const { user, completeOnboard, logout } = useAuth();
   const storeNameId = useId();
   const ownerNameId = useId();
@@ -172,6 +176,28 @@ export function OnboardingPage() {
             <span>Sair</span>
           </button>
         </div>
+
+        {onNavigate && (
+          <div className="mt-3 text-center text-[11px] text-gray-400">
+            Ao criar sua loja, você concorda com os{' '}
+            <button
+              type="button"
+              onClick={() => onNavigate('/termos')}
+              className="underline hover:text-gray-600"
+            >
+              Termos de Uso
+            </button>{' '}
+            e a{' '}
+            <button
+              type="button"
+              onClick={() => onNavigate('/privacidade')}
+              className="underline hover:text-gray-600"
+            >
+              Política de Privacidade
+            </button>
+            .
+          </div>
+        )}
       </div>
     </div>
   );
