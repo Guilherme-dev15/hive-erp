@@ -24,6 +24,9 @@ import { motion } from 'framer-motion';
 // SERVIÇOS
 import { getDashboardStats } from '../services/apiService';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
+import { GettingStartedChecklist } from '../components/GettingStartedChecklist';
+import { useTheme } from '../contexts/ThemeContext';
+import type { Pagina } from '../components/Sidebar';
 import { Order, DashboardStats, ChartData } from '../types';
 
 // --- CONFIGURAÇÕES GLOBAIS ---
@@ -61,7 +64,12 @@ interface CategoryData {
     value: number;
 }
 
-export function DashboardPage() {
+interface DashboardPageProps {
+  onNavigate?: (pagina: Pagina) => void;
+}
+
+export function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
@@ -173,6 +181,13 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* CHECKLIST DE PRIMEIROS PASSOS */}
+      <GettingStartedChecklist
+        storeSlug={theme?.slug}
+        activeProductsCount={s.activeProducts}
+        onNavigate={onNavigate}
+      />
 
       {/* CARDS DE KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

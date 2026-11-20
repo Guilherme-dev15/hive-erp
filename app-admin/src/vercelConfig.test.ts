@@ -62,6 +62,10 @@ describe('vercel.json (COOP/COEP e roteamento Admin + API)', () => {
       expect.arrayContaining([
         expect.objectContaining({ src: '/api/(.*)', dest: '/api/[...path]' }),
         expect.objectContaining({ src: '/admin(?:/.*)?', dest: '/index.html' }),
+        expect.objectContaining({ src: '/termos(?:/.*)?', dest: '/index.html' }),
+        expect.objectContaining({ src: '/privacidade(?:/.*)?', dest: '/index.html' }),
+        expect.objectContaining({ src: '/landing(?:/.*)?', dest: '/index.html' }),
+        expect.objectContaining({ src: '/entrar(?:/.*)?', dest: '/index.html' }),
         expect.objectContaining({ src: '/', dest: '/index.html' }),
       ]),
     );
