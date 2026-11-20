@@ -4,9 +4,10 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { BulkMarkupDto, BulkStatusDto } from './dto/bulk-update.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/products')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 

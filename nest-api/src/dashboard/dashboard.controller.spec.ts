@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -23,7 +24,10 @@ describe('DashboardController', () => {
           useValue: {},
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(SubscriptionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<DashboardController>(DashboardController);
   });

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CampaignsController } from './campaigns.controller';
 import { CampaignsService } from './campaigns.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('CampaignsController', () => {
   let controller: CampaignsController;
@@ -25,6 +26,8 @@ describe('CampaignsController', () => {
       providers: [{ provide: CampaignsService, useValue: service }],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SubscriptionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

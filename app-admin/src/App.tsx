@@ -15,6 +15,8 @@ import { getAdminAppUrl, resolvePublicSurface } from './utils/publicRoutes';
 // Navegação Moderna SaaS (Sidebar + Topbar)
 import { Sidebar, Pagina } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
+import { TrialBanner } from './components/TrialBanner';
+import { BlockedSubscriptionShell } from './components/BlockedSubscriptionShell';
 
 // Importa as páginas sob demanda para manter o shell inicial enxuto.
 const ProdutosPage = lazy(() =>
@@ -56,6 +58,12 @@ const EquipePage = lazy(() =>
 const CampanhasPage = lazy(() =>
   import('./pages/CampanhasPage').then(({ CampanhasPage }) => ({ default: CampanhasPage }))
 );
+const AssinaturaPage = lazy(() =>
+  import('./pages/AssinaturaPage').then(({ AssinaturaPage }) => ({ default: AssinaturaPage }))
+);
+const SuperAdminPage = lazy(() =>
+  import('./pages/SuperAdminPage').then(({ SuperAdminPage }) => ({ default: SuperAdminPage }))
+);
 
 // Importar a Proteção contra Tela Branca
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -77,7 +85,7 @@ function PageLoadingFallback() {
 
 // --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
-  const { user, needsOnboarding, loading } = useAuth();
+  const { user, userData, needsOnboarding, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -160,6 +168,29 @@ function ProtectedLayout() {
     return <OnboardingPage onNavigate={navigatePublic} />;
   }
 
+  const isSubscriptionBlocked = Boolean(
+    userData?.subscription?.isBlocked && !userData?.isSuperAdmin
+  );
+
+  if (isSubscriptionBlocked) {
+    return (
+      <BlockedSubscriptionShell>
+        <ErrorBoundary key="assinatura-blocked">
+          <Suspense fallback={<PageLoadingFallback />}>
+            <AssinaturaPage mode="blocked" />
+          </Suspense>
+        </ErrorBoundary>
+      </BlockedSubscriptionShell>
+    );
+  }
+
+  const showTrialBanner = Boolean(
+    userData?.subscription &&
+      userData.subscription.effectiveStatus === 'TRIAL' &&
+      !userData.subscription.isExempt &&
+      !userData?.isSuperAdmin
+  );
+
   const renderizarPagina = () => {
     switch (pagina) {
       case 'dashboard':
@@ -189,6 +220,10 @@ function ProtectedLayout() {
         return <RelatoriosPage />;
       case 'equipe':
         return <EquipePage />;
+      case 'assinatura':
+        return <AssinaturaPage />;
+      case 'super-admin':
+        return userData?.isSuperAdmin ? <SuperAdminPage /> : <DashboardPage />;
       case 'configuracoes':
         return <ConfiguracoesPage />;
       default:
@@ -216,6 +251,13 @@ function ProtectedLayout() {
           paginaAtual={pagina}
           onOpenMobile={() => setMobileMenuOpen(true)}
         />
+
+        {showTrialBanner && userData?.subscription && (
+          <TrialBanner
+            subscription={userData.subscription}
+            onGoToBilling={() => setPagina('assinatura')}
+          />
+        )}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           <ErrorBoundary key={pagina}>

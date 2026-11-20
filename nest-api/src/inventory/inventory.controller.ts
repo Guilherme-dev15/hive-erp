@@ -2,9 +2,10 @@ import { Controller, Get, Post, Param, Body, UseGuards, Request } from '@nestjs/
 import { InventoryService } from './inventory.service';
 import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/inventory')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
