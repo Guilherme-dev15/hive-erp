@@ -259,7 +259,7 @@ export function PedidosPage() {
   };
 
   const handlePrintCertificado = useReactToPrint({
-    content: () => certificadoRef.current,
+    contentRef: certificadoRef,
     documentTitle: 'Certificado_Garantia',
   });
 
