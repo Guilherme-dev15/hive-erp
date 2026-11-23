@@ -24,6 +24,7 @@ export function DetalhePedidoModal({
   if (!pedido) return null;
 
   const handleStatusChange = async (newStatus: string) => {
+    if (pedido.status === newStatus) return;
     try {
       setIsUpdating(true);
       await updateAdminOrderStatus(pedido.id, newStatus);
@@ -103,15 +104,26 @@ export function DetalhePedidoModal({
               <div className="space-y-4 no-print">
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">
                   Logística:{' '}
-                  <span className="text-indigo-600 ml-2">{pedido.status}</span>
+                  <span className="text-indigo-600 ml-2 font-bold">{pedido.status}</span>
                 </p>
                 <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100">
-                  {['Em Separação', 'Enviado', 'Concluído'].map((st) => (
+                  {[
+                    'Aguardando Pagamento',
+                    'Em Produção',
+                    'Em Separação',
+                    'Enviado',
+                    'Concluído',
+                    'Cancelado',
+                  ].map((st) => (
                     <button
                       key={st}
                       onClick={() => handleStatusChange(st)}
                       disabled={isUpdating}
-                      className={`px-5 py-2 rounded-xl text-[11px] font-black border transition-all ${pedido.status === st ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-400 border-gray-200'}`}
+                      className={`px-4 py-2 rounded-xl text-[11px] font-black border transition-all ${
+                        pedido.status === st
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
+                      }`}
                     >
                       {st}
                     </button>
