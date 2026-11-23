@@ -45,6 +45,40 @@ enum TransactionType {
   CAPITAL
 }
 
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+enum SetupBatchTier {
+  UP_TO_200
+  UP_TO_300
+  UP_TO_500
+}
+
+enum SetupRequestStatus {
+  PENDING
+  PAID
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+enum BillingActionType {
+  TRIAL_STARTED
+  CHECKOUT_INTENT_CREATED
+  SUBSCRIPTION_ACTIVATED
+  SUBSCRIPTION_EXTENDED
+  SUBSCRIPTION_EXPIRED
+  SUBSCRIPTION_CANCELED
+  SETUP_REQUEST_CREATED
+  SETUP_REQUEST_STATUS_CHANGED
+  ACCOUNT_SUSPENDED
+  ACCOUNT_REACTIVATED
+}
+
 model User {
   id        String   @id @default(uuid()) @db.Uuid
   email     String   @unique
@@ -55,15 +89,18 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relacionamentos - Base do Tenancy
-  config         Config?
-  categories     Category[]
-  suppliers      Supplier[]
-  products       Product[]
-  coupons        Coupon[]
-  orders         Order[]
-  transactions   Transaction[]
-  inventoryLogs  InventoryLog[]
-  dashboardStats DashboardStat?
+  config               Config?
+  categories           Category[]
+  suppliers            Supplier[]
+  products             Product[]
+  coupons              Coupon[]
+  orders               Order[]
+  transactions         Transaction[]
+  inventoryLogs        InventoryLog[]
+  dashboardStats       DashboardStat?
+  subscription         Subscription?
+  productSetupRequests ProductSetupRequest[]
+  billingEvents        BillingEvent[]
 
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
@@ -331,3 +368,77 @@ model DashboardStat {
 
   @@map("dashboard_stats")
 }
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @unique @map("user_id") @db.Uuid
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status             SubscriptionStatus @default(TRIAL)
+  planCode           String             @default("PRO_MONTHLY") @map("plan_code")
+  monthlyPriceCents  Int                @default(9700) @map("monthly_price_cents")
+  trialStartsAt      DateTime           @default(now()) @map("trial_starts_at")
+  trialEndsAt        DateTime           @map("trial_ends_at")
+  currentPeriodStart DateTime?          @map("current_period_start")
+  currentPeriodEnd   DateTime?          @map("current_period_end")
+  activatedAt        DateTime?          @map("activated_at")
+  canceledAt         DateTime?          @map("canceled_at")
+  isExempt           Boolean            @default(false) @map("is_exempt")
+  lastPaymentNote    String?            @map("last_payment_note") @db.Text
+  updatedByAdminId   String?            @map("updated_by_admin_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([trialEndsAt])
+  @@index([currentPeriodEnd])
+  @@map("subscriptions")
+}
+
+model ProductSetupRequest {
+  id                    String             @id @default(uuid()) @db.Uuid
+  userId                String             @map("user_id") @db.Uuid
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batchTier             SetupBatchTier     @map("batch_tier")
+  maxProducts           Int                @map("max_products")
+  priceCents            Int                @map("price_cents")
+  includeMonthlyPlan    Boolean            @default(false) @map("include_monthly_plan")
+  monthlyPlanPriceCents Int                @default(0) @map("monthly_plan_price_cents")
+  totalPriceCents       Int                @map("total_price_cents")
+  status                SetupRequestStatus @default(PENDING)
+  referenceCode         String             @unique @map("reference_code")
+  contactPhone          String?            @map("contact_phone")
+  sourceDescription     String?            @map("source_description") @db.Text
+  whatsappMessage       String?            @map("whatsapp_message") @db.Text
+  adminNotes            String?            @map("admin_notes") @db.Text
+  importedCount         Int?               @map("imported_count")
+  paidAt                DateTime?          @map("paid_at")
+  startedAt             DateTime?          @map("started_at")
+  completedAt           DateTime?          @map("completed_at")
+  canceledAt            DateTime?          @map("canceled_at")
+  updatedByAdminId      String?            @map("updated_by_admin_id") @db.Uuid
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("product_setup_requests")
+}
+
+model BillingEvent {
+  id            String            @id @default(uuid()) @db.Uuid
+  userId        String            @map("user_id") @db.Uuid
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action        BillingActionType
+  actorUserId   String?           @map("actor_user_id") @db.Uuid
+  amountCents   Int?              @map("amount_cents")
+  daysGranted   Int?              @map("days_granted")
+  referenceCode String?           @map("reference_code")
+  note          String?           @db.Text
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action])
+  @@map("billing_events")
+}
+

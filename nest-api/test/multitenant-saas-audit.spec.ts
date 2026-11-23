@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthGuard } from '../src/auth/auth.guard';
-import { OrderStatus, Role } from '@prisma/client';
+import { OrderStatus, Role, SetupBatchTier, SetupRequestStatus, SubscriptionStatus } from '@prisma/client';
 
 /**
  * ============================================================================
@@ -83,6 +83,22 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
       delete: jest.fn(),
       create: jest.fn(),
     },
+    subscription: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    productSetupRequest: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    billingEvent: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
     $transaction: jest.fn((cb: any) => cb(prismaMock)),
   };
 
@@ -92,6 +108,7 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
       const req = context.switchToHttp().getRequest();
       const tenantId = req.headers['x-tenant-id'];
       const tenantEmail = req.headers['x-tenant-email'];
+      const isSuperAdmin = req.headers['x-super-admin'] === 'true';
 
       if (!tenantId) return false;
 
@@ -100,6 +117,8 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
         id: tenantId === 'unprovisioned' ? null : tenantId,
         legacyId: `firebase-uid-${tenantId}`,
         email: tenantEmail || `${tenantId}@lojista.com`,
+        role: Role.OWNER,
+        isSuperAdmin,
       };
       return true;
     }),
@@ -126,6 +145,20 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const now = Date.now();
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      id: 'sub-default-trial',
+      userId: 'uuid-tenant-B',
+      status: SubscriptionStatus.TRIAL,
+      planCode: 'PRO_MONTHLY',
+      monthlyPriceCents: 9700,
+      trialStartsAt: new Date(now - 2 * 86_400_000),
+      trialEndsAt: new Date(now + 12 * 86_400_000),
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      isExempt: false,
+    });
+    prismaMock.billingEvent.create.mockResolvedValue({ id: 'evt-default' });
   });
 
   // ==========================================================================
@@ -147,6 +180,18 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
           id: 'cfg-tenant-b',
           storeName: 'Pratas do Brasil',
           publicSlug: 'pratas-brasil',
+          primaryColor: '#D4AF37',
+          secondaryColor: '#343434',
+        },
+        subscription: {
+          status: SubscriptionStatus.TRIAL,
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: new Date(),
+          trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          isExempt: false,
         },
       };
       prismaMock.user.create.mockResolvedValue(createdUser);
@@ -162,17 +207,22 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
         })
         .expect(201);
 
-      expect(res.body).toEqual({
+      expect(res.body).toMatchObject({
         id: 'uuid-tenant-B',
         name: 'Maria Joalheira',
         email: 'maria@pratasbrasil.com',
         role: 'admin',
         active: true,
         isNew: true,
+        isSuperAdmin: false,
         store: {
           id: 'cfg-tenant-b',
           storeName: 'Pratas do Brasil',
           slug: 'pratas-brasil',
+        },
+        subscription: {
+          effectiveStatus: SubscriptionStatus.TRIAL,
+          isBlocked: false,
         },
       });
 
@@ -735,6 +785,182 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
         .expect(404);
 
       expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // 13. GATE DE ASSINATURA (402 ADMIN) + VITRINE PÚBLICA ONLINE
+  // ==========================================================================
+  describe('13. Gate de Assinatura (Bloqueio Admin 402 + Vitrine Pública Online)', () => {
+    it('Bloqueia endpoints operacionais com 402 SUBSCRIPTION_EXPIRED quando trial venceu, mas libera auth/me, billing/status e catálogo público', async () => {
+      const expiredSub = {
+        id: 'sub-exp-b',
+        userId: 'uuid-tenant-B',
+        status: SubscriptionStatus.TRIAL,
+        planCode: 'PRO_MONTHLY',
+        monthlyPriceCents: 9700,
+        trialStartsAt: new Date('2026-10-01T00:00:00Z'),
+        trialEndsAt: new Date('2026-10-15T00:00:00Z'),
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        isExempt: false,
+      };
+      prismaMock.subscription.findUnique.mockResolvedValue(expiredSub);
+
+      const prodRes = await request(app.getHttpServer())
+        .get('/api/v2/products')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(402);
+      expect(prodRes.body.code).toBe('SUBSCRIPTION_EXPIRED');
+
+      await request(app.getHttpServer())
+        .get('/api/v2/orders')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(402);
+
+      await request(app.getHttpServer())
+        .get('/api/v2/customers')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(402);
+
+      await request(app.getHttpServer())
+        .get('/api/v2/config')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(402);
+
+      // Auth /me e Billing /status permanecem acessíveis para exibir a tela de renovação
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'uuid-tenant-B',
+        name: 'Maria Expirada',
+        email: 'maria@expirada.com',
+        role: Role.OWNER,
+        active: true,
+        config: { id: 'cfg-b', storeName: 'Loja B', publicSlug: 'loja-b', primaryColor: '#D4AF37', secondaryColor: '#343434' },
+        subscription: expiredSub,
+      });
+      const meRes = await request(app.getHttpServer())
+        .get('/api/v2/auth/me')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(200);
+      expect(meRes.body.subscription.isBlocked).toBe(true);
+
+      prismaMock.productSetupRequest.findMany.mockResolvedValue([]);
+      prismaMock.billingEvent.findMany.mockResolvedValue([]);
+      await request(app.getHttpServer())
+        .get('/api/v2/billing/status')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(200);
+
+      // Vitrine pública da loja expirada continua ONLINE
+      prismaMock.config.findFirst.mockResolvedValue({
+        userId: 'uuid-tenant-B',
+        storeName: 'Loja B',
+        publicSlug: 'loja-b',
+        primaryColor: '#D4AF37',
+        secondaryColor: '#343434',
+        whatsappNumber: null,
+        banners: [],
+        lowStockThreshold: 5,
+      });
+      prismaMock.product.findMany.mockResolvedValue([]);
+      await request(app.getHttpServer())
+        .get('/api/v1/public/catalog?slug=loja-b')
+        .expect(200);
+    });
+  });
+
+  // ==========================================================================
+  // 14. ISOLAMENTO DE BILLING & ORDER BUMP SETUP REQUESTS
+  // ==========================================================================
+  describe('14. Isolamento de Billing & Order Bump Setup Requests', () => {
+    it('Tenant B não consegue cancelar solicitação de setup pertencente ao Tenant A (404)', async () => {
+      prismaMock.productSetupRequest.findFirst.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .patch('/api/v2/billing/setup-requests/req-tenant-a-id/cancel')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .expect(404);
+
+      expect(prismaMock.productSetupRequest.findFirst).toHaveBeenCalledWith({
+        where: { id: 'req-tenant-a-id', userId: 'uuid-tenant-B' },
+      });
+      expect(prismaMock.productSetupRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('Tenant B cria checkout-intent com Order Bump UP_TO_200 vinculado apenas ao seu próprio userId', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'uuid-tenant-B',
+        email: 'tenant-b@lojista.com',
+        name: 'Tenant B',
+        config: { storeName: 'Loja B', publicSlug: 'loja-b' },
+      });
+      prismaMock.productSetupRequest.create.mockResolvedValue({
+        id: 'setup-b-1',
+        userId: 'uuid-tenant-B',
+        batchTier: SetupBatchTier.UP_TO_200,
+        maxProducts: 200,
+        priceCents: 14900,
+        includeMonthlyPlan: true,
+        monthlyPlanPriceCents: 9700,
+        totalPriceCents: 24600,
+        status: SetupRequestStatus.PENDING,
+        referenceCode: 'HIVE-BUMP-TEST',
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v2/billing/checkout-intent')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .send({ setupBatchTier: SetupBatchTier.UP_TO_200 })
+        .expect(201);
+
+      expect(res.body.totalPriceCents).toBe(24600);
+      expect(prismaMock.productSetupRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: 'uuid-tenant-B' }),
+        }),
+      );
+    });
+  });
+
+  // ==========================================================================
+  // 15. PRIVILÉGIO & ISOLAMENTO SUPER-ADMIN
+  // ==========================================================================
+  describe('15. Segurança Super-Admin (403 para Lojistas)', () => {
+    it('Lojista comum (OWNER Tenant B) toma 403 em todas as rotas de /api/v2/super-admin/*', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v2/super-admin/overview')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .set('x-tenant-email', 'tenant-b@lojista.com')
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .get('/api/v2/super-admin/tenants')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .set('x-tenant-email', 'tenant-b@lojista.com')
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .patch('/api/v2/super-admin/tenants/uuid-tenant-A/subscription')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .set('x-tenant-email', 'tenant-b@lojista.com')
+        .send({ action: 'ACTIVATE_MONTHLY', days: 30 })
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post('/api/v2/super-admin/tenants/uuid-tenant-A/import-products')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .set('x-tenant-email', 'tenant-b@lojista.com')
+        .send({ products: [{ name: 'Invasão', salePrice: 10 }] })
+        .expect(403);
+    });
+
+    it('Mesmo com flag isSuperAdmin forjada sem e-mail da allowlist, acesso a /api/v2/super-admin/overview retorna 403', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v2/super-admin/overview')
+        .set('x-tenant-id', 'uuid-tenant-B')
+        .set('x-tenant-email', 'invasor@lojista.com')
+        .set('x-super-admin', 'true')
+        .expect(403);
     });
   });
 });

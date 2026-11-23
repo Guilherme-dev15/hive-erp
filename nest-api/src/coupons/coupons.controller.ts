@@ -2,8 +2,9 @@ import { Controller, Get, Post, Body, Param, Delete, UseGuards, Request } from '
 import { CouponsService } from './coupons.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 @Controller('api/v2')
 export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}

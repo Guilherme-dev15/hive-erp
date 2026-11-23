@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from './AuthContext';
 import { useAuth } from '../hooks/useAuth';
+import type { SubscriptionSummary } from '../types';
 
 const {
   mockOnAuthStateChanged,
@@ -13,6 +14,7 @@ const {
   mockApiGet,
   mockToastError,
   mockToastSuccess,
+  expiredHandlerRef,
 } = vi.hoisted(() => ({
   mockOnAuthStateChanged: vi.fn(),
   mockSignInWithPopup: vi.fn(),
@@ -22,6 +24,7 @@ const {
   mockApiGet: vi.fn(),
   mockToastError: vi.fn(),
   mockToastSuccess: vi.fn(),
+  expiredHandlerRef: { current: null as ((sub?: SubscriptionSummary) => void) | null },
 }));
 
 vi.mock('firebase/auth', () => ({
@@ -45,6 +48,14 @@ vi.mock('../services/apiService', () => ({
     get: mockApiGet,
   },
   onboardMerchant: vi.fn(),
+  registerSubscriptionExpiredHandler: (handler: ((sub?: SubscriptionSummary) => void) | null) => {
+    expiredHandlerRef.current = handler;
+    return () => {
+      if (expiredHandlerRef.current === handler) {
+        expiredHandlerRef.current = null;
+      }
+    };
+  },
 }));
 
 vi.mock('react-hot-toast', () => ({
@@ -60,6 +71,7 @@ function AuthHarness() {
     <div>
       <span data-testid="user-email">{user?.email ?? 'anon'}</span>
       <span data-testid="user-role">{userData?.role ?? 'none'}</span>
+      <span data-testid="sub-blocked">{String(Boolean(userData?.subscription?.isBlocked))}</span>
       <button type="button" onClick={signInWithGoogle}>
         Entrar
       </button>
@@ -67,9 +79,10 @@ function AuthHarness() {
   );
 }
 
-describe('AuthContext (resiliência de login Google / COOP / popup)', () => {
+describe('AuthContext (resiliência de login Google / COOP / popup / assinatura)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    expiredHandlerRef.current = null;
     mockGetRedirectResult.mockResolvedValue(null);
     mockOnAuthStateChanged.mockImplementation((_auth, cb) => {
       cb(null);
@@ -145,5 +158,69 @@ describe('AuthContext (resiliência de login Google / COOP / popup)', () => {
 
     expect(mockSignInWithRedirect).not.toHaveBeenCalled();
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('mantém sessão autenticada quando trial expirou e aplica bloqueio ao receber evento 402', async () => {
+    const fakeFirebaseUser = {
+      email: 'lojista@pratas.com',
+      getIdToken: vi.fn().mockResolvedValue('jwt-token'),
+    };
+    mockApiGet.mockResolvedValueOnce({
+      data: {
+        id: 'tenant-1',
+        name: 'Lojista',
+        email: 'lojista@pratas.com',
+        role: 'admin',
+        active: true,
+        isSuperAdmin: false,
+        subscription: {
+          status: 'TRIAL',
+          effectiveStatus: 'TRIAL',
+          isBlocked: false,
+          isExempt: false,
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: '2026-11-01T00:00:00Z',
+          trialEndsAt: '2026-11-15T00:00:00Z',
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          daysRemaining: 4,
+        },
+      },
+    });
+    mockOnAuthStateChanged.mockImplementation((_auth, cb) => {
+      cb(fakeFirebaseUser);
+      return vi.fn();
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByTestId('user-email')).toHaveTextContent('lojista@pratas.com');
+    expect(screen.getByTestId('sub-blocked')).toHaveTextContent('false');
+    expect(mockSignOut).not.toHaveBeenCalled();
+
+    act(() => {
+      expiredHandlerRef.current?.({
+        status: 'TRIAL',
+        effectiveStatus: 'EXPIRED',
+        isBlocked: true,
+        isExempt: false,
+        planCode: 'PRO_MONTHLY',
+        monthlyPriceCents: 9700,
+        trialStartsAt: '2026-10-01T00:00:00Z',
+        trialEndsAt: '2026-10-15T00:00:00Z',
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        daysRemaining: 0,
+      });
+    });
+
+    expect(screen.getByTestId('sub-blocked')).toHaveTextContent('true');
+    expect(screen.getByTestId('user-email')).toHaveTextContent('lojista@pratas.com');
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 });

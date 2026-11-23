@@ -1,12 +1,36 @@
-import { Controller, Get, Post, Body, UseGuards, Request, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuthGuard } from './auth.guard';
+import { AuthGuard, getAdminEmails } from './auth.guard';
 import { OnboardDto } from './dto/onboard.dto';
-import { Role, Prisma } from '@prisma/client';
+import { BillingActionType, Prisma, Role, SubscriptionStatus } from '@prisma/client';
+import { SubscriptionService, evaluateSubscriptionAccess } from '../billing/subscription.service';
 
 @Controller('api/v2/auth')
 export class AuthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly subscriptionService: SubscriptionService,
+  ) {}
+
+  private resolveIsSuperAdmin(email: string | null | undefined, flag?: boolean): boolean {
+    if (flag === true) return true;
+    const normalized = email?.trim().toLowerCase();
+    return Boolean(normalized && getAdminEmails().includes(normalized));
+  }
+
+  private mapRole(role: Role): 'admin' | 'editor' | 'viewer' {
+    return role === Role.OWNER ? 'admin' : role === Role.SELLER ? 'editor' : 'viewer';
+  }
 
   @UseGuards(AuthGuard)
   @Get('me')
@@ -15,24 +39,43 @@ export class AuthController {
       throw new UnauthorizedException('Usuário inválido no contexto');
     }
 
-    let dbUser;
-
-    if (req.user.id) {
-       dbUser = await this.prisma.user.findUnique({ where: { id: req.user.id } });
-    } else {
-       dbUser = await this.prisma.user.findUnique({ where: { legacyId: req.user.legacyId } });
-    }
+    const dbUser = req.user.id
+      ? await this.prisma.user.findUnique({
+          where: { id: req.user.id },
+          include: { config: true, subscription: true },
+        })
+      : await this.prisma.user.findUnique({
+          where: { legacyId: req.user.legacyId },
+          include: { config: true, subscription: true },
+        });
 
     if (!dbUser) {
       throw new UnauthorizedException('Registro do usuário não encontrado no banco de dados da plataforma.');
     }
 
+    const isSuperAdmin = this.resolveIsSuperAdmin(dbUser.email, req.user?.isSuperAdmin);
+    const subscription =
+      dbUser.subscription && (!isSuperAdmin || dbUser.subscription.isExempt)
+        ? evaluateSubscriptionAccess(dbUser.subscription)
+        : await this.subscriptionService.getAccessStatus(dbUser.id, isSuperAdmin);
+
     return {
       id: dbUser.id,
       name: dbUser.name,
       email: dbUser.email,
-      role: dbUser.role === 'OWNER' ? 'admin' : (dbUser.role === 'SELLER' ? 'editor' : 'viewer'),
-      active: dbUser.active
+      role: this.mapRole(dbUser.role),
+      active: dbUser.active,
+      isSuperAdmin,
+      store: dbUser.config
+        ? {
+            id: dbUser.config.id,
+            storeName: dbUser.config.storeName,
+            slug: dbUser.config.publicSlug,
+            primaryColor: dbUser.config.primaryColor,
+            secondaryColor: dbUser.config.secondaryColor,
+          }
+        : null,
+      subscription,
     };
   }
 
@@ -46,13 +89,14 @@ export class AuthController {
       throw new UnauthorizedException('Usuário inválido no contexto de autenticação');
     }
 
-    const normalizedEmail = (dto.email || req.user?.email)?.trim().toLowerCase();
+    // Prioriza o e-mail verificado no token JWT para evitar spoof de e-mail
+    const normalizedEmail = (req.user?.email || dto.email)?.trim().toLowerCase();
 
     let existingUser = null;
     if (userId) {
       existingUser = await this.prisma.user.findUnique({
         where: { id: userId },
-        include: { config: true },
+        include: { config: true, subscription: true },
       });
     } else if (legacyId) {
       existingUser = await this.prisma.user.findFirst({
@@ -64,23 +108,35 @@ export class AuthController {
               : []),
           ],
         },
-        include: { config: true },
+        include: { config: true, subscription: true },
       });
     }
 
     if (existingUser) {
+      const isSuperAdmin = this.resolveIsSuperAdmin(existingUser.email, req.user?.isSuperAdmin);
+      const subscription =
+        existingUser.subscription && (!isSuperAdmin || existingUser.subscription.isExempt)
+          ? evaluateSubscriptionAccess(existingUser.subscription)
+          : await this.subscriptionService.getAccessStatus(existingUser.id, isSuperAdmin);
+
       return {
         id: existingUser.id,
         name: existingUser.name,
         email: existingUser.email,
-        role: existingUser.role === 'OWNER' ? 'admin' : (existingUser.role === 'SELLER' ? 'editor' : 'viewer'),
+        role: this.mapRole(existingUser.role),
         active: existingUser.active,
         isNew: false,
-        store: existingUser.config ? {
-          id: existingUser.config.id,
-          storeName: existingUser.config.storeName,
-          slug: existingUser.config.publicSlug,
-        } : null,
+        isSuperAdmin,
+        store: existingUser.config
+          ? {
+              id: existingUser.config.id,
+              storeName: existingUser.config.storeName,
+              slug: existingUser.config.publicSlug,
+              primaryColor: existingUser.config.primaryColor,
+              secondaryColor: existingUser.config.secondaryColor,
+            }
+          : null,
+        subscription,
       };
     }
 
@@ -98,6 +154,16 @@ export class AuthController {
       }
     }
 
+    const isSuperAdmin = this.resolveIsSuperAdmin(normalizedEmail, req.user?.isSuperAdmin);
+    const now = new Date();
+    const { trialStartsAt, trialEndsAt } = this.subscriptionService.buildTrialDates(now);
+    const { planCode, monthlyPriceCents, trialDays } =
+      this.subscriptionService.getOnboardingDefaults?.() ?? {
+        planCode: 'PRO_MONTHLY',
+        monthlyPriceCents: 9700,
+        trialDays: 14,
+      };
+
     try {
       const newUser = await this.prisma.user.create({
         data: {
@@ -114,8 +180,30 @@ export class AuthController {
               secondaryColor: '#343434',
             },
           },
+          subscription: {
+            create: {
+              status: isSuperAdmin ? SubscriptionStatus.ACTIVE : SubscriptionStatus.TRIAL,
+              planCode,
+              monthlyPriceCents,
+              trialStartsAt,
+              trialEndsAt,
+              activatedAt: isSuperAdmin ? now : null,
+              isExempt: isSuperAdmin,
+            },
+          },
+          ...(!isSuperAdmin
+            ? {
+                billingEvents: {
+                  create: {
+                    action: BillingActionType.TRIAL_STARTED,
+                    daysGranted: trialDays,
+                    note: `Trial automático de ${trialDays} dias iniciado no onboarding.`,
+                  },
+                },
+              }
+            : {}),
         },
-        include: { config: true },
+        include: { config: true, subscription: true },
       });
 
       return {
@@ -125,11 +213,17 @@ export class AuthController {
         role: 'admin',
         active: newUser.active,
         isNew: true,
+        isSuperAdmin,
         store: {
           id: newUser.config!.id,
           storeName: newUser.config!.storeName,
           slug: newUser.config!.publicSlug,
+          primaryColor: newUser.config!.primaryColor,
+          secondaryColor: newUser.config!.secondaryColor,
         },
+        subscription: newUser.subscription
+          ? evaluateSubscriptionAccess(newUser.subscription, now)
+          : await this.subscriptionService.getAccessStatus(newUser.id, isSuperAdmin, now),
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -139,4 +233,3 @@ export class AuthController {
     }
   }
 }
-

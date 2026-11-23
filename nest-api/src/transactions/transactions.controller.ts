@@ -2,9 +2,10 @@ import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Request } f
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/transactions')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 

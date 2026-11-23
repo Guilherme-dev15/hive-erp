@@ -27,9 +27,12 @@ const DEFAULT_THEME: ThemeConfig = {
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, userData, needsOnboarding } = useAuth();
   const [theme, setThemeState] = useState<ThemeConfig>(DEFAULT_THEME);
   const [loadingTheme, setLoadingTheme] = useState(false);
+  const isSubscriptionBlocked = Boolean(
+    userData?.subscription?.isBlocked && !userData?.isSuperAdmin
+  );
 
   const setTheme = useCallback((newTheme: Partial<ThemeConfig>) => {
     setThemeState((prev) => {
@@ -40,7 +43,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshTheme = useCallback(async () => {
-    if (!user) return;
+    if (!user || needsOnboarding || isSubscriptionBlocked) return;
     try {
       setLoadingTheme(true);
       const data = await getConfig();
@@ -59,16 +62,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoadingTheme(false);
     }
-  }, [user]);
+  }, [user, needsOnboarding, isSubscriptionBlocked]);
 
   useEffect(() => {
-    if (user) {
-      refreshTheme();
-    } else {
+    if (!user) {
       setThemeState(DEFAULT_THEME);
       applyThemeVariables(DEFAULT_THEME.primaryColor, DEFAULT_THEME.secondaryColor);
+      return;
     }
-  }, [user, refreshTheme]);
+
+    if (userData?.store) {
+      const fallbackTheme: ThemeConfig = {
+        primaryColor: userData.store.primaryColor || DEFAULT_THEME.primaryColor,
+        secondaryColor: userData.store.secondaryColor || DEFAULT_THEME.secondaryColor,
+        storeName: userData.store.storeName || DEFAULT_THEME.storeName,
+        slug: userData.store.slug || '',
+      };
+      setThemeState(fallbackTheme);
+      applyThemeVariables(fallbackTheme.primaryColor, fallbackTheme.secondaryColor);
+    }
+
+    if (!needsOnboarding && !isSubscriptionBlocked) {
+      refreshTheme();
+    }
+  }, [user, userData?.store, needsOnboarding, isSubscriptionBlocked, refreshTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, refreshTheme, loadingTheme }}>

@@ -3,9 +3,10 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/orders')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 

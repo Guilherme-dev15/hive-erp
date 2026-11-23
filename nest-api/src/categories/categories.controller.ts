@@ -2,9 +2,10 @@ import { Controller, Get, Post, Delete, Param, Body, UseGuards, Request } from '
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/categories')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
