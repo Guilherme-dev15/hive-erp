@@ -131,6 +131,72 @@ describe('OrdersService', () => {
         }),
       });
     });
+
+    it('é idempotente quando o status de destino é o mesmo do pedido', async () => {
+      prisma.order.findFirst.mockResolvedValue({
+        ...mockOrder,
+        status: OrderStatus.CONCLUIDO,
+      });
+
+      const res = await service.updateStatus('ord-123', 'Concluído' as any, 'user-1');
+
+      expect(res.status).toBe('Concluído');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('permite reverter pedido de Concluído para Em Separação sem erro de máquina de estados', async () => {
+      prisma.order.findFirst.mockResolvedValue({
+        ...mockOrder,
+        status: OrderStatus.CONCLUIDO,
+        financialRegistered: true,
+      });
+      prisma.order.update.mockResolvedValue({
+        ...mockOrder,
+        status: OrderStatus.EM_SEPARACAO,
+        financialRegistered: true,
+      });
+
+      const res = await service.updateStatus('ord-123', 'Em Separação' as any, 'user-1');
+
+      expect(res.status).toBe('Em Separação');
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: OrderStatus.EM_SEPARACAO,
+          }),
+        })
+      );
+    });
+
+    it('ao reabrir pedido cancelado para Em Separação, deduz o estoque novamente', async () => {
+      prisma.order.findFirst.mockResolvedValue({
+        ...mockOrder,
+        status: OrderStatus.CANCELADO,
+      });
+      prisma.order.update.mockResolvedValue({
+        ...mockOrder,
+        status: OrderStatus.EM_SEPARACAO,
+      });
+      prisma.product.update.mockResolvedValue({
+        id: 'prod-1',
+        quantity: 5,
+      });
+
+      await service.updateStatus('ord-123', 'Em Separação' as any, 'user-1');
+
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { quantity: { decrement: 2 } },
+      });
+      expect(prisma.inventoryLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          productId: 'prod-1',
+          userId: 'user-1',
+          change: -2,
+          type: 'REABERTURA_PEDIDO',
+        }),
+      });
+    });
   });
 
   describe('findAll', () => {

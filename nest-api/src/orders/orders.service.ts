@@ -163,15 +163,14 @@ export class OrdersService {
     const order = await this.findOne(id, userId);
     const newStatus = this.normalizeStatus(statusInput);
 
-    // Validação de transição (Máquina de Estado portável do Express)
-    const validTransitions = this.getValidTransitions(order.status);
-    if (!validTransitions.includes(newStatus)) {
-      throw new BadRequestException(`Transição de status inválida: ${order.status} -> ${newStatus}`);
+    // Se já estiver no status solicitado, retorno idempotente sem erro
+    if (newStatus === order.status) {
+      return this.formatOrderForUi(order);
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Se estiver cancelando, restaurar estoque e registrar log
-      if (newStatus === OrderStatus.CANCELADO) {
+      // 1. Se estiver cancelando (e antes não estava cancelado), restaurar estoque e registrar log
+      if (newStatus === OrderStatus.CANCELADO && order.status !== OrderStatus.CANCELADO) {
         for (const item of order.items) {
           if (item.productId) {
             const restoredProduct = await tx.product.update({
@@ -185,6 +184,28 @@ export class OrdersService {
                 type: 'CANCELAMENTO_PEDIDO',
                 change: item.quantity,
                 newQuantity: restoredProduct?.quantity ?? 0,
+                userName: 'Sistema',
+              },
+            });
+          }
+        }
+      }
+
+      // 1b. Se estava cancelado e está reativando para outro status ativo, decrementar estoque novamente
+      if (order.status === OrderStatus.CANCELADO && newStatus !== OrderStatus.CANCELADO) {
+        for (const item of order.items) {
+          if (item.productId) {
+            const updatedProduct = await tx.product.update({
+              where: { id: item.productId },
+              data: { quantity: { decrement: item.quantity } },
+            });
+            await tx.inventoryLog.create({
+              data: {
+                productId: item.productId,
+                userId,
+                type: 'REABERTURA_PEDIDO',
+                change: -item.quantity,
+                newQuantity: updatedProduct?.quantity ?? 0,
                 userName: 'Sistema',
               },
             });
@@ -224,44 +245,10 @@ export class OrdersService {
     });
   }
 
-  private getValidTransitions(currentStatus: OrderStatus): OrderStatus[] {
-    const transitions: Record<OrderStatus, OrderStatus[]> = {
-      AGUARDANDO_PAGAMENTO: [
-        OrderStatus.PAGO,
-        OrderStatus.EM_PRODUCAO,
-        OrderStatus.EM_SEPARACAO,
-        OrderStatus.ENVIADO,
-        OrderStatus.CONCLUIDO,
-        OrderStatus.CANCELADO,
-      ],
-      PAGO: [
-        OrderStatus.EM_PRODUCAO,
-        OrderStatus.EM_SEPARACAO,
-        OrderStatus.ENVIADO,
-        OrderStatus.CONCLUIDO,
-        OrderStatus.CANCELADO,
-      ],
-      EM_PRODUCAO: [
-        OrderStatus.EM_SEPARACAO,
-        OrderStatus.ENVIADO,
-        OrderStatus.CONCLUIDO,
-        OrderStatus.CANCELADO,
-      ],
-      EM_SEPARACAO: [
-        OrderStatus.ENVIADO,
-        OrderStatus.CONCLUIDO,
-        OrderStatus.CANCELADO,
-      ],
-      ENVIADO: [
-        OrderStatus.CONCLUIDO,
-        OrderStatus.CANCELADO,
-      ],
-      CONCLUIDO: [
-        OrderStatus.CANCELADO,
-      ],
-      CANCELADO: [],
-    };
-    return transitions[currentStatus] || [];
+  getValidTransitions(currentStatus: OrderStatus): OrderStatus[] {
+    // Para lojistas no ERP, todas as transições entre estados válidos são permitidas,
+    // garantindo flexibilidade operacional e correção de erros manuais.
+    return Object.values(OrderStatus);
   }
 
   async remove(id: string, userId: string) {
