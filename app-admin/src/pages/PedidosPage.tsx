@@ -295,7 +295,7 @@ export function PedidosPage() {
 
   const stats = useMemo(() => {
     const totalVendas = pedidos.reduce(
-      (acc, p) => (p.status !== 'Cancelado' ? acc + (p.total || 0) : acc),
+      (acc, p) => (p.status !== 'Cancelado' ? acc + (Number(p.total) || 0) : acc),
       0
     );
     const pendentes = pedidos.filter(

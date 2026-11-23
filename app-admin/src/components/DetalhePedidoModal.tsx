@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Package, Printer, Phone } from 'lucide-react';
 import { updateAdminOrderStatus } from '../services/apiService';
 import { toast } from 'react-hot-toast';
+import { formatCurrency } from '../utils/format';
 import { Order, OrderItem } from '../types';
 
 // Define a interface para as props do componente
@@ -151,19 +152,24 @@ export function DetalhePedidoModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {pedido.items?.map((item: OrderItem, i: number) => (
-                    <tr key={i} className="text-sm">
-                      <td className="p-4 font-bold text-gray-700">
-                        {item.name}
-                      </td>
-                      <td className="p-4 text-center font-black text-indigo-600">
-                        x{item.quantidade}
-                      </td>
-                      <td className="p-4 text-right font-bold text-gray-900">
-                        R$ {(item.salePrice * item.quantidade).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {pedido.items?.map((item: any, i: number) => {
+                    const qty = Number(item.quantity ?? item.quantidade ?? 1);
+                    const price = Number(item.salePrice || 0);
+                    const lineTotal = price * qty;
+                    return (
+                      <tr key={i} className="text-sm">
+                        <td className="p-4 font-bold text-gray-700">
+                          {item.name}
+                        </td>
+                        <td className="p-4 text-center font-black text-indigo-600">
+                          x{qty}
+                        </td>
+                        <td className="p-4 text-right font-bold text-gray-900">
+                          {formatCurrency(lineTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -174,7 +180,7 @@ export function DetalhePedidoModal({
                     Total Pago
                   </p>
                   <p className="text-2xl font-black text-indigo-600">
-                    R$ {pedido.total.toFixed(2)}
+                    {formatCurrency(pedido.total ?? 0)}
                   </p>
                 </div>
               </div>
