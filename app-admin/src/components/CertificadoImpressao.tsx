@@ -25,8 +25,6 @@ export const CertificadoImpressao = forwardRef<
   HTMLDivElement,
   CertificadoProps
 >(({ pedido, config }, ref) => {
-  if (!pedido) return null;
-
   // Cores e Configurações (com fallbacks)
   const primaryColor = config?.primaryColor || '#D4AF37';
   const storeName = config?.storeName || 'HivePratas';
@@ -42,11 +40,11 @@ export const CertificadoImpressao = forwardRef<
         className="p-8 font-sans text-gray-800"
         style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}
       >
-        {/* Borda Decorativa */}
-        <div
-          className="border-8 border-double p-8 h-full relative"
-          style={{ borderColor: primaryColor }}
-        >
+        {pedido ? (
+          <div
+            className="border-8 border-double p-8 h-full relative"
+            style={{ borderColor: primaryColor }}
+          >
           {/* Cabeçalho */}
           <div className="text-center mb-8">
             <h1
@@ -130,6 +128,7 @@ export const CertificadoImpressao = forwardRef<
             </p>
           </div>
         </div>
+        ) : null}
       </div>
     </div>
   );
