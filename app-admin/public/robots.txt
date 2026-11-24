@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Allow: /landing
+Allow: /hiveerp-landing.html
 Allow: /termos
 Allow: /privacidade
 

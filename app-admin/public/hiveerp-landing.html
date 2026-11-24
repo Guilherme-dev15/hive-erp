@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>Hive ERP | O Sistema de Gestão e Vitrine Virtual Especialista em Joias e Semijoias</title>
+  <meta name="description" content="O 1º ERP feito sob medida para marcas de Joias, Semijoias e Prata 925. Controle de estoque por medidas (cm/mm/aros), estúdio fotográfico NeonStudio e vitrine online com pedidos automáticos no WhatsApp. Teste 14 dias grátis." />
+  <meta name="keywords" content="erp para joias, sistema para semijoias, sistema prata 925, controle de estoque joias, neonstudio fotos joias, vitrine virtual semijoias, catalogo whatsapp joias" />
+  <meta name="author" content="Hive ERP" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://hiveerp.com.br/" />
+
+  <!-- Open Graph / Facebook / WhatsApp -->
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:url" content="https://hiveerp.com.br/" />
+  <meta property="og:site_name" content="Hive ERP" />
+  <meta property="og:title" content="Hive ERP | Gestão & Vitrine Virtual para Joias e Semijoias" />
+  <meta property="og:description" content="Estoque por medidas, fotos profissionais no NeonStudio e pedidos automáticos no WhatsApp. Comece com 14 dias grátis sem cartão." />
+  <meta property="og:image" content="https://hiveerp.com.br/pwa-512x512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="Hive ERP - O ERP especialista em Joias e Semijoias" />
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://hiveerp.com.br/" />
+  <meta name="twitter:title" content="Hive ERP | Gestão & Vitrine Virtual para Joias e Semijoias" />
+  <meta name="twitter:description" content="O ERP feito sob medida para quem vende Joias, Semijoias e Prata 925. Teste grátis por 14 dias." />
+  <meta name="twitter:image" content="https://hiveerp.com.br/pwa-512x512.png" />
+
+  <!-- Favicon & PWA -->
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+  <meta name="theme-color" content="#1E1E1E" />
+
+  <!-- Tailwind CSS via CDN para renderização imediata -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            carvao: '#1E1E1E',
+            dourado: '#D4AF37',
+            'dourado-hover': '#B89628',
+            'off-white': '#F8F9FA'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Schema Markup JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://hiveerp.com.br/#organization",
+        "name": "Hive ERP",
+        "url": "https://hiveerp.com.br",
+        "logo": "https://hiveerp.com.br/pwa-512x512.png",
+        "description": "Sistema de gestão e vitrine virtual especializado para marcas e lojistas de Joias, Semijoias e Prata 925."
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://hiveerp.com.br/#software",
+        "name": "Hive ERP",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web, Cloud, PWA",
+        "offers": {
+          "@type": "Offer",
+          "price": "97.00",
+          "priceCurrency": "BRL",
+          "priceValidUntil": "2027-12-31"
+        },
+        "description": "ERP completo com NeonStudio para fotos profissionais com fundo branco, controle de medidas específicas de joias (cm/mm/aros) e vitrine virtual integrada com envio de pedidos para o WhatsApp."
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Preciso de cartão de crédito para fazer o teste grátis?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Não! Você começa o teste de 14 dias apenas com seu e-mail ou conta Google. Sem necessidade de cadastrar cartão."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "O que é o NeonStudio?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "É nosso estúdio fotográfico integrado ao ERP. Você tira ou envia a foto da joia direto pelo celular, enquadra com zoom de alta precisão e gera a imagem com fundo branco puro (#FFFFFF) em 1 clique, sem precisar de Photoshop."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Como funciona a Vitrine com pedidos no WhatsApp?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sua loja ganha um link exclusivo (ex: sua-loja.hiveerp.com.br). O cliente navega pelos produtos, escolhe medidas e aros, monta o carrinho e o pedido chega detalhado no seu WhatsApp, pronto para fechar a venda."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "E se eu já tiver muitos produtos e não quiser cadastrar tudo na mão?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Você pode contratar nosso serviço opcional de Implantação VIP: envie sua planilha ou fotos do fornecedor e nossa equipe técnica sobe até 200, 300 ou 500 produtos prontos para vender."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    .gradient-gold {
+      background: linear-gradient(135deg, #D4AF37 0%, #F3E8C8 50%, #D4AF37 100%);
+    }
+    .text-gold-gradient {
+      background: linear-gradient(135deg, #D4AF37 0%, #B89628 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-off-white text-gray-800 antialiased font-sans">
+
+  <!-- NAVBAR -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-dourado flex items-center justify-center text-carvao font-extrabold text-xl shadow-sm">
+            H
+          </div>
+          <div>
+            <span class="text-xl font-extrabold tracking-tight text-carvao flex items-center gap-1.5">
+              HIVE <span class="text-dourado">ERP</span>
+            </span>
+            <span class="block text-[9px] font-bold uppercase tracking-wider text-gray-400 -mt-1">
+              Especialista em Joias
+            </span>
+          </div>
+        </a>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-600">
+        <a href="#diferenciais" class="hover:text-carvao transition">Diferenciais</a>
+        <a href="#neonstudio" class="hover:text-carvao transition flex items-center gap-1">
+          <span>NeonStudio™</span>
+          <span class="text-[10px] font-extrabold px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">Exclusivo</span>
+        </a>
+        <a href="#vitrine" class="hover:text-carvao transition">Vitrine WhatsApp</a>
+        <a href="#precos" class="hover:text-carvao transition">Preços</a>
+        <a href="#faq" class="hover:text-carvao transition">Dúvidas</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="/entrar" class="px-4 py-2.5 text-xs font-bold text-gray-700 hover:text-carvao transition">
+          Entrar
+        </a>
+        <a href="/entrar" class="px-5 py-2.5 bg-carvao hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition">
+          Testar 14 Dias Grátis
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="relative pt-12 pb-20 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-off-white to-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto space-y-6">
+        
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200/80 text-amber-800 text-xs font-bold tracking-wide">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          O 1º ERP Especialista em Joias, Semijoias e Prata 925
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-carvao tracking-tight leading-tight">
+          Abandone as planilhas e o PDF. Venda joias com <span class="text-gold-gradient">vitrine profissional</span>.
+        </h1>
+
+        <p class="text-base sm:text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
+          Chega de perder tempo calculando medidas à mão ou mandando fotos soltas no privado. O Hive ERP organiza seu estoque em centímetros, aros e gramas, trata fotos no <strong>NeonStudio</strong> e entrega pedidos prontos no seu WhatsApp.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <a href="/entrar" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-carvao hover:bg-gray-800 text-white font-extrabold text-sm shadow-xl hover:shadow-2xl transition flex items-center justify-center gap-2">
+            <span>Criar Minha Loja Grátis (14 Dias)</span>
+            <span>→</span>
+          </a>
+          <a href="https://hive.hiveerp.com.br" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto px-6 py-4 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-carvao font-bold text-sm transition flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+            <span>Ver Vitrine Exemplo (Hive Pratas)</span>
+          </a>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold text-gray-500 pt-3">
+          <span class="flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            Sem cartão de crédito
+          </span>
+          <span class="flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            Ativação imediata em 2 minutos
+          </span>
+          <span class="flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            Implantação VIP disponível
+          </span>
+        </div>
+      </div>
+
+      <!-- PREVIEW MOCKUP -->
+      <div class="mt-12 max-w-5xl mx-auto rounded-3xl bg-carvao p-4 sm:p-6 shadow-2xl border border-gray-800">
+        <div class="flex items-center gap-2 mb-4 px-2">
+          <span class="w-3 h-3 rounded-full bg-red-500"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500"></span>
+          <span class="ml-2 text-xs font-mono text-gray-400">painel.hiveerp.com.br • NeonStudio & Vitrine Online</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-gray-900/90 rounded-2xl p-5 border border-gray-800 text-white space-y-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Estoque Inteligente</span>
+            <h4 class="text-lg font-bold">Colar Ponto de Luz Prata 925</h4>
+            <div class="space-y-1.5 text-xs text-gray-300">
+              <div class="flex justify-between py-1 border-b border-gray-800"><span>Malha Veneziana V15:</span><strong class="text-white">45cm</strong></div>
+              <div class="flex justify-between py-1 border-b border-gray-800"><span>Zircônia:</span><strong class="text-white">6mm</strong></div>
+              <div class="flex justify-between py-1 border-b border-gray-800"><span>Estoque Atual:</span><strong class="text-emerald-400">18 un</strong></div>
+              <div class="flex justify-between py-1"><span>Preço de Venda:</span><strong class="text-dourado">R$ 79,90</strong></div>
+            </div>
+          </div>
+          <div class="bg-gray-900/90 rounded-2xl p-5 border border-gray-800 text-white space-y-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">NeonStudio™</span>
+            <div class="aspect-square rounded-xl bg-white flex items-center justify-center p-4">
+              <div class="text-center">
+                <span class="text-4xl">✨</span>
+                <p class="text-xs font-bold text-gray-800 mt-2">Fundo Branco #FFFFFF Puro</p>
+                <p class="text-[10px] text-gray-500">Enquadramento com mira de joia</p>
+              </div>
+            </div>
+            <div class="text-xs text-gray-400 text-center">Exportação JPEG 1080x1080 sem Photoshop</div>
+          </div>
+          <div class="bg-gray-900/90 rounded-2xl p-5 border border-gray-800 text-white space-y-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Vitrine no WhatsApp</span>
+            <div class="bg-gray-800 rounded-xl p-3 text-xs space-y-2 border border-gray-700">
+              <p class="font-bold text-emerald-300">Novo Pedido Recebido!</p>
+              <p class="text-gray-300">1x Gargantilha Veneziana 45cm</p>
+              <p class="text-gray-300">1x Anel Solitário Prata 925 (Aro 16)</p>
+              <div class="pt-2 border-t border-gray-700 flex justify-between font-bold">
+                <span>Total:</span>
+                <span class="text-white">R$ 159,80</span>
+              </div>
+            </div>
+            <div class="text-xs text-gray-400 text-center">Baixa automática de estoque & DRE</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NICHO SECTION: FEITO PARA QUEM VENDE -->
+  <section class="py-12 bg-white border-y border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <p class="text-center text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">
+        Projetado especificamente para as necessidades de:
+      </p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div class="p-4 rounded-xl bg-gray-50 border border-gray-100">
+          <span class="text-2xl">💍</span>
+          <h4 class="font-bold text-sm text-carvao mt-1">Prata 925 & 950</h4>
+          <p class="text-xs text-gray-500">Controle por gramas e malha</p>
+        </div>
+        <div class="p-4 rounded-xl bg-gray-50 border border-gray-100">
+          <span class="text-2xl">✨</span>
+          <h4 class="font-bold text-sm text-carvao mt-1">Semijoias Banhadas</h4>
+          <p class="text-xs text-gray-500">Gestão de banho e garantia</p>
+        </div>
+        <div class="p-4 rounded-xl bg-gray-50 border border-gray-100">
+          <span class="text-2xl">👑</span>
+          <h4 class="font-bold text-sm text-carvao mt-1">Joias em Ouro 18k</h4>
+          <p class="text-xs text-gray-500">Markup de ouro e pedras</p>
+        </div>
+        <div class="p-4 rounded-xl bg-gray-50 border border-gray-100">
+          <span class="text-2xl">💎</span>
+          <h4 class="font-bold text-sm text-carvao mt-1">Acessórios & Zircônias</h4>
+          <p class="text-xs text-gray-500">Vitrines públicas de alto padrão</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIFERENCIAIS -->
+  <section id="diferenciais" class="py-20 bg-off-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <span class="text-xs font-bold uppercase tracking-widest text-amber-700">Por que o Hive ERP?</span>
+        <h2 class="text-3xl font-extrabold text-carvao mt-2">Diferenciais que nenhum ERP genérico oferece</h2>
+        <p class="text-gray-600 mt-2 text-sm sm:text-base">
+          Outros sistemas foram feitos para indústrias de caixas de papelão. O Hive ERP foi desenhado desde a primeira linha de código para joalherias.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Card 1 -->
+        <div class="bg-white p-7 rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md transition space-y-4">
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xl">
+            📏
+          </div>
+          <h3 class="text-xl font-bold text-carvao">Medidas Reais de Joias</h3>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            Cadastre colares em centímetros (40cm, 45cm, 60cm), anéis com grade de aros (12 ao 26), pingentes em milímetros e correntes por malha (Veneziana, Grumet, Elo Português).
+          </p>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="bg-white p-7 rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md transition space-y-4">
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xl">
+            📸
+          </div>
+          <h3 class="text-xl font-bold text-carvao">NeonStudio™ Integrado</h3>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            Tire a foto da peça no celular, ajuste com pan e zoom suave na mira milimétrica de joias e exporte imagens perfeitas em fundo branco puro 1080x1080 sem pagar por Photoshop.
+          </p>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="bg-white p-7 rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md transition space-y-4">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xl">
+            💬
+          </div>
+          <h3 class="text-xl font-bold text-carvao">Vitrine sem Comissão</h3>
+          <p class="text-sm text-gray-600 leading-relaxed">
+            Sua loja ganha um subdomínio próprio (ex: sua-marca.hiveerp.com.br). Suas clientes compram pelo carrinho e o pedido chega pronto no seu WhatsApp sem nenhuma porcentagem retida.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEÇÃO NEONSTUDIO DESTAQUE -->
+  <section id="neonstudio" class="py-20 bg-carvao text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div class="space-y-6">
+          <span class="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-950/60 border border-amber-800/80 px-3 py-1 rounded-full">
+            Tecnologia Exclusiva
+          </span>
+          <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
+            Fotos profissionais de joias direto do seu celular com o NeonStudio™
+          </h2>
+          <p class="text-gray-300 text-sm sm:text-base leading-relaxed">
+            Joias e semijoias exigem nitidez e fundo limpo para passar credibilidade. Com o NeonStudio, você não perde horas recortando fotos nem gasta com estúdios externos caros:
+          </p>
+          <ul class="space-y-3 text-sm text-gray-200">
+            <li class="flex items-center gap-3">
+              <span class="w-5 h-5 rounded-full bg-dourado text-carvao flex items-center justify-center font-bold text-xs">✓</span>
+              <span>Enquadramento milimétrico com mira central para anéis e gargantilhas</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="w-5 h-5 rounded-full bg-dourado text-carvao flex items-center justify-center font-bold text-xs">✓</span>
+              <span>Zoom suave de 0.5x a 5.0x com ajuste fino no scroll ou botões</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="w-5 h-5 rounded-full bg-dourado text-carvao flex items-center justify-center font-bold text-xs">✓</span>
+              <span>Fundo branco puro #FFFFFF padronizado para e-commerce de joias</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="w-5 h-5 rounded-full bg-dourado text-carvao flex items-center justify-center font-bold text-xs">✓</span>
+              <span>Geração automática de código de referência de joalheria</span>
+            </li>
+          </ul>
+          <div class="pt-2">
+            <a href="/entrar" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-dourado hover:bg-dourado-hover text-carvao font-extrabold text-sm transition shadow-lg">
+              <span>Testar NeonStudio Grátis</span>
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="bg-gray-900 rounded-3xl p-6 border border-gray-800 shadow-2xl space-y-4">
+          <div class="aspect-square rounded-2xl bg-white p-6 flex flex-col items-center justify-center relative overflow-hidden text-carvao">
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+              <div class="w-48 h-48 border border-dashed border-gray-600 rounded-full"></div>
+              <div class="w-64 h-64 border border-gray-300 absolute"></div>
+            </div>
+            <span class="text-6xl mb-2">💎</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Preview Canvas 1080x1080</span>
+            <span class="text-sm font-extrabold text-carvao">Colar Veneziana Ponto de Luz</span>
+            <span class="text-xs text-emerald-600 font-bold mt-1">✓ Fundo Branco #FFFFFF Aplicado</span>
+          </div>
+          <div class="flex items-center justify-between text-xs text-gray-400 px-2">
+            <span>Controle Pan X/Y</span>
+            <span>Zoom: 1.8x</span>
+            <span>Qualidade: 92%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VITRINE ONLINE SECTION -->
+  <section id="vitrine" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div class="order-2 lg:order-1 bg-off-white p-6 rounded-3xl border border-gray-200">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+              <div>
+                <h4 class="font-bold text-carvao">Sua Marca de Joias</h4>
+                <p class="text-xs text-gray-500 font-mono">suamarca.hiveerp.com.br</p>
+              </div>
+              <span class="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">Vitrine Online</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+              <div class="w-12 h-12 bg-white rounded-lg border flex items-center justify-center text-xl">💍</div>
+              <div class="flex-1">
+                <p class="text-xs font-bold text-carvao">Anel Solitário Prata 925</p>
+                <p class="text-[11px] text-gray-500">Tamanho: Aro 16</p>
+              </div>
+              <span class="text-xs font-extrabold text-carvao">R$ 89,90</span>
+            </div>
+            <a href="https://wa.me" target="_blank" class="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition">
+              <span>Finalizar Pedido no WhatsApp</span>
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="order-1 lg:order-2 space-y-6">
+          <span class="text-xs font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+            Venda sem Intermediários
+          </span>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-carvao tracking-tight">
+            Sua vitrine virtual pronta com pedidos direto no WhatsApp
+          </h2>
+          <p class="text-gray-600 text-sm sm:text-base leading-relaxed">
+            Seus clientes entram no seu link personalizado, visualizam fotos em alta definição, escolhem o aro do anel ou o comprimento do colar e enviam o carrinho montado para o seu WhatsApp.
+          </p>
+          <div class="grid grid-cols-2 gap-4 text-xs font-semibold text-gray-700">
+            <div class="p-3 bg-gray-50 rounded-xl border border-gray-200">
+              <p class="font-bold text-carvao text-sm mb-1">0% de Comissão</p>
+              <p class="text-gray-500">Todo o lucro da venda de joias fica com você.</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl border border-gray-200">
+              <p class="font-bold text-carvao text-sm mb-1">Baixa Automática</p>
+              <p class="text-gray-500">Estoque atualizado e DRE sincronizado na hora.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLANOS E PREÇOS -->
+  <section id="precos" class="py-20 bg-off-white border-t border-gray-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-14">
+        <span class="text-xs font-bold uppercase tracking-widest text-amber-700">Preço Transparente</span>
+        <h2 class="text-3xl font-extrabold text-carvao mt-2">Plano Único Completo para sua Marca de Joias</h2>
+        <p class="text-gray-600 mt-2 text-sm sm:text-base">
+          Comece hoje com 14 dias de teste grátis sem cartão. Pague via Pix somente se amar o sistema.
+        </p>
+      </div>
+
+      <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <!-- Plano Pro -->
+        <div class="md:col-span-2 bg-carvao text-white rounded-3xl p-8 flex flex-col justify-between shadow-2xl border border-gray-800">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-carvao bg-dourado px-3 py-1 rounded-full">
+                Plano Mensal HiveERP Pro
+              </span>
+              <span class="text-xs text-emerald-400 font-bold">14 Dias Grátis</span>
+            </div>
+
+            <div class="flex items-baseline gap-2 mb-2">
+              <span class="text-5xl font-extrabold">R$ 97</span>
+              <span class="text-sm text-gray-400">/mês no Pix</span>
+            </div>
+            <p class="text-xs text-gray-400 mb-6">Sem pegadinhas, sem taxas por venda e sem fidelidade.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-200">
+              <div class="flex items-center gap-2"><span class="text-dourado font-bold">✓</span> Produtos e fotos ilimitadas</div>
+              <div class="flex items-center gap-2"><span class="text-dourado font-bold">✓</span> Vitrine pública no seu subdomínio</div>
+              <div class="flex items-center gap-2"><span class="text-dourado font-bold">✓</span> NeonStudio™ com fundo branco</div>
+              <div class="flex items-center gap-2"><span class="text-dourado font-bold">✓</span> Pedidos automáticos no WhatsApp</div>
+              <div class="flex items-center gap-2"><span class="text-dourado font-bold">✓</span> Controle por medidas (cm/mm/aros)</div>
+              <div class="flex items-center gap-2"><span class="text-dourado font-bold">✓</span> Financeiro, DRE e Markup de joias</div>
+            </div>
+          </div>
+
+          <div class="pt-8 mt-6 border-t border-gray-800">
+            <a href="/entrar" class="w-full py-4 rounded-xl bg-dourado hover:bg-dourado-hover text-carvao font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg transition">
+              <span>Começar Meus 14 Dias Grátis Agora</span>
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Adicional VIP -->
+        <div class="bg-white rounded-3xl p-6 border border-gray-200 flex flex-col justify-between shadow-sm">
+          <div>
+            <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full">
+              Serviço Opcional
+            </span>
+            <h3 class="text-xl font-extrabold text-carvao mt-3">Implantação VIP de Catálogo</h3>
+            <p class="text-xs text-gray-600 mt-2 leading-relaxed">
+              Não quer perder dias cadastrando planilha? Envie suas fotos ou catálogo e nossa equipe sobe seus produtos prontos para vender.
+            </p>
+
+            <div class="mt-4 space-y-2 text-xs">
+              <div class="p-2.5 bg-gray-50 rounded-xl border flex justify-between">
+                <span>Até 200 produtos:</span>
+                <strong class="text-carvao">R$ 149</strong>
+              </div>
+              <div class="p-2.5 bg-gray-50 rounded-xl border flex justify-between">
+                <span>Até 300 produtos:</span>
+                <strong class="text-carvao">R$ 199</strong>
+              </div>
+              <div class="p-2.5 bg-gray-50 rounded-xl border flex justify-between">
+                <span>Até 500 produtos:</span>
+                <strong class="text-carvao">R$ 299</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-6">
+            <a href="/entrar" class="w-full py-3 rounded-xl border border-gray-300 hover:bg-gray-50 text-carvao font-bold text-xs flex items-center justify-center transition">
+              Disponível dentro do painel
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ SECTION -->
+  <section id="faq" class="py-20 bg-white">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <div class="text-center">
+        <span class="text-xs font-bold uppercase tracking-widest text-amber-700">Tire Suas Dúvidas</span>
+        <h2 class="text-3xl font-extrabold text-carvao mt-2">Perguntas Frequentes</h2>
+      </div>
+
+      <div class="space-y-4">
+        <details class="group bg-gray-50 p-5 rounded-2xl border border-gray-200">
+          <summary class="font-bold text-carvao cursor-pointer flex justify-between items-center text-sm sm:text-base">
+            <span>Preciso cadastrar cartão de crédito para testar?</span>
+            <span class="text-gray-400 group-open:rotate-180 transition">▼</span>
+          </summary>
+          <p class="text-sm text-gray-600 mt-3 leading-relaxed">
+            Não! O teste de 14 dias é totalmente gratuito e sem necessidade de cartão. Você entra com seu e-mail ou conta Google e já começa a cadastrar seus produtos e testar a vitrine.
+          </p>
+        </details>
+
+        <details class="group bg-gray-50 p-5 rounded-2xl border border-gray-200">
+          <summary class="font-bold text-carvao cursor-pointer flex justify-between items-center text-sm sm:text-base">
+            <span>O que é o NeonStudio e como ele me ajuda?</span>
+            <summary-arrow />
+            <span>O que é o NeonStudio e como ele me ajuda?</span>
+            <span class="text-gray-400 group-open:rotate-180 transition">▼</span>
+          </summary>
+          <p class="text-sm text-gray-600 mt-3 leading-relaxed">
+            O NeonStudio é o nosso estúdio fotográfico integrado. Você tira a foto da joia pelo próprio celular e, com 1 clique, enquadra com precisão milimétrica e gera o fundo branco puro #FFFFFF padronizado para catálogo profissional.
+          </p>
+        </details>
+
+        <details class="group bg-gray-50 p-5 rounded-2xl border border-gray-200">
+          <summary class="font-bold text-carvao cursor-pointer flex justify-between items-center text-sm sm:text-base">
+            <span>Como funciona a vitrine pública no WhatsApp?</span>
+            <span class="text-gray-400 group-open:rotate-180 transition">▼</span>
+          </summary>
+          <p class="text-sm text-gray-600 mt-3 leading-relaxed">
+            Sua loja recebe um link exclusivo (ex: sua-loja.hiveerp.com.br). Seus clientes montam o carrinho escolhendo medidas (aros de anel, cm de corrente) e o pedido chega mastigado no seu WhatsApp com itens, total e endereço.
+          </p>
+        </details>
+
+        <details class="group bg-gray-50 p-5 rounded-2xl border border-gray-200">
+          <summary class="font-bold text-carvao cursor-pointer flex justify-between items-center text-sm sm:text-base">
+            <span>Tenho uma planilha cheia de produtos. Vocês me ajudam a cadastrar?</span>
+            <span class="text-gray-400 group-open:rotate-180 transition">▼</span>
+          </summary>
+          <p class="text-sm text-gray-600 mt-3 leading-relaxed">
+            Sim! Você pode contratar nossa Implantação VIP: basta nos enviar sua planilha ou catálogo de fornecedor e nossa equipe técnica sobe até 200, 300 ou 500 produtos com fotos tratadas e organizadas por categorias.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="py-20 bg-carvao text-white text-center">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <span class="text-xs font-bold uppercase tracking-widest text-amber-400">Comece Hoje Mesmo</span>
+      <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight">
+        Sua marca de joias merece uma vitrine profissional
+      </h2>
+      <p class="text-gray-300 text-sm sm:text-base max-w-xl mx-auto">
+        Junte-se às marcas de joias, semijoias e prata 925 que profissionalizaram suas vendas e aumentaram seus pedidos com o Hive ERP.
+      </p>
+      <div class="pt-4">
+        <a href="/entrar" class="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-dourado hover:bg-dourado-hover text-carvao font-extrabold text-sm shadow-xl hover:shadow-2xl transition">
+          <span>Criar Minha Loja Grátis (14 Dias)</span>
+          <span>→</span>
+        </a>
+      </div>
+      <p class="text-xs text-gray-400">Ativação instantânea • Sem cartão de crédito</p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-12 bg-gray-950 text-gray-400 border-t border-gray-900 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-dourado text-carvao font-bold flex items-center justify-center">H</div>
+        <div>
+          <span class="font-bold text-white">Hive ERP</span>
+          <span class="block text-[10px] text-gray-500">O ERP especialista em Joias, Semijoias e Prata 925</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-6">
+        <a href="/landing" class="hover:text-white transition">Conhecer o Produto</a>
+        <a href="/termos" class="hover:text-white transition">Termos de Uso</a>
+        <a href="/privacidade" class="hover:text-white transition">Política de Privacidade (LGPD)</a>
+        <a href="/entrar" class="hover:text-white transition">Acessar Painel</a>
+      </div>
+      <p>© 2026 Hive ERP. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
