@@ -177,6 +177,8 @@ export class SuperAdminService {
           storeName: owner.config?.storeName ?? owner.name,
           slug: owner.config?.publicSlug ?? null,
           whatsappNumber: owner.config?.whatsappNumber ?? null,
+          checkoutMode: owner.config?.checkoutMode ?? 'WHATSAPP',
+          hasGatewayAddon: Boolean(owner.config?.hasGatewayAddon),
           productsCount: owner._count?.products ?? 0,
           ordersCount: owner._count?.orders ?? 0,
           openSetupRequestsCount: pendingByUser.get(owner.id) ?? 0,
@@ -330,6 +332,24 @@ export class SuperAdminService {
             data: { active: true },
           });
           actionType = BillingActionType.ACCOUNT_REACTIVATED;
+          break;
+        }
+        case SuperAdminSubscriptionAction.TOGGLE_GATEWAY_ADDON: {
+          const nextAddonState = Boolean(dto.hasGatewayAddon);
+          await tx.config.upsert({
+            where: { userId: targetUser.id },
+            update: {
+              hasGatewayAddon: nextAddonState,
+              ...(nextAddonState ? {} : { checkoutMode: 'WHATSAPP' }),
+            },
+            create: {
+              userId: targetUser.id,
+              storeName: targetUser.name,
+              hasGatewayAddon: nextAddonState,
+              checkoutMode: 'WHATSAPP',
+            },
+          });
+          actionType = BillingActionType.SUBSCRIPTION_ACTIVATED;
           break;
         }
       }

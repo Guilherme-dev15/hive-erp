@@ -225,7 +225,7 @@ function ProtectedLayout() {
       case 'super-admin':
         return userData?.isSuperAdmin ? <SuperAdminPage /> : <DashboardPage />;
       case 'configuracoes':
-        return <ConfiguracoesPage />;
+        return <ConfiguracoesPage onNavigate={setPagina} />;
       default:
         return (
           <div className="text-center py-20 text-gray-500">

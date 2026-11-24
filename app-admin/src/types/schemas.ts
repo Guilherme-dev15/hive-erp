@@ -97,6 +97,12 @@ export const configSchema = z.object({
 
   // Garantia (Aceita texto ou vazio)
   warrantyText: z.string().optional().default(''),
+
+  // Fechamento de Vendas & Gateway
+  checkoutMode: z.enum(['WHATSAPP', 'GATEWAY']).default('WHATSAPP'),
+  hasGatewayAddon: z.boolean().default(false),
+  gatewayProvider: z.string().optional(),
+  gatewayPublicKey: z.string().optional(),
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

@@ -12,6 +12,8 @@ import {
   FileText,
   Trash2,
   Loader2,
+  CreditCard,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -43,6 +45,12 @@ export function ModalCarrinho({
   const [tel, setTel] = useState('');
   const [obs, setObs] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const isGatewayEnabled =
+    config.checkoutMode === 'GATEWAY' &&
+    Boolean(config.hasGatewayAddon && config.gatewayPublicKey);
+
+  const [metodoPagamento, setMetodoPagamento] = useState<'WHATSAPP' | 'GATEWAY'>('WHATSAPP');
 
   const { subtotal, total } = useMemo(() => {
     const sub = itens.reduce(
@@ -170,6 +178,66 @@ export function ModalCarrinho({
     setSubmitting(false);
     onClose();
     toast.success('Pedido registrado com sucesso e encaminhado para o WhatsApp!');
+  };
+
+  const finalizarGateway = async () => {
+    if (!nome.trim() || !tel.trim()) {
+      toast.error('Por favor, informe seu Nome e WhatsApp antes de finalizar o pedido.');
+      return;
+    }
+
+    if (itens.length === 0) {
+      toast.error('Seu carrinho está vazio.');
+      return;
+    }
+
+    setSubmitting(true);
+    let orderNumber: string | undefined;
+
+    if (config.slug) {
+      try {
+        const orderRes = await createPublicOrder({
+          slug: config.slug,
+          customerName: nome.trim(),
+          customerPhone: tel.trim(),
+          subtotal,
+          total,
+          notes: obs.trim() ? `${obs.trim()} | [Pagamento Online Gateway]` : '[Pagamento Online Gateway]',
+          items: itens.map((item) => ({
+            productId: item.produto.id,
+            name: item.produto.name,
+            code: item.produto.code || undefined,
+            salePrice: item.produto.salePrice,
+            quantity: item.quantidade,
+            imageUrl: item.produto.imageUrl || undefined,
+          })),
+        });
+
+        if (orderRes?.orderId) {
+          orderNumber = orderRes.orderId.slice(0, 8).toUpperCase();
+        }
+      } catch (err: any) {
+        console.error('Erro ao registrar pedido:', err);
+        const errorMsg =
+          err?.response?.data?.message ||
+          'Não foi possível registrar seu pedido. Verifique a disponibilidade dos itens.';
+        toast.error(errorMsg);
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    setCarrinho({});
+    setNome('');
+    setTel('');
+    setObs('');
+    setSubmitting(false);
+    onClose();
+    toast.success(
+      orderNumber
+        ? `Pedido #${orderNumber} registrado! Redirecionando para pagamento seguro...`
+        : 'Pedido registrado! Redirecionando para pagamento seguro...'
+    );
   };
 
   return (
@@ -332,12 +400,56 @@ export function ModalCarrinho({
                         onChange={(e) => setObs(e.target.value)}
                       />
                     </div>
+
+                    {/* SELEÇÃO DO MÉTODO DE FECHAMENTO (QUANDO GATEWAY ATIVO) */}
+                    {isGatewayEnabled && (
+                      <div className="pt-2 border-t border-gray-200/60 space-y-2">
+                        <label className="text-[11px] font-semibold text-gray-500 block flex items-center gap-1">
+                          <CreditCard size={12} /> Forma de Fechamento
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMetodoPagamento('WHATSAPP')}
+                            className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                              metodoPagamento === 'WHATSAPP'
+                                ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/20'
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                              <Send size={13} className="text-emerald-600" /> WhatsApp
+                            </span>
+                            <span className="text-[10px] text-gray-500 mt-1 leading-tight">
+                              Combine entrega e pague direto com a loja
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setMetodoPagamento('GATEWAY')}
+                            className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                              metodoPagamento === 'GATEWAY'
+                                ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20'
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                              <CreditCard size={13} className="text-indigo-600" /> Pix / Cartão
+                            </span>
+                            <span className="text-[10px] text-gray-500 mt-1 leading-tight">
+                              Pagamento online automático instantâneo
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
             </div>
 
-            {/* FOOTER COM TOTAIS E BOTÃO WHATSAPP */}
+            {/* FOOTER COM TOTAIS E BOTÃO DE FINALIZAÇÃO */}
             {itens.length > 0 && (
               <div className="p-4 sm:p-5 border-t border-gray-100 bg-white shadow-lg space-y-4">
                 <div className="space-y-1.5">
@@ -353,24 +465,44 @@ export function ModalCarrinho({
                   </div>
                 </div>
 
-                <button
-                  onClick={finalizarWhatsApp}
-                  disabled={itens.length === 0 || submitting}
-                  className="w-full py-3.5 px-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-                  style={{ backgroundColor: '#25D366' }}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Registrando pedido...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={18} />
-                      Finalizar no WhatsApp
-                    </>
-                  )}
-                </button>
+                {isGatewayEnabled && metodoPagamento === 'GATEWAY' ? (
+                  <button
+                    onClick={finalizarGateway}
+                    disabled={itens.length === 0 || submitting}
+                    className="w-full py-3.5 px-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base bg-indigo-600"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Registrando pedido...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={18} />
+                        Pagar Online ({formatCurrency(total)})
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={finalizarWhatsApp}
+                    disabled={itens.length === 0 || submitting}
+                    className="w-full py-3.5 px-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                    style={{ backgroundColor: '#25D366' }}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Registrando pedido...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={18} />
+                        Finalizar no WhatsApp
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </motion.div>

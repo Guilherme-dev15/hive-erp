@@ -51,6 +51,10 @@ describe('public catalog mapper', () => {
           whatsappNumber: null,
           banners: ['https://example.com/banner.png'],
           lowStockThreshold: 5,
+          checkoutMode: 'WHATSAPP',
+          hasGatewayAddon: false,
+          gatewayProvider: null,
+          gatewayPublicKey: null,
         },
         produtos: [
           {

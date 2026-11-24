@@ -31,6 +31,12 @@ export interface BillingCatalogSummary {
     description: string;
   };
   setupBatches: SetupBatchOption[];
+  gatewayAddon: {
+    code: string;
+    name: string;
+    priceCents: number;
+    description: string;
+  };
   pix: {
     configured: boolean;
     key: string | null;
@@ -46,6 +52,8 @@ export interface BillingCheckoutIntentResult {
   setupBatchTier: SetupBatchTier | null;
   setupBatchMaxProducts: number | null;
   setupPriceCents: number;
+  includeGatewayAddon?: boolean;
+  gatewayAddonPriceCents?: number;
   totalPriceCents: number;
   pix: BillingCatalogSummary['pix'];
   supportWhatsapp: string | null;

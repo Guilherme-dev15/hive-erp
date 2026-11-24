@@ -31,6 +31,10 @@ export interface ConfigPublica {
   secondaryColor: string;
   banners?: string[];
   slug?: string;
+  checkoutMode?: 'WHATSAPP' | 'GATEWAY';
+  hasGatewayAddon?: boolean;
+  gatewayProvider?: string | null;
+  gatewayPublicKey?: string | null;
 }
 
 export interface PublicCatalogResponse {

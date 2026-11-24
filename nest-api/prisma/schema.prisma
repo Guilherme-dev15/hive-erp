@@ -124,6 +124,10 @@ model Config {
   packagingCost     Decimal  @default(0) @map("packaging_cost") @db.Decimal(10, 2)
   lowStockThreshold Int      @default(5) @map("low_stock_threshold")
   warrantyText      String?  @map("warranty_text") @db.Text
+  checkoutMode      String   @default("WHATSAPP") @map("checkout_mode")
+  hasGatewayAddon   Boolean  @default(false) @map("has_gateway_addon")
+  gatewayProvider   String?  @map("gateway_provider")
+  gatewayPublicKey  String?  @map("gateway_public_key")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

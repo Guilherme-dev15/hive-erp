@@ -74,4 +74,34 @@ describe('ConfigService', () => {
       slug: 'new-store',
     });
   });
+
+  it('deve rejeitar checkoutMode GATEWAY se o lojista não possui hasGatewayAddon ativo', async () => {
+    const userId = 'tenant-123';
+    (prisma.config.findUnique as jest.Mock).mockResolvedValue({
+      userId,
+      hasGatewayAddon: false,
+    });
+
+    await expect(
+      service.saveConfig(userId, { checkoutMode: 'GATEWAY' }),
+    ).rejects.toThrow('O Módulo de Gateway Integrado precisa ser contratado para ativar este modo de checkout.');
+  });
+
+  it('deve permitir checkoutMode GATEWAY quando hasGatewayAddon é true', async () => {
+    const userId = 'tenant-123';
+    (prisma.config.findUnique as jest.Mock).mockResolvedValue({
+      userId,
+      hasGatewayAddon: true,
+    });
+    (prisma.config.upsert as jest.Mock).mockResolvedValue({
+      userId,
+      storeName: 'Minha Loja',
+      checkoutMode: 'GATEWAY',
+      hasGatewayAddon: true,
+      publicSlug: 'minha-loja',
+    });
+
+    const result = await service.saveConfig(userId, { checkoutMode: 'GATEWAY' });
+    expect(result.checkoutMode).toBe('GATEWAY');
+  });
 });

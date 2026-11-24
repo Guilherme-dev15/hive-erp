@@ -69,6 +69,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
 
   // Order Bump & formulário
   const [includeOrderBump, setIncludeOrderBump] = useState(false);
+  const [includeGatewayBump, setIncludeGatewayBump] = useState(false);
   const [selectedBatchTier, setSelectedBatchTier] = useState<SetupBatchTier>('UP_TO_200');
   const [contactPhone, setContactPhone] = useState('');
   const [sourceDescription, setSourceDescription] = useState('');
@@ -101,7 +102,8 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
 
   const monthlyPriceCents = catalog?.monthlyPlan.priceCents ?? subscription?.monthlyPriceCents ?? 9700;
   const orderBumpPriceCents = includeOrderBump && selectedBatch ? selectedBatch.priceCents : 0;
-  const combinedTotalCents = monthlyPriceCents + orderBumpPriceCents;
+  const gatewayAddonPriceCents = includeGatewayBump ? (catalog?.gatewayAddon?.priceCents ?? 4900) : 0;
+  const combinedTotalCents = monthlyPriceCents + orderBumpPriceCents + gatewayAddonPriceCents;
 
   const catalogUrl = getCatalogUrl(userData?.store?.slug);
 
@@ -119,6 +121,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
     try {
       const result = await createBillingCheckoutIntent({
         setupBatchTier: includeOrderBump ? selectedBatchTier : undefined,
+        includeGatewayAddon: includeGatewayBump ? true : undefined,
         contactPhone: contactPhone.trim() || undefined,
         sourceDescription: sourceDescription.trim() || undefined,
       });
@@ -371,6 +374,38 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
             </div>
           </div>
 
+          {/* Order Bump 2: Módulo Gateway Integrado */}
+          <div
+            className={`rounded-2xl border-2 p-5 transition ${
+              includeGatewayBump
+                ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/30'
+                : 'border-dashed border-gray-300 bg-gray-50/50'
+            }`}
+          >
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeGatewayBump}
+                onChange={(e) => setIncludeGatewayBump(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard size={18} className="text-indigo-600" />
+                    Order Bump: Módulo Gateway Integrado no Catálogo (+ {formatBRL(catalog?.gatewayAddon?.priceCents ?? 4900)}/mês)
+                  </span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900">
+                    Add-on Opcional
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                  Permita que seus clientes comprem com Pix Automático e Cartão de Crédito parcelado direto no carrinho da sua vitrine virtual, além de continuar podendo vender pelo WhatsApp tradicional sem taxas.
+                </p>
+              </div>
+            </label>
+          </div>
+
           {/* Dados de contato opcional para acelerar implantação */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -427,8 +462,12 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
                 <span>
-                  {includeOrderBump
+                  {includeOrderBump && includeGatewayBump
+                    ? `Assinar Plano + Adicionais (${formatBRL(combinedTotalCents)})`
+                    : includeOrderBump
                     ? `Assinar Plano + Setup (${formatBRL(combinedTotalCents)})`
+                    : includeGatewayBump
+                    ? `Assinar Plano + Gateway (${formatBRL(combinedTotalCents)})`
                     : `Assinar / Renovar Plano (${formatBRL(monthlyPriceCents)})`}
                 </span>
               </button>
