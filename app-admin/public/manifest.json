@@ -1,12 +1,12 @@
 {
-  "name": "Hive ERP Admin",
-  "short_name": "Hive Admin",
-  "description": "Gestão Hive ERP",
+  "name": "Hive ERP | Gestão & Vitrine para Joias",
+  "short_name": "Hive ERP",
+  "description": "Sistema de gestão empresarial, NeonStudio e vitrine online para marcas de joias e semijoias.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#343434",
-  "lang": "en",
+  "lang": "pt-BR",
   "scope": "/",
   "orientation": "portrait",
   "icons": [
