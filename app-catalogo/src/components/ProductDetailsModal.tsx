@@ -49,15 +49,26 @@ export function ProductDetailsModal({
 
   const precoFinalCalculado = useMemo(() => {
     if (!product) return 0;
-    const valorBase = varianteSelecionada
-      ? Number(varianteSelecionada.valor_ajuste)
-      : Number(product.salePrice);
-    const precoGrama = (product as any).gramPrice || 0;
+    const basePrice = Number(product.salePrice) || 0;
+    const ajuste = varianteSelecionada ? Number(varianteSelecionada.valor_ajuste) || 0 : 0;
 
-    if (valorBase < 10 && precoGrama > 0) {
-      return valorBase * precoGrama * MARKUP_PADRAO;
+    let valorFinal = basePrice;
+    if (ajuste > 0) {
+      // Se o ajuste for o preço cheio da variante (ex: R$ 89,90 ou >= 50% do preço base)
+      if (basePrice === 0 || ajuste >= basePrice * 0.5) {
+        valorFinal = ajuste;
+      } else {
+        // Se for um acréscimo aditivo sobre o tamanho (ex: + R$ 10,00)
+        valorFinal = basePrice + ajuste;
+      }
     }
-    return valorBase;
+
+    const precoGrama = (product as any).gramPrice || 0;
+    if (valorFinal < 10 && precoGrama > 0) {
+      return valorFinal * precoGrama * MARKUP_PADRAO;
+    }
+
+    return valorFinal > 0 ? valorFinal : basePrice;
   }, [varianteSelecionada, product]);
 
   if (!product) return null;

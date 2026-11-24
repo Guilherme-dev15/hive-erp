@@ -52,22 +52,19 @@ export function CardProduto({
     }
 
     const precosVariantes = variantes
-      .map((v: ProdutoVariante) => Number(v.valor_ajuste))
+      .map((v: ProdutoVariante) => {
+        const ajuste = Number(v.valor_ajuste) || 0;
+        const base = Number(produto.salePrice) || 0;
+        if (ajuste <= 0) return base;
+        if (base === 0 || ajuste >= base * 0.5) return ajuste;
+        return base + ajuste;
+      })
       .filter((p: number) => p > 0);
 
     if (precosVariantes.length > 0) {
       const menorPreco = Math.min(...precosVariantes);
-
-      if (menorPreco < 5) {
-        return {
-          precoMostrado: Number(produto.salePrice) || 0,
-          precoAntigo: null,
-          temVariantes: true,
-          temDesconto: false,
-          percentualDesconto: 0,
-          sufixo: 'A partir de',
-        };
-      }
+      const maiorPreco = Math.max(...precosVariantes);
+      const temDiferenca = maiorPreco > menorPreco;
 
       return {
         precoMostrado: menorPreco,
@@ -75,7 +72,7 @@ export function CardProduto({
         temVariantes: true,
         temDesconto: false,
         percentualDesconto: 0,
-        sufixo: 'A partir de',
+        sufixo: temDiferenca ? 'A partir de' : '',
       };
     }
 
@@ -86,7 +83,7 @@ export function CardProduto({
       temVariantes: true,
       temDesconto: false,
       percentualDesconto: 0,
-      sufixo: 'A partir de',
+      sufixo: '',
     };
   }, [produto]);
 
