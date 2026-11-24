@@ -134,13 +134,13 @@ describe('SuperAdminPage (Gestão de Lojas, Trials e Order Bumps)', () => {
     });
   });
 
-  it('alterna para aba de Order Bump & Setup e confirma pagamento combinado com ativação mensal', async () => {
+  it('alterna para aba de Implantação & Lotes e confirma pagamento combinado com ativação mensal', async () => {
     mockUpdateSetupRequest.mockResolvedValue({ setupRequest: { id: 'setup-1', status: 'PAID' } });
 
     render(<SuperAdminPage />);
 
     const setupsTab = await screen.findByRole('button', {
-      name: /Order Bump & Setup por Lote/i,
+      name: /Implantação & Lotes de Produtos/i,
     });
     fireEvent.click(setupsTab);
 

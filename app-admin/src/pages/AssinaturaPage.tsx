@@ -258,7 +258,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
               }`}
             >
               {subscription?.isExempt
-                ? 'Ativa (Isenta / Plataforma)'
+                ? 'Ativa • Master Super Admin (Hive Pratas)'
                 : effectiveStatus === 'ACTIVE'
                   ? 'Plano Ativo'
                   : effectiveStatus === 'TRIAL'
@@ -291,7 +291,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
         </button>
       </div>
 
-      {/* Plano Único + Order Bump de Setup por Lote */}
+      {/* Plano Único + Implantação VIP por Lote */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
           <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
@@ -314,7 +314,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
             </div>
           </div>
 
-          {/* Order Bump Card */}
+          {/* Implantação VIP Card */}
           <div
             className={`rounded-2xl border-2 p-5 transition ${
               includeOrderBump
@@ -333,14 +333,14 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-bold text-gray-900 flex items-center gap-2">
                     <PackagePlus size={18} className="text-amber-700" />
-                    Order Bump: Quer que nossa equipe cadastre seus produtos?
+                    ⭐ IMPLANTAÇÃO VIP: Quer que nossa equipe cadastre seu catálogo inicial?
                   </span>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900">
-                    Serviço Único por Lote
+                    Serviço Único de Implantação
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  Economize dias de trabalho: envie sua planilha ou catálogo do fornecedor e nós subimos seus produtos prontos para vender. Você continua podendo cadastrar quantos SKUs quiser manualmente.
+                  Economize dias de trabalho manual: envie sua planilha ou catálogo/fotos do fornecedor e nossa equipe técnica sobe seus produtos com fotos tratadas, categorias e preços prontos para vender imediatamente. Você continua podendo cadastrar quantos itens quiser pelo painel.
                 </p>
               </div>
             </label>
@@ -374,7 +374,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
             </div>
           </div>
 
-          {/* Order Bump 2: Módulo Gateway Integrado */}
+          {/* Módulo Checkout Online */}
           <div
             className={`rounded-2xl border-2 p-5 transition ${
               includeGatewayBump
@@ -393,14 +393,14 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-bold text-gray-900 flex items-center gap-2">
                     <CreditCard size={18} className="text-indigo-600" />
-                    Order Bump: Módulo Gateway Integrado no Catálogo (+ {formatBRL(catalog?.gatewayAddon?.priceCents ?? 4900)}/mês)
+                    🚀 MÓDULO CHECKOUT ONLINE: Recebimento Automático na Vitrine (+ {formatBRL(catalog?.gatewayAddon?.priceCents ?? 4900)}/mês)
                   </span>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900">
-                    Add-on Opcional
+                    Recurso Opcional de Vendas
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  Permita que seus clientes comprem com Pix Automático e Cartão de Crédito parcelado direto no carrinho da sua vitrine virtual, além de continuar podendo vender pelo WhatsApp tradicional sem taxas.
+                  Venda no piloto automático 24 horas por dia: permita que seus clientes comprem com Pix Automático e Cartão de Crédito parcelado direto no carrinho da sua vitrine virtual, com baixa automática de estoque. Você também pode continuar vendendo pelo WhatsApp tradicional normalmente.
                 </p>
               </div>
             </label>
@@ -450,7 +450,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                   disabled={submitting}
                   className="px-4 py-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 transition disabled:opacity-60"
                 >
-                  Contratar Só Setup ({formatBRL(selectedBatch.priceCents)})
+                  Contratar Só Implantação VIP ({formatBRL(selectedBatch.priceCents)})
                 </button>
               )}
 
@@ -463,12 +463,12 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
                 <span>
                   {includeOrderBump && includeGatewayBump
-                    ? `Assinar Plano + Adicionais (${formatBRL(combinedTotalCents)})`
+                    ? `Confirmar Plano Pro Completo (${formatBRL(combinedTotalCents)})`
                     : includeOrderBump
-                    ? `Assinar Plano + Setup (${formatBRL(combinedTotalCents)})`
+                    ? `Confirmar Plano Pro + Implantação VIP (${formatBRL(combinedTotalCents)})`
                     : includeGatewayBump
-                    ? `Assinar Plano + Gateway (${formatBRL(combinedTotalCents)})`
-                    : `Assinar / Renovar Plano (${formatBRL(monthlyPriceCents)})`}
+                    ? `Confirmar Plano Pro + Checkout Online (${formatBRL(combinedTotalCents)})`
+                    : `Confirmar Assinatura Plano Pro (${formatBRL(monthlyPriceCents)})`}
                 </span>
               </button>
             </div>
@@ -551,7 +551,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
           ) : (
             <div className="text-sm text-gray-600 space-y-2">
               <p>
-                1. Escolha renovar o plano mensal (e marque o <strong>Order Bump de Setup</strong> se desejar que nossa equipe cadastre seu catálogo).
+                1. Escolha seu plano mensal (e adicione a <strong>Implantação VIP</strong> se desejar que nossa equipe cadastre seu catálogo inicial).
               </p>
               <p>
                 2. Clique em gerar solicitação para receber o código de referência e os dados Pix/WhatsApp.
@@ -567,12 +567,12 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
       {/* Histórico de Solicitações de Setup */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
         <h3 className="font-bold text-gray-900">
-          Minhas Solicitações de Setup de Produtos
+          Minhas Solicitações de Implantação de Catálogo
         </h3>
 
         {!statusData?.setupRequests.length ? (
           <p className="text-sm text-gray-500">
-            Nenhuma solicitação de cadastro em lote registrada até o momento.
+            Nenhuma solicitação de implantação em lote registrada até o momento.
           </p>
         ) : (
           <div className="space-y-3">
@@ -598,7 +598,7 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                       )}
                     </div>
                     <div className="text-sm font-semibold text-gray-900">
-                      Setup até {req.maxProducts} produtos • Total: {formatBRL(req.totalPriceCents)}
+                      Implantação até {req.maxProducts} produtos • Total: {formatBRL(req.totalPriceCents)}
                     </div>
                     <div className="text-xs text-gray-500">
                       Criado em {formatDateBR(req.createdAt)}

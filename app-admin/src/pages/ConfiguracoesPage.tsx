@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   ArrowRight,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 import { ConfigFormData } from '../types';
@@ -582,7 +583,7 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
                 </div>
               </div>
 
-              {/* Opção 2: Gateway Integrado (Order Bump) */}
+              {/* Opção 2: Gateway Integrado (Checkout Online) */}
               <div
                 onClick={() => {
                   if (formData.hasGatewayAddon) {
@@ -603,19 +604,19 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
                   </div>
                   {formData.hasGatewayAddon ? (
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
-                      Add-on Ativo
+                      Módulo Ativo
                     </span>
                   ) : (
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
-                      <Lock size={12} /> Order Bump
+                      <Sparkles size={12} /> Recurso Opcional
                     </span>
                   )}
                 </div>
 
                 <h4 className="font-bold text-gray-900 mt-3 text-base flex items-center gap-2">
-                  <span>Gateway Integrado</span>
+                  <span>Checkout Online Integrado</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                    Pix + Cartão
+                    Pix Automático + Cartão
                   </span>
                 </h4>
                 <p className="text-xs text-gray-600 mt-1 leading-relaxed">
@@ -625,14 +626,14 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
                 {!formData.hasGatewayAddon ? (
                   <div className="mt-4 p-3 bg-white rounded-xl border border-amber-200 space-y-2">
                     <p className="text-xs font-semibold text-gray-800">
-                      Disponível mediante contratação do Add-on de Gateway.
+                      Disponível mediante ativação do Módulo de Checkout Online.
                     </p>
                     <button
                       type="button"
                       onClick={() => onNavigate?.('assinatura')}
                       className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
                     >
-                      <span>Contratar Módulo de Gateway</span>
+                      <span>Conhecer e Ativar Módulo</span>
                       <ArrowRight size={14} />
                     </button>
                   </div>

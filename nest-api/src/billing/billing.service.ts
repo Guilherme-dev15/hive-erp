@@ -54,13 +54,13 @@ export class BillingService {
 
     if (params.batchLabel && params.setupPriceCents !== undefined) {
       lines.push(
-        `• Order Bump / Setup de Produtos: ${params.batchLabel} (${formatPriceBRL(params.setupPriceCents)})`,
+        `• Implantação VIP / Cadastro de Catálogo: ${params.batchLabel} (${formatPriceBRL(params.setupPriceCents)})`,
       );
     }
 
     if (params.includeGatewayAddon && params.gatewayAddonPriceCents !== undefined) {
       lines.push(
-        `• Order Bump / Gateway no Catálogo: Pix Automático + Cartão (${formatPriceBRL(params.gatewayAddonPriceCents)})`,
+        `• Módulo Checkout Online / Gateway no Catálogo: Pix Automático + Cartão (${formatPriceBRL(params.gatewayAddonPriceCents)})`,
       );
     }
 

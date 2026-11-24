@@ -284,7 +284,7 @@ export function SuperAdminPage() {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Order Bump & Setup por Lote ({setupRequests.length})
+            Implantação & Lotes de Produtos ({setupRequests.length})
           </button>
         </div>
 

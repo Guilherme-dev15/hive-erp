@@ -247,11 +247,19 @@ export function Sidebar({
                   <span className="text-xs font-semibold text-white truncate max-w-[105px]">
                     {userData?.name || 'Lojista'}
                   </span>
-                  {userData?.role === 'admin' && (
+                  {userData?.isSuperAdmin ? (
+                    <span
+                      title="Master Super Admin"
+                      className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40"
+                    >
+                      <Shield size={10} className="text-amber-300" />
+                      <span>Master</span>
+                    </span>
+                  ) : userData?.role === 'admin' ? (
                     <span title="Administrador">
                       <Shield size={11} style={{ color: primaryColor }} />
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <p className="text-[10px] text-gray-400 truncate max-w-[110px]">
                   {user?.email}

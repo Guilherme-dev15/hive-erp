@@ -157,7 +157,7 @@ describe('AssinaturaPage (Plano Mensal + Order Bump Setup por Lote)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Até 300 produtos/i }));
 
-    const checkoutBtn = screen.getByRole('button', { name: /Assinar Plano \+ Setup/i });
+    const checkoutBtn = screen.getByRole('button', { name: /Confirmar Plano Pro \+ Implantação VIP/i });
     expect(checkoutBtn.textContent).toMatch(/296,00/);
 
     fireEvent.click(checkoutBtn);
