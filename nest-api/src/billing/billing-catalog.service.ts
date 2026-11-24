@@ -99,6 +99,16 @@ export class BillingCatalogService {
     return `https://wa.me/${normalizedDigits}?text=${encodeURIComponent(message)}`;
   }
 
+  getGatewayAddon() {
+    return {
+      code: 'GATEWAY_CHECKOUT_ADDON',
+      name: 'Módulo Gateway Integrado no Catálogo (Pix Automático + Cartão)',
+      priceCents: parsePositiveInt(process.env.SAAS_GATEWAY_ADDON_PRICE_CENTS, 4900),
+      description:
+        'Permita que seus clientes paguem com Pix instantâneo e Cartão de crédito parcelado diretamente na sua vitrine virtual.',
+    };
+  }
+
   getCatalog(): BillingCatalogSummary {
     return {
       trialDays: this.getTrialDays(),
@@ -110,6 +120,7 @@ export class BillingCatalogService {
           'Acesso completo ao ERP, PDV/Pedidos, CRM, Financeiro, Campanhas e Catálogo Online no seu subdomínio.',
       },
       setupBatches: this.getSetupBatches(),
+      gatewayAddon: this.getGatewayAddon(),
       pix: this.getPixConfig(),
       supportWhatsapp: this.getSupportWhatsapp(),
     };

@@ -32,6 +32,8 @@ export class BillingService {
     monthlyPlanPriceCents: number;
     batchLabel?: string;
     setupPriceCents?: number;
+    includeGatewayAddon?: boolean;
+    gatewayAddonPriceCents?: number;
     totalPriceCents: number;
     contactPhone?: string | null;
     sourceDescription?: string | null;
@@ -52,6 +54,12 @@ export class BillingService {
     if (params.batchLabel && params.setupPriceCents !== undefined) {
       lines.push(
         `• Order Bump / Setup de Produtos: ${params.batchLabel} (${formatPriceBRL(params.setupPriceCents)})`,
+      );
+    }
+
+    if (params.includeGatewayAddon && params.gatewayAddonPriceCents !== undefined) {
+      lines.push(
+        `• Order Bump / Gateway no Catálogo: Pix Automático + Cartão (${formatPriceBRL(params.gatewayAddonPriceCents)})`,
       );
     }
 
@@ -114,9 +122,14 @@ export class BillingService {
       ? this.catalogService.getSetupBatchOption(dto.setupBatchTier)
       : null;
 
+    const gatewayAddon = dto.includeGatewayAddon ? this.catalogService.getGatewayAddon() : null;
+    const gatewayAddonPriceCents = gatewayAddon ? gatewayAddon.priceCents : 0;
+
     const setupPriceCents = batchOption ? batchOption.priceCents : 0;
-    const totalPriceCents = monthlyPlanPriceCents + setupPriceCents;
-    const referenceCode = this.generateReferenceCode(batchOption ? 'HIVE-BUMP' : 'HIVE-PLAN');
+    const totalPriceCents = monthlyPlanPriceCents + setupPriceCents + gatewayAddonPriceCents;
+    const referenceCode = this.generateReferenceCode(
+      batchOption || gatewayAddon ? 'HIVE-BUMP' : 'HIVE-PLAN',
+    );
 
     const contactPhone = dto.contactPhone?.trim() || null;
     const sourceDescription = dto.sourceDescription?.trim() || null;
@@ -130,6 +143,8 @@ export class BillingService {
       monthlyPlanPriceCents,
       batchLabel: batchOption?.label,
       setupPriceCents: batchOption?.priceCents,
+      includeGatewayAddon: Boolean(dto.includeGatewayAddon),
+      gatewayAddonPriceCents,
       totalPriceCents,
       contactPhone,
       sourceDescription,
@@ -167,13 +182,18 @@ export class BillingService {
           action: BillingActionType.CHECKOUT_INTENT_CREATED,
           amountCents: totalPriceCents,
           referenceCode,
-          note: batchOption
-            ? `Intenção Pix: Plano mensal + ${batchOption.label}`
-            : 'Intenção Pix: Plano mensal HiveERP',
+          note: [
+            'Intenção Pix: Plano mensal HiveERP',
+            batchOption?.label,
+            gatewayAddon ? 'Módulo Gateway no Catálogo' : null,
+          ]
+            .filter(Boolean)
+            .join(' + '),
           metadata: {
             includeMonthlyPlan: true,
             setupBatchTier: batchOption?.tier ?? null,
             setupMaxProducts: batchOption?.maxProducts ?? null,
+            includeGatewayAddon: Boolean(dto.includeGatewayAddon),
           },
         },
       });
@@ -187,6 +207,8 @@ export class BillingService {
       setupBatchTier: batchOption?.tier ?? null,
       setupBatchMaxProducts: batchOption?.maxProducts ?? null,
       setupPriceCents,
+      includeGatewayAddon: Boolean(dto.includeGatewayAddon),
+      gatewayAddonPriceCents,
       totalPriceCents,
       pix: this.catalogService.getPixConfig(),
       supportWhatsapp: this.catalogService.getSupportWhatsapp(),

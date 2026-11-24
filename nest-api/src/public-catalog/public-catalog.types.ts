@@ -10,6 +10,10 @@ export interface PublicCatalogConfig {
   whatsappNumber: string | null;
   banners: string[];
   lowStockThreshold: number;
+  checkoutMode: string;
+  hasGatewayAddon: boolean;
+  gatewayProvider?: string | null;
+  gatewayPublicKey?: string | null;
 }
 
 export interface PublicCatalogVariant {

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConfigDto } from './dto/update-config.dto';
@@ -25,6 +25,16 @@ export class ConfigService {
   async saveConfig(userId: string, data: UpdateConfigDto) {
     const { slug, ...configData } = data;
     const publicSlug = slug === undefined ? undefined : this.normalizeSlug(slug);
+
+    if (configData.checkoutMode === 'GATEWAY') {
+      const existing = await this.prisma.config.findUnique({ where: { userId } });
+      const isAddonActive = Boolean(configData.hasGatewayAddon ?? existing?.hasGatewayAddon);
+      if (!isAddonActive) {
+        throw new BadRequestException(
+          'O Módulo de Gateway Integrado precisa ser contratado para ativar este modo de checkout.',
+        );
+      }
+    }
 
     try {
       const config = await this.prisma.config.upsert({

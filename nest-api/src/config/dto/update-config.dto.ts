@@ -54,4 +54,19 @@ export class UpdateConfigDto {
   @IsOptional()
   @IsString()
   warrantyText?: string;
+
+  @IsOptional()
+  @IsString()
+  checkoutMode?: string;
+
+  @IsOptional()
+  hasGatewayAddon?: boolean;
+
+  @IsOptional()
+  @IsString()
+  gatewayProvider?: string;
+
+  @IsOptional()
+  @IsString()
+  gatewayPublicKey?: string;
 }

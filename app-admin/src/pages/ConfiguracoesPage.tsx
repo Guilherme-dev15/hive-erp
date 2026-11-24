@@ -15,12 +15,18 @@ import {
   CreditCard,
   Globe,
   Image as ImageIcon,
+  Zap,
+  Lock,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 import { ConfigFormData } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { getContrastColor } from '../utils/themeUtils';
 import { getCatalogDisplayUrl } from '../utils/catalogUrl';
+import type { Pagina } from '../components/Sidebar';
 
 // --- VARIANTES DE ANIMAÇÃO ---
 const containerVariants = {
@@ -71,7 +77,11 @@ const InputGroup = ({ label, children, description }: InputGroupProps) => (
   </div>
 );
 
-export function ConfiguracoesPage() {
+interface ConfiguracoesPageProps {
+  onNavigate?: (pagina: Pagina) => void;
+}
+
+export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
   const { setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
     whatsappNumber: '',
@@ -86,6 +96,10 @@ export function ConfiguracoesPage() {
     lowStockThreshold: 5,
     bannerUrl: '',
     banners: [],
+    checkoutMode: 'WHATSAPP',
+    hasGatewayAddon: false,
+    gatewayProvider: 'MERCADO_PAGO',
+    gatewayPublicKey: '',
   });
 
   const [loading, setLoading] = useState(true);
@@ -114,6 +128,10 @@ export function ConfiguracoesPage() {
             lowStockThreshold: data.lowStockThreshold || 5,
             bannerUrl: bannerAtual,
             banners: data.banners || [],
+            checkoutMode: (data as any).checkoutMode || 'WHATSAPP',
+            hasGatewayAddon: Boolean((data as any).hasGatewayAddon),
+            gatewayProvider: (data as any).gatewayProvider || 'MERCADO_PAGO',
+            gatewayPublicKey: (data as any).gatewayPublicKey || '',
           });
         }
       } catch (error) {
@@ -169,6 +187,10 @@ export function ConfiguracoesPage() {
         packagingCost: Number(formData.packagingCost) || 0,
         lowStockThreshold: Number(formData.lowStockThreshold) || 0,
         warrantyText: formData.warrantyText || '',
+        checkoutMode: formData.checkoutMode || 'WHATSAPP',
+        hasGatewayAddon: formData.hasGatewayAddon ?? false,
+        gatewayProvider: formData.gatewayProvider || undefined,
+        gatewayPublicKey: formData.gatewayPublicKey?.trim() || undefined,
       };
 
       await saveConfig(payload);
@@ -516,6 +538,119 @@ export function ConfiguracoesPage() {
                   />
                 </div>
               </InputGroup>
+            </div>
+          </motion.div>
+
+          {/* --- 3.1 MODO DE FECHAMENTO DE VENDAS & GATEWAY (ORDER BUMP) --- */}
+          <motion.div
+            variants={itemVariants}
+            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6"
+          >
+            <SectionHeader
+              icon={Zap}
+              title="Fechamento de Vendas no Catálogo"
+              description="Escolha como seus clientes finalizam a compra na vitrine pública."
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Opção 1: WhatsApp (Padrão Gratuito) */}
+              <div
+                onClick={() => setFormData((prev) => ({ ...prev, checkoutMode: 'WHATSAPP' }))}
+                className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                  formData.checkoutMode === 'WHATSAPP'
+                    ? 'border-emerald-500 bg-emerald-50/30 shadow-sm'
+                    : 'border-gray-200 bg-gray-50/50 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
+                    <Smartphone size={22} />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                    Padrão • Incluso
+                  </span>
+                </div>
+                <h4 className="font-bold text-gray-900 mt-3 text-base">
+                  Finalizar no WhatsApp
+                </h4>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Os clientes montam o pedido na vitrine e enviam os itens direto para o seu WhatsApp para combinação de pagamento e entrega sem burocracia.
+                </p>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                  <CheckCircle2 size={15} />
+                  <span>Sem taxas de intermediação</span>
+                </div>
+              </div>
+
+              {/* Opção 2: Gateway Integrado (Order Bump) */}
+              <div
+                onClick={() => {
+                  if (formData.hasGatewayAddon) {
+                    setFormData((prev) => ({ ...prev, checkoutMode: 'GATEWAY' }));
+                  }
+                }}
+                className={`p-5 rounded-2xl border-2 transition-all relative ${
+                  formData.checkoutMode === 'GATEWAY'
+                    ? 'border-indigo-600 bg-indigo-50/30 shadow-sm cursor-pointer'
+                    : formData.hasGatewayAddon
+                    ? 'border-gray-200 bg-gray-50/50 hover:border-gray-300 cursor-pointer'
+                    : 'border-dashed border-gray-300 bg-gray-50/80 cursor-default'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="p-2.5 bg-indigo-100 text-indigo-700 rounded-xl">
+                    <CreditCard size={22} />
+                  </div>
+                  {formData.hasGatewayAddon ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
+                      Add-on Ativo
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
+                      <Lock size={12} /> Order Bump
+                    </span>
+                  )}
+                </div>
+
+                <h4 className="font-bold text-gray-900 mt-3 text-base flex items-center gap-2">
+                  <span>Gateway Integrado</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                    Pix + Cartão
+                  </span>
+                </h4>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Receba pagamentos com confirmação instantânea no Pix e Cartão parcelado direto na sua vitrine, com baixa automática de estoque.
+                </p>
+
+                {!formData.hasGatewayAddon ? (
+                  <div className="mt-4 p-3 bg-white rounded-xl border border-amber-200 space-y-2">
+                    <p className="text-xs font-semibold text-gray-800">
+                      Disponível mediante contratação do Add-on de Gateway.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('assinatura')}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                    >
+                      <span>Contratar Módulo de Gateway</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                    <label className="block text-xs font-bold text-gray-700">
+                      Chave Pública Mercado Pago (Public Key)
+                    </label>
+                    <input
+                      name="gatewayPublicKey"
+                      value={formData.gatewayPublicKey || ''}
+                      onChange={handleChange}
+                      placeholder="APP_USR-xxxx..."
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
 

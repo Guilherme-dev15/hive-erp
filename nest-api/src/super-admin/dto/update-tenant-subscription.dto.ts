@@ -9,11 +9,16 @@ export enum SuperAdminSubscriptionAction {
   CANCEL = 'CANCEL',
   SUSPEND_ACCOUNT = 'SUSPEND_ACCOUNT',
   REACTIVATE_ACCOUNT = 'REACTIVATE_ACCOUNT',
+  TOGGLE_GATEWAY_ADDON = 'TOGGLE_GATEWAY_ADDON',
 }
 
 export class UpdateTenantSubscriptionDto {
   @IsEnum(SuperAdminSubscriptionAction)
   action: SuperAdminSubscriptionAction;
+
+  @IsOptional()
+  @IsBoolean()
+  hasGatewayAddon?: boolean;
 
   @IsOptional()
   @IsInt()

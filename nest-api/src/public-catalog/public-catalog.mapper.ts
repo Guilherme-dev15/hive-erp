@@ -15,6 +15,10 @@ type PublicConfigRecord = {
   whatsappNumber: string | null;
   banners: unknown;
   lowStockThreshold: number;
+  checkoutMode?: string;
+  hasGatewayAddon?: boolean;
+  gatewayProvider?: string | null;
+  gatewayPublicKey?: string | null;
 };
 
 type PublicVariantRecord = {
@@ -58,6 +62,10 @@ export const mapPublicConfig = (config: PublicConfigRecord): PublicCatalogConfig
   whatsappNumber: config.whatsappNumber,
   banners: toBanners(config.banners),
   lowStockThreshold: config.lowStockThreshold,
+  checkoutMode: config.checkoutMode || 'WHATSAPP',
+  hasGatewayAddon: Boolean(config.hasGatewayAddon),
+  gatewayProvider: config.gatewayProvider || null,
+  gatewayPublicKey: config.gatewayPublicKey || null,
 });
 
 export const mapPublicVariant = (variant: PublicVariantRecord): PublicCatalogVariant => ({

@@ -114,6 +114,27 @@ describe('BillingService (Assinatura & Order Bump Setup por Lote)', () => {
     expect(mockPrisma.productSetupRequest.create).not.toHaveBeenCalled();
   });
 
+  it('cria checkout-intent somando plano mensal + Order Bump do Gateway Integrado no Catálogo', async () => {
+    const result = await service.createCheckoutIntent('tenant-a', {
+      includeGatewayAddon: true,
+    });
+
+    // 9700 (plano) + 4900 (addon gateway) = 14600
+    expect(result.monthlyPlanPriceCents).toBe(9700);
+    expect(result.includeGatewayAddon).toBe(true);
+    expect(result.gatewayAddonPriceCents).toBe(4900);
+    expect(result.totalPriceCents).toBe(14600);
+    expect(result.whatsappMessage).toContain('Gateway no Catálogo');
+    expect(mockPrisma.billingEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: BillingActionType.CHECKOUT_INTENT_CREATED,
+          amountCents: 14600,
+        }),
+      }),
+    );
+  });
+
   it('permite contratar setup avulso (UP_TO_200) durante o trial sem somar mensalidade', async () => {
     const result = await service.createSetupRequest('tenant-a', {
       batchTier: SetupBatchTier.UP_TO_200,

@@ -269,4 +269,85 @@ describe('ModalCarrinho', () => {
 
     openSpy.mockRestore();
   });
+
+  it('deve renderizar opções de pagamento quando checkoutMode é GATEWAY com addon ativo', async () => {
+    const gatewayConfig: ConfigPublica = {
+      ...mockConfig,
+      checkoutMode: 'GATEWAY',
+      hasGatewayAddon: true,
+      gatewayProvider: 'MERCADO_PAGO',
+      gatewayPublicKey: 'TEST-APP-KEY',
+    };
+
+    render(
+      <ModalCarrinho
+        isOpen={true}
+        onClose={vi.fn()}
+        itens={mockItens}
+        setCarrinho={vi.fn()}
+        whatsappNumber={gatewayConfig.whatsappNumber}
+        config={gatewayConfig}
+      />
+    );
+
+    expect(screen.getByText('Forma de Fechamento')).toBeInTheDocument();
+    expect(screen.getByText('Pix / Cartão')).toBeInTheDocument();
+
+    // Clica no botão Pix / Cartão para selecionar checkout online
+    const btnGateway = screen.getByText('Pix / Cartão');
+    fireEvent.click(btnGateway);
+
+    // Deve alternar o botão para Pagar Online
+    expect(screen.getByRole('button', { name: /Pagar Online/i })).toBeInTheDocument();
+  });
+
+  it('deve registrar pedido via createPublicOrder ao finalizar pelo Gateway', async () => {
+    const gatewayConfig: ConfigPublica = {
+      ...mockConfig,
+      checkoutMode: 'GATEWAY',
+      hasGatewayAddon: true,
+      gatewayProvider: 'MERCADO_PAGO',
+      gatewayPublicKey: 'TEST-APP-KEY',
+    };
+
+    const onCloseMock = vi.fn();
+    const setCarrinhoMock = vi.fn();
+
+    render(
+      <ModalCarrinho
+        isOpen={true}
+        onClose={onCloseMock}
+        itens={mockItens}
+        setCarrinho={setCarrinhoMock}
+        whatsappNumber={gatewayConfig.whatsappNumber}
+        config={gatewayConfig}
+      />
+    );
+
+    // Preenche dados do cliente
+    fireEvent.change(screen.getByLabelText(/Nome Completo/i), { target: { value: 'Maria Joaquina' } });
+    fireEvent.change(screen.getByLabelText(/WhatsApp \(com DDD\)/i), { target: { value: '11977776666' } });
+
+    // Seleciona Pix / Cartão
+    fireEvent.click(screen.getByText('Pix / Cartão'));
+
+    const btnPagar = screen.getByRole('button', { name: /Pagar Online/i });
+    fireEvent.click(btnPagar);
+
+    await waitFor(() => {
+      expect(createPublicOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slug: 'hive',
+          customerName: 'Maria Joaquina',
+          customerPhone: '11977776666',
+          total: 280,
+        })
+      );
+      expect(setCarrinhoMock).toHaveBeenCalledWith({});
+      expect(onCloseMock).toHaveBeenCalled();
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('Pedido #ORD-1234 registrado!')
+      );
+    });
+  });
 });

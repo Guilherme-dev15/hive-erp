@@ -289,6 +289,12 @@ export interface BillingCatalogSummary {
     description: string;
   };
   setupBatches: SetupBatchOption[];
+  gatewayAddon?: {
+    code: string;
+    name: string;
+    priceCents: number;
+    description: string;
+  };
   pix: {
     configured: boolean;
     key: string | null;
@@ -344,6 +350,8 @@ export interface CheckoutIntentResponse {
   setupBatchTier: SetupBatchTier | null;
   setupBatchMaxProducts: number | null;
   setupPriceCents: number;
+  includeGatewayAddon?: boolean;
+  gatewayAddonPriceCents?: number;
   totalPriceCents: number;
   pix: BillingCatalogSummary['pix'];
   supportWhatsapp: string | null;
@@ -375,6 +383,8 @@ export interface SuperAdminTenantItem {
   storeName: string;
   slug: string | null;
   whatsappNumber: string | null;
+  checkoutMode?: string;
+  hasGatewayAddon?: boolean;
   productsCount: number;
   ordersCount: number;
   openSetupRequestsCount: number;

@@ -422,6 +422,7 @@ export const getBillingStatus = async (): Promise<BillingStatusResponse> => {
 
 export const createBillingCheckoutIntent = async (payload: {
   setupBatchTier?: SetupBatchTier;
+  includeGatewayAddon?: boolean;
   contactPhone?: string;
   sourceDescription?: string;
 }): Promise<CheckoutIntentResponse> => {
