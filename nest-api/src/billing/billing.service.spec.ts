@@ -41,7 +41,28 @@ describe('BillingService (Assinatura & Order Bump Setup por Lote)', () => {
       },
       billingEvent: {
         findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'evt-1' }),
+      },
+      subscription: {
+        upsert: jest.fn().mockImplementation(async ({ update, create }) => ({
+          id: 'sub-a',
+          userId: 'tenant-a',
+          status: SubscriptionStatus.ACTIVE,
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          ...update,
+        })),
+        update: jest.fn().mockImplementation(async ({ data }) => ({
+          id: 'sub-a',
+          userId: 'tenant-a',
+          ...data,
+        })),
+      },
+      config: {
+        update: jest.fn().mockImplementation(async ({ data }) => ({
+          userId: 'tenant-a',
+          ...data,
+        })),
       },
       $transaction: jest.fn(async (cb) => cb(mockPrisma)),
     };
@@ -171,5 +192,164 @@ describe('BillingService (Assinatura & Order Bump Setup por Lote)', () => {
       BadRequestException,
     );
     expect(mockPrisma.productSetupRequest.update).not.toHaveBeenCalled();
+  });
+
+  describe('processWebhook (Processamento Anti-Fraude & Idempotência)', () => {
+    it('ativa a assinatura e estende por 30 dias ao receber PAYMENT_RECEIVED com valor válido', async () => {
+      const result = await service.processWebhook({
+        id: 'evt_pay_123',
+        event: 'PAYMENT_RECEIVED',
+        payment: {
+          id: 'pay_123',
+          value: 97.0,
+          status: 'RECEIVED',
+          billingType: 'PIX',
+        },
+        metadata: {
+          userId: 'tenant-a',
+          planCode: 'PRO_MONTHLY',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.activated).toBe(true);
+      expect(result.extendedDays).toBe(30);
+
+      expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'tenant-a' },
+          update: expect.objectContaining({
+            status: SubscriptionStatus.ACTIVE,
+          }),
+        }),
+      );
+
+      expect(mockPrisma.billingEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'tenant-a',
+            action: BillingActionType.SUBSCRIPTION_ACTIVATED,
+            amountCents: 9700,
+            referenceCode: 'evt_pay_123',
+          }),
+        }),
+      );
+    });
+
+    it('ativa o Add-on de Gateway no Catálogo se includeGatewayAddon for verdadeiro', async () => {
+      await service.processWebhook({
+        id: 'evt_pay_addon',
+        event: 'PAYMENT_CONFIRMED',
+        payment: {
+          id: 'pay_addon',
+          value: 146.0,
+          status: 'CONFIRMED',
+        },
+        metadata: {
+          userId: 'tenant-a',
+          includeGatewayAddon: true,
+        },
+      });
+
+      expect(mockPrisma.config.update).toHaveBeenCalledWith({
+        where: { userId: 'tenant-a' },
+        data: { hasGatewayAddon: true },
+      });
+    });
+
+    it('rejeita com alerta anti-fraude se o valor pago for menor do que o plano (adulteração)', async () => {
+      const result = await service.processWebhook({
+        id: 'evt_hack',
+        event: 'PAYMENT_RECEIVED',
+        payment: {
+          id: 'pay_hack',
+          value: 10.0,
+          status: 'RECEIVED',
+        },
+        metadata: {
+          userId: 'tenant-a',
+        },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.flagged).toBe(true);
+      expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+
+      expect(mockPrisma.billingEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'tenant-a',
+            action: BillingActionType.ACCOUNT_SUSPENDED,
+            note: expect.stringContaining('ALERTA ANTI-FRAUDE'),
+          }),
+        }),
+      );
+    });
+
+    it('garante idempotência em Replay Attack (retorna 200 sem duplicar dias se evento já processado)', async () => {
+      mockPrisma.billingEvent.findFirst.mockResolvedValueOnce({
+        id: 'existing-evt',
+        referenceCode: 'evt_replay',
+      });
+
+      const result = await service.processWebhook({
+        id: 'evt_replay',
+        event: 'PAYMENT_RECEIVED',
+        payment: { id: 'pay_replay', value: 97.0 },
+        metadata: { userId: 'tenant-a' },
+      });
+
+      expect(result.idempotent).toBe(true);
+      expect(result.success).toBe(true);
+      expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+    });
+
+    it('marca como EXPIRED se o evento for PAYMENT_OVERDUE e período estiver expirado', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 'tenant-a',
+        subscription: {
+          status: SubscriptionStatus.ACTIVE,
+          currentPeriodEnd: new Date('2026-11-01T00:00:00Z'),
+        },
+      });
+
+      const result = await service.processWebhook({
+        id: 'evt_overdue',
+        event: 'PAYMENT_OVERDUE',
+        payment: { id: 'pay_overdue', value: 97.0 },
+        metadata: { userId: 'tenant-a' },
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+        where: { userId: 'tenant-a' },
+        data: { status: SubscriptionStatus.EXPIRED },
+      });
+    });
+
+    it('marca como CANCELED e desativa o Addon no evento PAYMENT_REFUNDED', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 'tenant-a',
+        config: { hasGatewayAddon: true },
+        subscription: { status: SubscriptionStatus.ACTIVE },
+      });
+
+      const result = await service.processWebhook({
+        id: 'evt_refund',
+        event: 'PAYMENT_REFUNDED',
+        payment: { id: 'pay_refund', value: 97.0 },
+        metadata: { userId: 'tenant-a' },
+      });
+
+      expect(result.canceled).toBe(true);
+      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+        where: { userId: 'tenant-a' },
+        data: { status: SubscriptionStatus.CANCELED },
+      });
+      expect(mockPrisma.config.update).toHaveBeenCalledWith({
+        where: { userId: 'tenant-a' },
+        data: { hasGatewayAddon: false },
+      });
+    });
   });
 });

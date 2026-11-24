@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { BillingActionType, SetupRequestStatus } from '@prisma/client';
+import { BillingActionType, SetupRequestStatus, SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingCatalogService, formatPriceBRL } from './billing-catalog.service';
 import { SubscriptionService, evaluateSubscriptionAccess } from './subscription.service';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { CreateSetupRequestDto } from './dto/create-setup-request.dto';
+import { BillingWebhookDto, GatewayWebhookEvent } from './dto/billing-webhook.dto';
 import { BillingCheckoutIntentResult, ProductSetupRequestSummary } from './billing.types';
 
 @Injectable()
@@ -347,5 +348,228 @@ export class BillingService {
 
       return updated;
     });
+  }
+
+  /**
+   * Processamento Seguro e Idempotente de Webhooks do Gateway de Faturamento (Anti-Fraude Zero Trust)
+   */
+  async processWebhook(dto: BillingWebhookDto) {
+    if (!dto || !dto.id) {
+      throw new BadRequestException('Payload do webhook inválido ou sem identificador de evento');
+    }
+
+    // Camada 2: Proteção Anti-Replay / Idempotência Atômica
+    const existingEvent = await this.prisma.billingEvent.findFirst({
+      where: {
+        referenceCode: dto.id,
+      },
+    });
+
+    if (existingEvent) {
+      return {
+        success: true,
+        idempotent: true,
+        message: 'Evento já processado anteriormente',
+        eventId: existingEvent.id,
+      };
+    }
+
+    // Identificação do Lojista (Tenant)
+    const userId = dto.metadata?.userId || dto.payment?.externalReference;
+    if (!userId) {
+      throw new BadRequestException('Identificador do lojista (userId) ausente nos metadados');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        subscription: true,
+        config: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Lojista ${userId} não encontrado no sistema`);
+    }
+
+    const eventName = String(dto.event).toUpperCase();
+    const paidCents = Math.round((Number(dto.payment?.value) || 0) * 100);
+
+    // Eventos de Pagamento Confirmado (Ativação / Renovação)
+    if (
+      eventName === GatewayWebhookEvent.PAYMENT_RECEIVED ||
+      eventName === GatewayWebhookEvent.PAYMENT_CONFIRMED
+    ) {
+      // Camada 3: Verificação de Integridade de Valor (Anti-Fraude de Centavos)
+      const basePlanCents = user.subscription?.monthlyPriceCents || 9700;
+      const expectedMinimumCents = dto.metadata?.includeGatewayAddon
+        ? basePlanCents + 4900
+        : basePlanCents;
+
+      // Se o valor pago for menor que o esperado (tolerância zero para adulteração)
+      if (paidCents < expectedMinimumCents) {
+        await this.prisma.billingEvent.create({
+          data: {
+            userId: user.id,
+            action: BillingActionType.ACCOUNT_SUSPENDED,
+            amountCents: paidCents,
+            referenceCode: dto.id,
+            note: `ALERTA ANTI-FRAUDE: Pagamento recebido com valor divergente (esperado R$ ${(expectedMinimumCents / 100).toFixed(2)}, recebido R$ ${(paidCents / 100).toFixed(2)})`,
+            metadata: {
+              gatewayEventId: dto.id,
+              paymentId: dto.payment?.id,
+              status: dto.payment?.status,
+              flaggedAsSuspicious: true,
+            },
+          },
+        });
+
+        return {
+          success: false,
+          flagged: true,
+          message: 'Pagamento recebido com valor divergente do plano. Registrado para auditoria.',
+        };
+      }
+
+      // Cálculo do novo período (30 dias)
+      const now = new Date();
+      const currentPeriodEnd = user.subscription?.currentPeriodEnd;
+      let newPeriodEnd: Date;
+
+      if (currentPeriodEnd && new Date(currentPeriodEnd).getTime() > now.getTime()) {
+        newPeriodEnd = new Date(new Date(currentPeriodEnd).getTime() + 30 * 24 * 60 * 60 * 1000);
+      } else {
+        newPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
+
+      const isAlreadyActive = user.subscription?.status === SubscriptionStatus.ACTIVE;
+
+      // Atualização atômica da Subscription
+      await this.prisma.subscription.upsert({
+        where: { userId: user.id },
+        update: {
+          status: SubscriptionStatus.ACTIVE,
+          currentPeriodStart: now,
+          currentPeriodEnd: newPeriodEnd,
+          activatedAt: user.subscription?.activatedAt || now,
+          lastPaymentNote: `Pago via Gateway (${dto.payment?.billingType || 'ONLINE'}) - R$ ${(paidCents / 100).toFixed(2)}`,
+        },
+        create: {
+          userId: user.id,
+          status: SubscriptionStatus.ACTIVE,
+          monthlyPriceCents: basePlanCents,
+          trialStartsAt: now,
+          trialEndsAt: now,
+          currentPeriodStart: now,
+          currentPeriodEnd: newPeriodEnd,
+          activatedAt: now,
+          lastPaymentNote: `Pago via Gateway (${dto.payment?.billingType || 'ONLINE'}) - R$ ${(paidCents / 100).toFixed(2)}`,
+        },
+      });
+
+      // Se contratou o Add-on de Gateway, ativa na Config da loja
+      if (dto.metadata?.includeGatewayAddon && user.config) {
+        await this.prisma.config.update({
+          where: { userId: user.id },
+          data: {
+            hasGatewayAddon: true,
+          },
+        });
+      }
+
+      // Registro Imutável de Auditoria
+      const createdEvent = await this.prisma.billingEvent.create({
+        data: {
+          userId: user.id,
+          action: isAlreadyActive
+            ? BillingActionType.SUBSCRIPTION_EXTENDED
+            : BillingActionType.SUBSCRIPTION_ACTIVATED,
+          amountCents: paidCents,
+          daysGranted: 30,
+          referenceCode: dto.id,
+          note: `Assinatura confirmada com sucesso via Webhook do Gateway (${eventName})`,
+          metadata: {
+            gatewayEventId: dto.id,
+            paymentId: dto.payment?.id,
+            billingType: dto.payment?.billingType,
+            status: dto.payment?.status,
+            includeGatewayAddon: Boolean(dto.metadata?.includeGatewayAddon),
+          },
+        },
+      });
+
+      return {
+        success: true,
+        activated: true,
+        extendedDays: 30,
+        periodEnd: newPeriodEnd,
+        billingEventId: createdEvent.id,
+      };
+    }
+
+    // Eventos de Inadimplência / Atraso
+    if (eventName === GatewayWebhookEvent.PAYMENT_OVERDUE) {
+      const now = new Date();
+      const currentPeriodEnd = user.subscription?.currentPeriodEnd;
+
+      if (!currentPeriodEnd || new Date(currentPeriodEnd).getTime() <= now.getTime()) {
+        await this.prisma.subscription.update({
+          where: { userId: user.id },
+          data: { status: SubscriptionStatus.EXPIRED },
+        });
+      }
+
+      await this.prisma.billingEvent.create({
+        data: {
+          userId: user.id,
+          action: BillingActionType.SUBSCRIPTION_EXPIRED,
+          amountCents: paidCents,
+          referenceCode: dto.id,
+          note: `Cobrança vencida sem confirmação de pagamento (${eventName})`,
+          metadata: {
+            gatewayEventId: dto.id,
+            paymentId: dto.payment?.id,
+          },
+        },
+      });
+
+      return { success: true, processed: true, event: eventName };
+    }
+
+    // Eventos de Estorno / Reembolso / Cancelamento
+    if (
+      eventName === GatewayWebhookEvent.PAYMENT_REFUNDED ||
+      eventName === GatewayWebhookEvent.PAYMENT_DELETED
+    ) {
+      await this.prisma.subscription.update({
+        where: { userId: user.id },
+        data: { status: SubscriptionStatus.CANCELED },
+      });
+
+      if (user.config?.hasGatewayAddon) {
+        await this.prisma.config.update({
+          where: { userId: user.id },
+          data: { hasGatewayAddon: false },
+        });
+      }
+
+      await this.prisma.billingEvent.create({
+        data: {
+          userId: user.id,
+          action: BillingActionType.SUBSCRIPTION_CANCELED,
+          amountCents: paidCents,
+          referenceCode: dto.id,
+          note: `Assinatura cancelada por reembolso/estorno de pagamento (${eventName})`,
+          metadata: {
+            gatewayEventId: dto.id,
+            paymentId: dto.payment?.id,
+          },
+        },
+      });
+
+      return { success: true, canceled: true, event: eventName };
+    }
+
+    return { success: true, unhandledEvent: eventName };
   }
 }
