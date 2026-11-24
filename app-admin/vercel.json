@@ -17,6 +17,10 @@
   ],
   "rewrites": [
     {
+      "source": "/hiveerp-landing.html",
+      "destination": "/hiveerp-landing.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

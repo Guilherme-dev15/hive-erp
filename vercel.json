@@ -28,6 +28,10 @@
       "handle": "filesystem"
     },
     {
+      "src": "/hiveerp-landing(?:\\.html)?",
+      "dest": "/hiveerp-landing.html"
+    },
+    {
       "src": "/admin(?:/.*)?",
       "dest": "/index.html"
     },
