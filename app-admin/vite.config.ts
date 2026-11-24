@@ -19,6 +19,8 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 5000000, // 5 MB
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        skipWaiting: true,
+        clientsClaim: true,
       },
       manifest: {
         name: 'Hive ERP Admin',

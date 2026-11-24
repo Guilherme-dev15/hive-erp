@@ -346,45 +346,51 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
         </section>
 
         {/* Planos & Implantação VIP */}
-        <section id="planos" className="py-16 sm:py-20 px-4 sm:px-6 max-w-5xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-bold uppercase tracking-widest text-amber-700">
-              Preço Transparente
+        <section id="planos" className="py-16 sm:py-24 px-4 sm:px-6 max-w-6xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
+              Preço Justo e Transparente
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-carvao mt-2">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-carvao mt-3 tracking-tight">
               Plano Único Completo + Implantação VIP Opcional
             </h2>
             <p className="text-sm sm:text-base text-gray-600 mt-2">
-              Comece com 14 dias grátis. Pague via Pix somente se decidir continuar, ou contrate nossa equipe para cadastrar seu catálogo inicial.
+              Teste por 14 dias sem cartão de crédito. Se quiser economizar dias de cadastro, nossa equipe sobe suas peças prontas para vender.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
-            {/* Plano Mensal */}
-            <div className="lg:col-span-2 bg-carvao text-white rounded-2xl p-7 flex flex-col justify-between shadow-xl border border-gray-800">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-dourado text-carvao text-xs font-extrabold mb-4">
-                  <CreditCard size={13} />
-                  <span>PLANO MENSAL HIVEERP PRO</span>
-                </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-4xl font-extrabold">R$ 97</span>
-                  <span className="text-sm text-gray-300">/mês no Pix</span>
-                </div>
-                <p className="text-xs text-emerald-300 font-semibold mt-1">
-                  14 dias grátis antes da primeira cobrança
-                </p>
+            {/* Plano Mensal Pro */}
+            <div className="lg:col-span-2 bg-gradient-to-b from-gray-900 via-carvao to-black text-white rounded-3xl p-7 sm:p-8 flex flex-col justify-between shadow-2xl border border-gray-800 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-full pointer-events-none"></div>
 
-                <ul className="mt-6 space-y-3 text-sm text-gray-200">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-dourado text-carvao text-xs font-extrabold shadow-sm">
+                    <Sparkles size={13} />
+                    <span>PLANO PRO ILIMITADO</span>
+                  </span>
+                  <span className="text-xs text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+                    14 Dias Grátis
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-2 mt-4">
+                  <span className="text-5xl font-extrabold tracking-tight">R$ 97</span>
+                  <span className="text-sm text-gray-400">/mês no Pix</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Sem fidelidade, sem taxas por venda e sem limite de produtos.</p>
+
+                <ul className="mt-7 space-y-3.5 text-xs sm:text-sm text-gray-200">
                   {[
                     'Produtos, fotos e pedidos ilimitados',
+                    'NeonStudio™ com fundo branco em 1 clique',
                     'Vitrine pública no seu subdomínio',
-                    'NeonStudio™ com fundo branco puro',
-                    'Medidas de joias (cm, mm, aros)',
-                    'Baixa automática de estoque e DRE',
-                    'CRM de clientes com LTV e WhatsApp',
+                    'Estoque por medidas (cm, mm, aros)',
+                    'Pedidos diretos no seu WhatsApp (0% taxa)',
+                    'Financeiro, DRE e Curva ABC integrados',
                   ].map((item) => (
-                    <li key={item} className="flex items-start gap-2">
+                    <li key={item} className="flex items-start gap-2.5">
                       <CheckCircle2 size={16} className="text-dourado mt-0.5 flex-shrink-0" />
                       <span>{item}</span>
                     </li>
@@ -392,61 +398,83 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
                 </ul>
               </div>
 
-              <button
-                type="button"
-                onClick={onStartTrial}
-                className="mt-8 w-full py-3.5 px-4 rounded-xl bg-dourado text-carvao font-extrabold text-sm hover:opacity-95 transition flex items-center justify-center gap-2"
-              >
-                <Store size={16} />
-                <span>Criar Minha Loja Grátis</span>
-              </button>
+              <div className="pt-8">
+                <button
+                  type="button"
+                  onClick={onStartTrial}
+                  className="w-full py-4 px-4 rounded-xl bg-dourado hover:opacity-95 text-carvao font-extrabold text-sm shadow-xl hover:shadow-2xl transition flex items-center justify-center gap-2"
+                >
+                  <Store size={18} />
+                  <span>Criar Minha Loja Grátis</span>
+                </button>
+                <p className="text-center text-[11px] text-gray-400 mt-2">Ativação imediata • Sem necessidade de cartão</p>
+              </div>
             </div>
 
             {/* Implantação VIP por Lote */}
-            <div className="lg:col-span-3 bg-white rounded-2xl p-7 border border-gray-200 flex flex-col justify-between shadow-sm">
+            <div className="lg:col-span-3 bg-white rounded-3xl p-7 sm:p-8 border border-gray-200/90 flex flex-col justify-between shadow-sm relative">
               <div>
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
                   <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
-                    Opcional • Pagamento Único
+                    Serviço Opcional • Acelerador de Início
                   </span>
                   <span className="text-xs text-gray-500 font-medium">
-                    Disponível dentro do painel
+                    Disponível no painel
                   </span>
                 </div>
 
-                <h3 className="text-xl font-extrabold text-carvao">
-                  Quer começar sem perder dias cadastrando planilhas?
+                <h3 className="text-2xl font-extrabold text-carvao tracking-tight">
+                  Quer começar com seu catálogo 100% pronto?
                 </h3>
-                <p className="text-sm text-gray-600 mt-1.5">
-                  Contrate nossa <strong>Implantação VIP</strong> e nossa equipe técnica sobe seu catálogo de joias com fotos tratadas e medidas organizadas:
+                <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                  Não perca dias preenchendo tabelas. Envie suas fotos ou planilha e nossa equipe técnica sobe suas joias com imagens padronizadas em fundo branco, medidas e preços:
                 </p>
 
-                <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  {SETUP_BATCHES.map((batch) => (
-                    <div
-                      key={batch.title}
-                      className="bg-gray-50 rounded-xl p-4 border border-gray-200 shadow-sm flex flex-col justify-between"
-                    >
-                      <div>
+                {/* 3 Lotes com visual de cards elevados */}
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  {SETUP_BATCHES.map((batch) => {
+                    const isPopular = batch.tier === 'Lote Intermediário';
+                    return (
+                      <div
+                        key={batch.title}
+                        className={`relative p-4 rounded-2xl border text-left transition ${
+                          isPopular
+                            ? 'border-carvao bg-white shadow-md ring-2 ring-dourado/40'
+                            : 'border-gray-200 bg-gray-50/70 hover:bg-white'
+                        }`}
+                      >
+                        {isPopular && (
+                          <span className="absolute -top-2.5 right-3 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-dourado text-carvao shadow-sm">
+                            ⭐ Mais Escolhido
+                          </span>
+                        )}
                         <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
                           {batch.tier}
                         </span>
-                        <h4 className="font-bold text-sm text-carvao mt-1">{batch.title}</h4>
+                        <h4 className="font-extrabold text-sm text-carvao mt-1">{batch.title}</h4>
                         <p className="text-2xl font-extrabold text-carvao mt-2">{batch.price}</p>
+                        <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                          {batch.detail}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-                        {batch.detail}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-200 flex items-center gap-2.5 text-xs text-gray-600">
-                <ShieldCheck size={16} className="text-emerald-600 flex-shrink-0" />
-                <span>
-                  O cadastro manual no painel continua 100% livre e ilimitado para sempre em qualquer plano.
-                </span>
+              <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-emerald-600 flex-shrink-0" />
+                  <span>Você continua livre para cadastrar quantos itens quiser manualmente.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onStartTrial}
+                  className="font-bold text-amber-800 hover:text-amber-900 transition flex items-center gap-1 self-start sm:self-auto"
+                >
+                  <span>Saiba mais no teste grátis</span>
+                  <span>→</span>
+                </button>
               </div>
             </div>
           </div>

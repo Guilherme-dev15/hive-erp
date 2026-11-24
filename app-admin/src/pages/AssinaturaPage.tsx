@@ -293,61 +293,92 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
 
       {/* Plano Único + Implantação VIP por Lote */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-          <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
-            <div>
-              <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full mb-2">
-                <Sparkles size={13} /> Plano Único Sem Limite de Produtos
-              </span>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {catalog?.monthlyPlan.name ?? 'Plano Mensal HiveERP'}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {catalog?.monthlyPlan.description}
-              </p>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <div className="text-2xl font-extrabold text-carvao">
-                {formatBRL(monthlyPriceCents)}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Card Principal: Plano Pro */}
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-7 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/30 rounded-bl-full pointer-events-none"></div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-gray-100 pb-6">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100/80 px-3 py-1 rounded-full mb-3">
+                  <Sparkles size={13} className="text-amber-700" />
+                  Plano Ilimitado Sem Restrições
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+                  {catalog?.monthlyPlan.name ?? 'Plano Mensal HiveERP'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1 max-w-xl leading-relaxed">
+                  Acesso irrestrito a todos os módulos: PDV, NeonStudio, vitrine pública no seu subdomínio, estoque de medidas, CRM e financeiro.
+                </p>
               </div>
-              <div className="text-xs text-gray-500">por mês</div>
+              <div className="sm:text-right flex-shrink-0 bg-gray-50 sm:bg-transparent p-3 sm:p-0 rounded-2xl">
+                <div className="text-3xl sm:text-4xl font-extrabold text-carvao">
+                  {formatBRL(monthlyPriceCents)}
+                </div>
+                <div className="text-xs text-gray-500 font-medium">mensal no Pix • Cancele quando quiser</div>
+              </div>
+            </div>
+
+            {/* Micro-benefícios inclusos */}
+            <div className="pt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-700">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-gray-50/80">
+                <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" />
+                <span className="font-semibold">NeonStudio™ Incluso</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-gray-50/80">
+                <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" />
+                <span className="font-semibold">0% Taxas no WhatsApp</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-gray-50/80">
+                <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" />
+                <span className="font-semibold">Medidas cm / mm / aros</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-gray-50/80">
+                <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" />
+                <span className="font-semibold">DRE & Lucro Real</span>
+              </div>
             </div>
           </div>
 
-          {/* Implantação VIP Card */}
+          {/* Card VIP: Implantação Assistida de Catálogo */}
           <div
-            className={`rounded-2xl border-2 p-5 transition ${
+            className={`rounded-3xl border-2 p-6 sm:p-7 transition-all duration-200 relative overflow-hidden ${
               includeOrderBump
-                ? 'border-dourado bg-amber-50/40'
-                : 'border-dashed border-gray-300 bg-gray-50/50'
+                ? 'border-dourado bg-gradient-to-br from-amber-50/60 via-yellow-50/30 to-white shadow-md ring-2 ring-dourado/20'
+                : 'border-dashed border-gray-300 bg-white hover:border-gray-400'
             }`}
           >
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeOrderBump}
-                onChange={(e) => setIncludeOrderBump(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-carvao focus:ring-dourado"
-              />
+            <label className="flex items-start gap-4 cursor-pointer">
+              <div className="pt-1">
+                <input
+                  type="checkbox"
+                  checked={includeOrderBump}
+                  onChange={(e) => setIncludeOrderBump(e.target.checked)}
+                  className="h-5 w-5 rounded-md border-gray-300 text-carvao focus:ring-dourado cursor-pointer"
+                />
+              </div>
               <div className="flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-bold text-gray-900 flex items-center gap-2">
-                    <PackagePlus size={18} className="text-amber-700" />
+                  <span className="font-extrabold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+                    <PackagePlus size={20} className="text-amber-700" />
                     ⭐ IMPLANTAÇÃO VIP: Quer que nossa equipe cadastre seu catálogo inicial?
                   </span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900">
-                    Serviço Único de Implantação
+                  <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                    Acelere seu Início
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  Economize dias de trabalho manual: envie sua planilha ou catálogo/fotos do fornecedor e nossa equipe técnica sobe seus produtos com fotos tratadas, categorias e preços prontos para vender imediatamente. Você continua podendo cadastrar quantos itens quiser pelo painel.
+                <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
+                  Economize dias de trabalho manual: envie sua planilha, fotos de fornecedor ou catálogo e nossa equipe técnica cadastra suas peças com imagens tratadas, categorias, medidas e preços prontos para vender.
                 </p>
               </div>
             </label>
 
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Seletor Visual dos Lotes de Implantação */}
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               {setupBatches.map((batch) => {
                 const isSelected = selectedBatchTier === batch.tier;
+                const isPopular = batch.tier === 'UP_TO_300';
                 return (
                   <button
                     key={batch.tier}
@@ -356,111 +387,146 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                       setSelectedBatchTier(batch.tier);
                       setIncludeOrderBump(true);
                     }}
-                    className={`p-3.5 rounded-xl border text-left transition ${
+                    className={`relative p-4 rounded-2xl border text-left transition-all duration-150 ${
                       isSelected
-                        ? 'border-carvao bg-white shadow-sm ring-2 ring-dourado/40'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
+                        ? 'border-carvao bg-white shadow-md ring-2 ring-dourado/50 scale-[1.02]'
+                        : 'border-gray-200 bg-white/90 hover:border-gray-300 hover:bg-white'
                     }`}
                   >
-                    <div className="text-xs font-bold text-gray-500 uppercase">
+                    {isPopular && (
+                      <span className="absolute -top-2.5 right-3 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-dourado text-carvao shadow-sm">
+                        ⭐ Mais Escolhido
+                      </span>
+                    )}
+                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                       Até {batch.maxProducts} produtos
                     </div>
-                    <div className="text-base font-extrabold text-gray-900 mt-1">
+                    <div className="text-xl font-extrabold text-gray-900 mt-1">
                       {formatBRL(batch.priceCents)}
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1">
+                      Pagamento único • Fila prioritária
                     </div>
                   </button>
                 );
               })}
             </div>
+
+            {/* Dados de contato para acelerar implantação */}
+            {includeOrderBump && (
+              <div className="mt-5 pt-5 border-t border-amber-200/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-gray-700 mb-1.5">
+                    WhatsApp para envio do catálogo
+                  </label>
+                  <input
+                    type="text"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="Ex: (11) 99999-8888"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-dourado"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-gray-700 mb-1.5">
+                    Origem das peças / Observação
+                  </label>
+                  <input
+                    type="text"
+                    value={sourceDescription}
+                    onChange={(e) => setSourceDescription(e.target.value)}
+                    placeholder="Ex: Planilha de semijoias / link do Drive"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-dourado"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Módulo Checkout Online */}
+          {/* Card Checkout Online */}
           <div
-            className={`rounded-2xl border-2 p-5 transition ${
+            className={`rounded-3xl border-2 p-6 sm:p-7 transition-all duration-200 ${
               includeGatewayBump
-                ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/30'
-                : 'border-dashed border-gray-300 bg-gray-50/50'
+                ? 'border-indigo-600 bg-gradient-to-br from-indigo-50/60 via-purple-50/30 to-white shadow-md ring-2 ring-indigo-500/20'
+                : 'border-dashed border-gray-300 bg-white hover:border-gray-400'
             }`}
           >
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeGatewayBump}
-                onChange={(e) => setIncludeGatewayBump(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
+            <label className="flex items-start gap-4 cursor-pointer">
+              <div className="pt-1">
+                <input
+                  type="checkbox"
+                  checked={includeGatewayBump}
+                  onChange={(e) => setIncludeGatewayBump(e.target.checked)}
+                  className="h-5 w-5 rounded-md border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </div>
               <div className="flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-bold text-gray-900 flex items-center gap-2">
-                    <CreditCard size={18} className="text-indigo-600" />
+                  <span className="font-extrabold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+                    <CreditCard size={20} className="text-indigo-600" />
                     🚀 MÓDULO CHECKOUT ONLINE: Recebimento Automático na Vitrine (+ {formatBRL(catalog?.gatewayAddon?.priceCents ?? 4900)}/mês)
                   </span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900">
-                    Recurso Opcional de Vendas
+                  <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-200">
+                    Vendas 24h
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  Venda no piloto automático 24 horas por dia: permita que seus clientes comprem com Pix Automático e Cartão de Crédito parcelado direto no carrinho da sua vitrine virtual, com baixa automática de estoque. Você também pode continuar vendendo pelo WhatsApp tradicional normalmente.
+                <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
+                  Permita que suas clientes paguem com Pix Automático e Cartão de Crédito parcelado direto no carrinho da sua vitrine virtual, com baixa automática de estoque. (Você continua podendo vender pelo WhatsApp tradicional normalmente).
                 </p>
               </div>
             </label>
           </div>
+        </div>
 
-          {/* Dados de contato opcional para acelerar implantação */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
-                WhatsApp para contato (opcional)
-              </label>
-              <input
-                type="text"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-                placeholder="Ex: (11) 99999-8888"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-dourado"
-              />
+        {/* Painel Lateral: Resumo Financeiro & Pix Assistido */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <h3 className="font-extrabold text-gray-900 text-base">Resumo da Contratação</h3>
+              <span className="text-xs font-bold text-gray-400 font-mono">PIX ASSISTIDO</span>
             </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
-                Observação / Origem dos produtos (opcional)
-              </label>
-              <input
-                type="text"
-                value={sourceDescription}
-                onChange={(e) => setSourceDescription(e.target.value)}
-                placeholder="Ex: Planilha Excel / catálogo do fornecedor"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-dourado"
-              />
-            </div>
-          </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-gray-100">
-            <div>
-              <div className="text-xs text-gray-500">Total da solicitação selecionada</div>
-              <div className="text-2xl font-extrabold text-gray-900">
-                {formatBRL(combinedTotalCents)}
+            {/* Linhas da Fatura */}
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center text-gray-700">
+                <span className="font-medium">Plano Mensal HiveERP</span>
+                <strong className="text-gray-900 font-mono">{formatBRL(monthlyPriceCents)}</strong>
+              </div>
+
+              {includeOrderBump && selectedBatch && (
+                <div className="flex justify-between items-center text-amber-800 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/60">
+                  <span className="font-medium">Implantação VIP ({selectedBatch.maxProducts} peças)</span>
+                  <strong className="font-mono">+{formatBRL(selectedBatch.priceCents)}</strong>
+                </div>
+              )}
+
+              {includeGatewayBump && (
+                <div className="flex justify-between items-center text-indigo-800 bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-200/60">
+                  <span className="font-medium">Módulo Checkout Online</span>
+                  <strong className="font-mono">+{formatBRL(catalog?.gatewayAddon?.priceCents ?? 4900)}</strong>
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-baseline">
+                <div>
+                  <span className="text-xs text-gray-500 font-bold uppercase">Total a Pagar</span>
+                  <p className="text-[10px] text-gray-400">Ativação imediata via Pix</p>
+                </div>
+                <div className="text-2xl font-extrabold text-carvao">
+                  {formatBRL(combinedTotalCents)}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              {!isBlocked && selectedBatch && (
-                <button
-                  type="button"
-                  onClick={handleStandaloneSetup}
-                  disabled={submitting}
-                  className="px-4 py-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-xs font-bold text-gray-800 transition disabled:opacity-60"
-                >
-                  Contratar Só Implantação VIP ({formatBRL(selectedBatch.priceCents)})
-                </button>
-              )}
-
+            {/* Botões de Ação */}
+            <div className="space-y-2.5 pt-2">
               <button
                 type="button"
                 onClick={handleCheckoutMonthly}
                 disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-carvao hover:bg-gray-800 text-white text-sm font-bold shadow-sm transition disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-carvao hover:bg-gray-800 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-150 disabled:opacity-60"
               >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} className="text-dourado" />}
                 <span>
                   {includeOrderBump && includeGatewayBump
                     ? `Confirmar Plano Pro Completo (${formatBRL(combinedTotalCents)})`
@@ -471,96 +537,64 @@ export function AssinaturaPage({ mode = 'normal' }: AssinaturaPageProps) {
                     : `Confirmar Assinatura Plano Pro (${formatBRL(monthlyPriceCents)})`}
                 </span>
               </button>
-            </div>
-          </div>
-        </div>
 
-        {/* Painel Pix & WhatsApp Assistido */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="text-emerald-600" size={20} />
-            <h3 className="font-bold text-gray-900">Pagamento via Pix Assistido</h3>
-          </div>
-
-          {checkoutResult ? (
-            <div className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <CheckCircle2 size={14} /> Solicitação registrada
-                </div>
-                <div>
-                  Código: <strong className="font-mono">{checkoutResult.referenceCode}</strong>
-                </div>
-                <div>
-                  Valor: <strong>{formatBRL(checkoutResult.totalPriceCents)}</strong>
-                </div>
-              </div>
-
-              {checkoutResult.pix.configured && checkoutResult.pix.key ? (
-                <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
-                  <div className="text-xs font-bold text-gray-500 uppercase">
-                    Chave Pix ({checkoutResult.pix.keyType || 'Chave'})
-                  </div>
-                  <div className="flex items-center justify-between gap-2 bg-white p-2.5 rounded-lg border border-gray-200">
-                    <span className="text-xs font-mono text-gray-800 truncate">
-                      {checkoutResult.pix.key}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(checkoutResult.pix.key!, 'Chave Pix')}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700"
-                    >
-                      <Copy size={12} /> Copiar
-                    </button>
-                  </div>
-                  {checkoutResult.pix.beneficiary && (
-                    <p className="text-xs text-gray-600">
-                      Favorecido: <strong>{checkoutResult.pix.beneficiary}</strong>
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
-                  Envie o resumo pelo WhatsApp abaixo para receber a chave Pix atualizada e ativar seu acesso.
-                </div>
+              {!isBlocked && selectedBatch && (
+                <button
+                  type="button"
+                  onClick={handleStandaloneSetup}
+                  disabled={submitting}
+                  className="w-full py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 transition disabled:opacity-60"
+                >
+                  Contratar Só Implantação VIP ({formatBRL(selectedBatch.priceCents)})
+                </button>
               )}
+            </div>
 
-              <div className="space-y-2">
+            {/* Resultado do Pix após gerar intenção */}
+            {checkoutResult ? (
+              <div className="pt-4 border-t border-gray-100 space-y-3">
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-emerald-600" /> Solicitação Registrada
+                  </div>
+                  <div>Código: <strong className="font-mono">{checkoutResult.referenceCode}</strong></div>
+                  <div>Valor Pix: <strong>{formatBRL(checkoutResult.totalPriceCents)}</strong></div>
+                </div>
+
+                {checkoutResult.pix.configured && checkoutResult.pix.key ? (
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2 text-xs">
+                    <div className="font-bold text-gray-500 uppercase text-[10px]">Chave Pix ({checkoutResult.pix.keyType || 'Chave'})</div>
+                    <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-lg border border-gray-200">
+                      <span className="font-mono text-gray-800 truncate">{checkoutResult.pix.key}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(checkoutResult.pix.key!, 'Chave Pix')}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-700"
+                      >
+                        <Copy size={11} /> Copiar
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 {checkoutResult.whatsappUrl && (
                   <a
                     href={checkoutResult.whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition"
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
                   >
-                    <MessageCircle size={16} />
+                    <MessageCircle size={15} />
                     <span>Enviar Comprovante no WhatsApp</span>
                   </a>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => handleCopy(checkoutResult.whatsappMessage, 'Resumo da solicitação')}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 transition"
-                >
-                  <Copy size={14} />
-                  <span>Copiar Resumo</span>
-                </button>
               </div>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-600 space-y-2">
-              <p>
-                1. Escolha seu plano mensal (e adicione a <strong>Implantação VIP</strong> se desejar que nossa equipe cadastre seu catálogo inicial).
-              </p>
-              <p>
-                2. Clique em gerar solicitação para receber o código de referência e os dados Pix/WhatsApp.
-              </p>
-              <p>
-                3. Após a confirmação, clique em <strong>“Já paguei, verificar liberação”</strong>.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="pt-3 border-t border-gray-100 text-[11px] text-gray-500 leading-relaxed">
+                Após clicar em confirmar, você receberá a chave Pix e o botão para enviar o comprovante diretamente ao suporte técnico para liberação imediata.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
