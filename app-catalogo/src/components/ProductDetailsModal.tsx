@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ProdutoCatalogo, ConfigPublica, ProdutoVariante } from '../types';
 import { formatCurrency } from '../utils/format';
+import { getContrastColor } from '../utils/theme';
 import { ImageZoomModal } from './ImageZoomModal';
 
 const MARKUP_PADRAO = 2.0;
@@ -48,15 +49,26 @@ export function ProductDetailsModal({
 
   const precoFinalCalculado = useMemo(() => {
     if (!product) return 0;
-    const valorBase = varianteSelecionada
-      ? Number(varianteSelecionada.valor_ajuste)
-      : Number(product.salePrice);
-    const precoGrama = (product as any).gramPrice || 0;
+    const basePrice = Number(product.salePrice) || 0;
+    const ajuste = varianteSelecionada ? Number(varianteSelecionada.valor_ajuste) || 0 : 0;
 
-    if (valorBase < 10 && precoGrama > 0) {
-      return valorBase * precoGrama * MARKUP_PADRAO;
+    let valorFinal = basePrice;
+    if (ajuste > 0) {
+      // Se o ajuste for o preço cheio da variante (ex: R$ 89,90 ou >= 50% do preço base)
+      if (basePrice === 0 || ajuste >= basePrice * 0.5) {
+        valorFinal = ajuste;
+      } else {
+        // Se for um acréscimo aditivo sobre o tamanho (ex: + R$ 10,00)
+        valorFinal = basePrice + ajuste;
+      }
     }
-    return valorBase;
+
+    const precoGrama = (product as any).gramPrice || 0;
+    if (valorFinal < 10 && precoGrama > 0) {
+      return valorFinal * precoGrama * MARKUP_PADRAO;
+    }
+
+    return valorFinal > 0 ? valorFinal : basePrice;
   }, [varianteSelecionada, product]);
 
   if (!product) return null;
@@ -234,17 +246,20 @@ export function ProductDetailsModal({
                       onClose();
                     }}
                     className={`
-                      w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
+                      w-full py-4 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
                       ${
                         isSobConsulta
-                          ? 'bg-gray-300 cursor-not-allowed grayscale'
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed grayscale'
                           : 'hover:brightness-110 active:scale-[0.98]'
                       }
                     `}
                     style={{
                       backgroundColor: isSobConsulta
                         ? '#cbd5e1'
-                        : config.secondaryColor,
+                        : (config.primaryColor || '#D4AF37'),
+                      color: isSobConsulta
+                        ? '#64748b'
+                        : getContrastColor(config.primaryColor || '#D4AF37'),
                     }}
                   >
                     <Plus size={22} strokeWidth={3} />

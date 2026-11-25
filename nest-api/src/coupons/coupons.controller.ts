@@ -2,8 +2,9 @@ import { Controller, Get, Post, Body, Param, Delete, UseGuards, Request } from '
 import { CouponsService } from './coupons.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 @Controller('api/v2')
 export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
@@ -21,21 +22,5 @@ export class CouponsController {
   @Delete('coupons/:id')
   remove(@Request() req: any, @Param('id') id: string) {
     return this.couponsService.remove(req.user.id, id);
-  }
-
-  // Campaign Mock (Compatibilidade Frontend)
-  @Post('campaign/simulate')
-  simulateCampaign() {
-    return { success: true };
-  }
-
-  @Post('campaign/apply')
-  applyCampaign() {
-    return { success: true };
-  }
-
-  @Post('campaign/revert')
-  revertCampaign() {
-    return { success: true };
   }
 }

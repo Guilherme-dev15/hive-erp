@@ -10,6 +10,20 @@ type MockedFunction = Mock;
 // Mock Services
 vi.mock('../services/apiService', () => ({
   getDashboardStats: vi.fn(),
+  getConfig: vi.fn().mockResolvedValue(null),
+  getCategories: vi.fn().mockResolvedValue([]),
+  getAdminProdutos: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../contexts/ThemeContext', () => ({
+  useTheme: () => ({
+    theme: {
+      primaryColor: '#D4AF37',
+      secondaryColor: '#343434',
+      storeName: 'Hive ERP',
+      slug: 'hive',
+    },
+  }),
 }));
 
 // Mock framer-motion to avoid JSDOM errors
@@ -29,11 +43,16 @@ vi.mock('lucide-react', () => {
     Download: MockIcon,
     Package: MockIcon,
     AlertCircle: MockIcon,
+    ArrowRight: MockIcon,
+    CheckCircle2: MockIcon,
+    Circle: MockIcon,
+    ExternalLink: MockIcon,
     FileText: MockIcon,
     Clock: MockIcon,
     Sparkles: MockIcon,
     Layers: MockIcon,
     AlertTriangle: MockIcon,
+    X: MockIcon,
   };
 });
 

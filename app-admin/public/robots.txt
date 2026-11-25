@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /landing
+Allow: /hiveerp-landing.html
+Allow: /termos
+Allow: /privacidade
+
+# Rotas autenticadas e administrativas não devem ser indexadas
+Disallow: /admin
+Disallow: /app
+Disallow: /login
+Disallow: /entrar
+Disallow: /onboarding
+
+Sitemap: https://hiveerp.com.br/sitemap.xml

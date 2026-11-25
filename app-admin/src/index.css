@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --brand-primary: #D4AF37;
+  --brand-secondary: #343434;
+  --brand-primary-contrast: #18181b;
+  --brand-secondary-contrast: #ffffff;
+  --brand-primary-rgb: 212, 175, 55;
+  --brand-secondary-rgb: 52, 52, 52;
+}
+

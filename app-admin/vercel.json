@@ -1,11 +1,12 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Cross-Origin-Opener-Policy",
-          "value": "unsafe-none"
+          "value": "same-origin-allow-popups"
         },
         {
           "key": "Cross-Origin-Embedder-Policy",
@@ -16,7 +17,11 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/hiveerp-landing.html",
+      "destination": "/hiveerp-landing.html"
+    },
+    {
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

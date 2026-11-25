@@ -19,6 +19,8 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 5000000, // 5 MB
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        skipWaiting: true,
+        clientsClaim: true,
       },
       manifest: {
         name: 'Hive ERP Admin',
@@ -48,7 +50,7 @@ export default defineConfig({
   ],
   server: {
     headers: {
-      'Cross-Origin-Opener-Policy': 'unsafe-none',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       'Cross-Origin-Embedder-Policy': 'unsafe-none'
     }
   },

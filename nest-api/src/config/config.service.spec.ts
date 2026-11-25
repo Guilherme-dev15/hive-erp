@@ -32,37 +32,76 @@ describe('ConfigService', () => {
 
   it('should get config for user', async () => {
     const userId = 'tenant-123';
-    const mockConfig = { storeName: 'Test Store' };
-    
+    const mockConfig = { storeName: 'Test Store', publicSlug: 'test-store' };
+
     (prisma.config.findUnique as jest.Mock).mockResolvedValue(mockConfig);
 
     const result = await service.getConfig(userId);
-    expect(result).toEqual(mockConfig);
+    expect(result).toEqual({ ...mockConfig, slug: 'test-store' });
     expect(prisma.config.findUnique).toHaveBeenCalledWith({ where: { userId } });
   });
 
   it('should return empty object if no config exists', async () => {
     const userId = 'tenant-123';
-    
+
     (prisma.config.findUnique as jest.Mock).mockResolvedValue(null);
 
     const result = await service.getConfig(userId);
     expect(result).toEqual({});
   });
 
-  it('should upsert config for user', async () => {
+  it('should upsert config for user and map the public slug', async () => {
     const userId = 'tenant-123';
-    const dto = { storeName: 'New Store' };
-    
-    (prisma.config.upsert as jest.Mock).mockResolvedValue({ ...dto, userId });
+    const dto = { storeName: 'New Store', slug: 'new-store' };
+
+    (prisma.config.upsert as jest.Mock).mockResolvedValue({
+      storeName: 'New Store',
+      publicSlug: 'new-store',
+      userId,
+    });
 
     const result = await service.saveConfig(userId, dto);
-    
+
     expect(prisma.config.upsert).toHaveBeenCalledWith({
       where: { userId },
-      update: dto,
-      create: { ...dto, userId, storeName: 'New Store' },
+      update: { storeName: 'New Store', publicSlug: 'new-store' },
+      create: { storeName: 'New Store', publicSlug: 'new-store', userId },
     });
-    expect(result.storeName).toBe('New Store');
+    expect(result).toEqual({
+      storeName: 'New Store',
+      publicSlug: 'new-store',
+      userId,
+      slug: 'new-store',
+    });
+  });
+
+  it('deve rejeitar checkoutMode GATEWAY se o lojista não possui hasGatewayAddon ativo', async () => {
+    const userId = 'tenant-123';
+    (prisma.config.findUnique as jest.Mock).mockResolvedValue({
+      userId,
+      hasGatewayAddon: false,
+    });
+
+    await expect(
+      service.saveConfig(userId, { checkoutMode: 'GATEWAY' }),
+    ).rejects.toThrow('O Módulo de Gateway Integrado precisa ser contratado para ativar este modo de checkout.');
+  });
+
+  it('deve permitir checkoutMode GATEWAY quando hasGatewayAddon é true', async () => {
+    const userId = 'tenant-123';
+    (prisma.config.findUnique as jest.Mock).mockResolvedValue({
+      userId,
+      hasGatewayAddon: true,
+    });
+    (prisma.config.upsert as jest.Mock).mockResolvedValue({
+      userId,
+      storeName: 'Minha Loja',
+      checkoutMode: 'GATEWAY',
+      hasGatewayAddon: true,
+      publicSlug: 'minha-loja',
+    });
+
+    const result = await service.saveConfig(userId, { checkoutMode: 'GATEWAY' });
+    expect(result.checkoutMode).toBe('GATEWAY');
   });
 });

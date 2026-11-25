@@ -1,52 +1,59 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "nest-api/src/serverless.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "nest-api/prisma/**",
-          "nest-api/node_modules/.prisma/client/**"
-        ]
-      }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci --include=dev",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "app-admin/dist",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "nest-api/dist/**,nest-api/prisma/**,node_modules/.prisma/client/**,node_modules/@prisma/client/**"
+    },
+    "api/[...path].js": {
+      "includeFiles": "nest-api/dist/**,nest-api/prisma/**,node_modules/.prisma/client/**,node_modules/@prisma/client/**"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "nest-api/src/serverless.ts"
+      "dest": "/api/[...path]"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/app-admin/dist/assets/$1"
+      "src": "/((?!api/).*)",
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "Cross-Origin-Embedder-Policy": "unsafe-none"
+      },
+      "continue": true
     },
     {
-      "src": "/pwa-(.*)",
-      "dest": "/app-admin/dist/pwa-$1"
+      "handle": "filesystem"
     },
     {
-      "src": "/(manifest\\.json|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-.*\\.js)",
-      "dest": "/app-admin/dist/$1"
+      "src": "/hiveerp-landing(?:\\.html)?",
+      "dest": "/hiveerp-landing.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "/app-admin/dist/index.html"
-    }
-  ],
-  "headers": [
+      "src": "/admin(?:/.*)?",
+      "dest": "/index.html"
+    },
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin-allow-popups"
-        },
-        {
-          "key": "Cross-Origin-Embedder-Policy",
-          "value": "unsafe-none"
-        }
-      ]
+      "src": "/termos(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/privacidade(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/landing(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/entrar(?:/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
     }
   ]
 }

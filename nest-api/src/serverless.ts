@@ -1,44 +1,79 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { IncomingMessage, ServerResponse } from 'node:http';
 import { AppModule } from './app.module';
-import serverlessExpress from '@vendia/serverless-express';
-import { Handler, Context, Callback } from 'aws-lambda';
 import { Logger } from 'nestjs-pino';
-import { createCorsOptions, parseAllowedOrigins } from './config/cors';
+import { createCorsPreflightHandler, isOriginAllowed } from './serverless-cors';
 
-let cachedServer: Handler;
+export { createCorsPreflightHandler, isOriginAllowed } from './serverless-cors';
+
+let cachedServer: (req: IncomingMessage, res: ServerResponse) => void;
+
+function getAllowedOrigins(): string[] {
+  return process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : [
+        'https://hive-erp.vercel.app',
+        'https://hiveerp-catalogo.vercel.app',
+      ];
+}
+
+function createServerlessRequestHandler(
+  server: (req: IncomingMessage, res: ServerResponse) => void,
+  allowedOrigins: string[],
+) {
+  const handlePreflight = createCorsPreflightHandler(allowedOrigins);
+  return (req: IncomingMessage, res: ServerResponse): void => {
+    if (!handlePreflight(req, res)) server(req, res);
+  };
+}
 
 async function bootstrap() {
   if (!cachedServer) {
-    const app = await NestFactory.create(AppModule, { bufferLogs: true });
+    const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+
+    const httpApp = app.getHttpAdapter().getInstance();
+    httpApp.use(require('express').json({ limit: '256kb' }));
+    httpApp.use(require('express').urlencoded({ extended: true, limit: '256kb' }));
 
     app.useLogger(app.get(Logger));
 
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      })
-    );
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
+    }));
 
-    app.enableCors(
-      createCorsOptions(parseAllowedOrigins(process.env.ALLOWED_ORIGINS))
-    );
+    // Configurando CORS seguro
+    const allowedOrigins = getAllowedOrigins();
+
+    app.enableCors({
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Permitimos ausência de origin (ex: chamadas Server-to-Server ou curl), ou origins homologados (incluindo wildcards)
+        if (isOriginAllowed(origin, allowedOrigins)) {
+          callback(null, true);
+        } else {
+          callback(null, false);
+        }
+      },
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
+      credentials: true,
+    });
 
     await app.init();
 
     const expressApp = app.getHttpAdapter().getInstance();
-    cachedServer = serverlessExpress({ app: expressApp });
+    cachedServer = createServerlessRequestHandler(expressApp, allowedOrigins);
   }
   return cachedServer;
 }
 
 export default async function handler(
-  event: any,
-  context: Context,
-  callback: Callback
-) {
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   const server = await bootstrap();
-  return server(event, context, callback);
+  server(req, res);
 }

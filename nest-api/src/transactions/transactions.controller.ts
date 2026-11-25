@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 import { TransactionType } from '@prisma/client';
 
 @Controller('api/v2/transactions')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
@@ -23,6 +24,15 @@ export class TransactionsController {
     return this.transactionsService.create(createTransactionDto, req.user.id);
   }
 
+  @Put(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateTransactionDto: Partial<CreateTransactionDto>,
+    @Request() req: any,
+  ) {
+    return this.transactionsService.update(id, updateTransactionDto, req.user.id);
+  }
+
   @Patch(':id/status')
   updateStatus(
     @Param('id') id: string,
@@ -37,3 +47,4 @@ export class TransactionsController {
     return this.transactionsService.remove(id, req.user.id);
   }
 }
+

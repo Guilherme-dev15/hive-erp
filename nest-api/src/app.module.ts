@@ -3,6 +3,8 @@ import { AppService } from "./app.service";
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
+import { CategoriesModule } from './categories/categories.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 import { OrdersModule } from './orders/orders.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { InventoryModule } from './inventory/inventory.module';
@@ -14,6 +16,12 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CustomersModule } from './customers/customers.module';
 import { LoggerModule } from 'nestjs-pino';
+import { PublicCatalogModule } from './public-catalog/public-catalog.module';
+import { PreviewMigrationModule } from './preview-migration/preview-migration.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { CustomersModule } from './customers/customers.module';
+import { BillingModule } from './billing/billing.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
 
 @Module({
   imports: [
@@ -30,18 +38,25 @@ import { LoggerModule } from 'nestjs-pino';
         }),
       },
     }),
-    PrismaModule, 
-    ProductsModule, 
-    OrdersModule, 
-    TransactionsModule, 
-    InventoryModule, 
-    TeamModule, 
-    AuthModule, 
-    CouponsModule, 
-    ConfigModule, 
+    PrismaModule,
+    BillingModule,
+    ProductsModule,
+    CategoriesModule,
+    SuppliersModule,
+    OrdersModule,
+    TransactionsModule,
+    InventoryModule,
+    TeamModule,
+    AuthModule,
+    CouponsModule,
+    ConfigModule,
     DashboardModule,
     PaymentsModule,
-    CustomersModule
+    PublicCatalogModule,
+    PreviewMigrationModule,
+    CampaignsModule,
+    CustomersModule,
+    SuperAdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -16,13 +16,29 @@ import {
   DashboardStats,
   ChartData,
   ABCReport,
+  CustomerSummary,
+  CustomersListResponse,
+  BillingStatusResponse,
+  CheckoutIntentResponse,
+  ProductSetupRequestItem,
+  SetupBatchTier,
+  SetupRequestStatus,
+  SubscriptionSummary,
+  SuperAdminOverview,
+  SuperAdminSetupRequestItem,
+  SuperAdminSubscriptionAction,
+  SuperAdminTenantItem,
 } from '../types';
 
 
 // ============================================================================
 // CONFIGURAÇÃO DA CONEXÃO
 // ============================================================================
-const API_URL = import.meta.env.VITE_API_URL;
+// Os endpoints já incluem o prefixo `/api/v2`; normalize uma eventual base
+// legada configurada como `https://hive-erp.vercel.app/api` para não gerar
+// `/api/api/v2/...` em produção.
+const configuredApiUrl = import.meta.env.VITE_API_URL;
+const API_URL = configuredApiUrl?.replace(/\/api\/?$/, '') || '';
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -38,6 +54,113 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+type SubscriptionExpiredHandler = (subscription?: SubscriptionSummary) => void;
+let subscriptionExpiredHandler: SubscriptionExpiredHandler | null = null;
+
+export const registerSubscriptionExpiredHandler = (
+  handler: SubscriptionExpiredHandler | null
+): (() => void) => {
+  subscriptionExpiredHandler = handler;
+  return () => {
+    if (subscriptionExpiredHandler === handler) {
+      subscriptionExpiredHandler = null;
+    }
+  };
+};
+
+export function formatApiErrorMessage(
+  error: unknown,
+  fallbackMessage = 'Ocorreu um erro inesperado ao se comunicar com o servidor.'
+): string {
+  if (!error) return fallbackMessage;
+
+  if (typeof error === 'object' && error !== null) {
+    const err = error as Record<string, any>;
+
+    if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+      return 'Sem conexão com a internet ou servidor indisponível. Verifique sua rede e tente novamente.';
+    }
+    if (err.code === 'ECONNABORTED' || (typeof err.message === 'string' && err.message.includes('timeout'))) {
+      return 'O servidor demorou muito para responder. Tente novamente em instantes.';
+    }
+
+    const response = err.response;
+    if (response) {
+      const status = response.status;
+      const data = response.data;
+
+      if (data) {
+        if (typeof data.message === 'string' && data.message.trim().length > 0) {
+          return data.message;
+        }
+        if (Array.isArray(data.message) && data.message.length > 0) {
+          return data.message.filter(Boolean).join(' • ');
+        }
+        if (typeof data.error === 'string' && data.error.trim().length > 0) {
+          return data.error;
+        }
+      }
+
+      switch (status) {
+        case 400:
+          return 'Dados inválidos ou incompletos na requisição. Verifique os campos.';
+        case 401:
+          return 'Sua sessão expirou. Faça login novamente para continuar.';
+        case 402:
+          return 'Assinatura necessária ou expirada para acessar este recurso.';
+        case 403:
+          return 'Acesso não autorizado para esta funcionalidade.';
+        case 404:
+          return 'Item, endereço ou recurso não encontrado no sistema.';
+        case 409:
+          return 'Conflito de dados. Já existe um registro com estas informações.';
+        case 422:
+          return 'Não foi possível processar a operação com os dados fornecidos.';
+        case 429:
+          return 'Muitas requisições em pouco tempo. Aguarde alguns instantes.';
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return 'Servidor temporariamente indisponível. Nossa equipe técnica já foi notificada.';
+        default:
+          break;
+      }
+    }
+
+    if (typeof err.userMessage === 'string' && err.userMessage) {
+      return err.userMessage;
+    }
+
+    if (
+      typeof err.message === 'string' &&
+      err.message &&
+      !err.message.startsWith('Request failed with status')
+    ) {
+      return err.message;
+    }
+  }
+
+  return fallbackMessage;
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    if (status === 402 && data?.code === 'SUBSCRIPTION_EXPIRED') {
+      subscriptionExpiredHandler?.(data.subscription);
+    }
+
+    if (error && typeof error === 'object') {
+      (error as Record<string, any>).userMessage = formatApiErrorMessage(error);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -121,25 +244,69 @@ export const deleteAdminOrder = async (orderId: string): Promise<void> => {
 // ============================================================================
 // DOMÍNIO: FINANCEIRO & TRANSAÇÕES
 // ============================================================================
+type ApiTransactionType = 'VENDA' | 'DESPESA' | 'CAPITAL';
+type ApiTransaction = Omit<Transacao, 'type'> & {
+  type: ApiTransactionType;
+};
+
+const toApiTransactionType = (
+  type: Transacao['type']
+): ApiTransactionType => {
+  switch (type) {
+    case 'despesa':
+      return 'DESPESA';
+    case 'capital':
+      return 'CAPITAL';
+    case 'venda':
+    default:
+      return 'VENDA';
+  }
+};
+
+const fromApiTransactionType = (type: string): Transacao['type'] => {
+  switch (type.toUpperCase()) {
+    case 'DESPESA':
+      return 'despesa';
+    case 'CAPITAL':
+      return 'capital';
+    case 'VENDA':
+    default:
+      return 'venda';
+  }
+};
+
+const normalizeTransaction = (transaction: ApiTransaction): Transacao => ({
+  ...transaction,
+  type: fromApiTransactionType(String(transaction.type)),
+});
+
 export const getTransacoes = async (): Promise<Transacao[]> => {
-  const { data } = await apiClient.get('/api/v2/transactions');
-  return data;
+  const { data } = await apiClient.get<ApiTransaction[]>('/api/v2/transactions');
+  return data.map(normalizeTransaction);
 };
 export const createTransacao = async (
   transacaoData: Omit<Transacao, 'id'>
 ): Promise<Transacao> => {
-  const { data } = await apiClient.post('/api/v2/transactions', transacaoData);
-  return data;
+  const { data } = await apiClient.post<ApiTransaction>('/api/v2/transactions', {
+    ...transacaoData,
+    type: toApiTransactionType(transacaoData.type),
+  });
+  return normalizeTransaction(data);
 };
 export const updateTransacao = async (
   id: string,
   transacaoData: Partial<Transacao>
 ): Promise<Transacao> => {
-  const { data } = await apiClient.put(
+  const { data } = await apiClient.put<ApiTransaction>(
     `/api/v2/transactions/${id}`,
-    transacaoData
+    {
+      ...transacaoData,
+      ...(transacaoData.type
+        ? { type: toApiTransactionType(transacaoData.type) }
+        : {}),
+    }
   );
-  return data;
+  return normalizeTransaction(data);
 };
 export const deleteTransacao = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v2/transactions/${id}`);
@@ -268,6 +435,25 @@ export const getABCReport = async (): Promise<ABCReport> => {
   return data;
 };
 
+// ============================================================================
+// DOMÍNIO: CLIENTES & CRM
+// ============================================================================
+export const getCustomers = async (query?: {
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}): Promise<CustomersListResponse> => {
+  const { data } = await apiClient.get('/api/v2/customers', { params: query });
+  return data;
+};
+
+export const getCustomer = async (
+  idOrPhone: string
+): Promise<CustomerSummary> => {
+  const { data } = await apiClient.get(`/api/v2/customers/${idOrPhone}`);
+  return data;
+};
+
 export const getConfig = async (): Promise<Config> => {
   const { data } = await apiClient.get('/api/v2/config');
   return data;
@@ -309,38 +495,6 @@ export const removeTeamMember = async (email: string) => {
 };
 
 // ==========================================
-// CLIENTES & CRM
-// ==========================================
-export const getCustomers = async (): Promise<Customer[]> => {
-  const { data } = await apiClient.get<Customer[]>('/api/v2/customers');
-  return data;
-};
-
-export const getCustomer = async (id: string): Promise<Customer> => {
-  const { data } = await apiClient.get<Customer>(`/api/v2/customers/${id}`);
-  return data;
-};
-
-export const createCustomer = async (customerData: Partial<Customer>): Promise<Customer> => {
-  const { data } = await apiClient.post<Customer>('/api/v2/customers', customerData);
-  return data;
-};
-
-export const updateCustomer = async (id: string, customerData: Partial<Customer>): Promise<Customer> => {
-  const { data } = await apiClient.put<Customer>(`/api/v2/customers/${id}`, customerData);
-  return data;
-};
-
-export const deleteCustomer = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/v2/customers/${id}`);
-};
-
-export const importCustomersBulk = async (items: Partial<Customer>[]): Promise<{ count: number }> => {
-  const { data } = await apiClient.post<{ count: number }>('/api/v2/customers/bulk', items);
-  return data;
-};
-
-// ==========================================
 // REGISTRO PÚBLICO (14 DIAS TRIAL)
 // ==========================================
 export const registerUser = async (payload: {
@@ -351,5 +505,136 @@ export const registerUser = async (payload: {
   legacyId?: string;
 }) => {
   const { data } = await apiClient.post('/api/v2/auth/register', payload);
+  return data;
+};
+
+export interface OnboardData {
+  storeName: string;
+  name?: string;
+  email?: string;
+  slug?: string;
+}
+
+export const onboardMerchant = async (data: OnboardData) => {
+  const response = await apiClient.post('/api/v2/auth/onboard', data);
+  return response.data;
+};
+
+// ============================================================================
+// DOMÍNIO: ASSINATURA SAAS, ORDER BUMP DE SETUP & SUPER-ADMIN (FASE B)
+// ============================================================================
+export const getBillingStatus = async (): Promise<BillingStatusResponse> => {
+  const { data } = await apiClient.get<BillingStatusResponse>('/api/v2/billing/status');
+  return data;
+};
+
+export const createBillingCheckoutIntent = async (payload: {
+  setupBatchTier?: SetupBatchTier;
+  includeGatewayAddon?: boolean;
+  contactPhone?: string;
+  sourceDescription?: string;
+}): Promise<CheckoutIntentResponse> => {
+  const { data } = await apiClient.post<CheckoutIntentResponse>(
+    '/api/v2/billing/checkout-intent',
+    payload
+  );
+  return data;
+};
+
+export const createProductSetupRequest = async (payload: {
+  batchTier: SetupBatchTier;
+  includeMonthlyPlan?: boolean;
+  contactPhone?: string;
+  sourceDescription?: string;
+}): Promise<
+  ProductSetupRequestItem & {
+    pix: BillingStatusResponse['catalog']['pix'];
+    whatsappUrl: string | null;
+  }
+> => {
+  const { data } = await apiClient.post('/api/v2/billing/setup-requests', payload);
+  return data;
+};
+
+export const cancelProductSetupRequest = async (
+  id: string
+): Promise<ProductSetupRequestItem> => {
+  const { data } = await apiClient.patch<ProductSetupRequestItem>(
+    `/api/v2/billing/setup-requests/${id}/cancel`
+  );
+  return data;
+};
+
+export const getSuperAdminOverview = async (): Promise<SuperAdminOverview> => {
+  const { data } = await apiClient.get<SuperAdminOverview>('/api/v2/super-admin/overview');
+  return data;
+};
+
+export const getSuperAdminTenants = async (params?: {
+  search?: string;
+  status?: string;
+}): Promise<SuperAdminTenantItem[]> => {
+  const { data } = await apiClient.get<SuperAdminTenantItem[]>('/api/v2/super-admin/tenants', {
+    params,
+  });
+  return data;
+};
+
+export const updateTenantSubscription = async (
+  userId: string,
+  payload: {
+    action: SuperAdminSubscriptionAction;
+    days?: number;
+    isExempt?: boolean;
+    amountCents?: number;
+    note?: string;
+  }
+): Promise<{ userId: string; active: boolean; subscription: SubscriptionSummary }> => {
+  const { data } = await apiClient.patch(
+    `/api/v2/super-admin/tenants/${userId}/subscription`,
+    payload
+  );
+  return data;
+};
+
+export const getSuperAdminSetupRequests = async (params?: {
+  status?: string;
+  search?: string;
+}): Promise<SuperAdminSetupRequestItem[]> => {
+  const { data } = await apiClient.get<SuperAdminSetupRequestItem[]>(
+    '/api/v2/super-admin/setup-requests',
+    { params }
+  );
+  return data;
+};
+
+export const updateSuperAdminSetupRequest = async (
+  id: string,
+  payload: {
+    status: SetupRequestStatus;
+    adminNotes?: string;
+    importedCount?: number;
+    activateMonthlyPlanToo?: boolean;
+    monthlyDays?: number;
+  }
+): Promise<{
+  setupRequest: ProductSetupRequestItem;
+  activatedSubscription: SubscriptionSummary | null;
+}> => {
+  const { data } = await apiClient.patch(`/api/v2/super-admin/setup-requests/${id}`, payload);
+  return data;
+};
+
+export const importProductsForTenant = async (
+  userId: string,
+  payload: {
+    products: Partial<ProdutoAdmin>[];
+    setupRequestId?: string;
+  }
+): Promise<{ count: number }> => {
+  const { data } = await apiClient.post<{ count: number }>(
+    `/api/v2/super-admin/tenants/${userId}/import-products`,
+    payload
+  );
   return data;
 };

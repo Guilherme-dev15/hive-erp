@@ -28,6 +28,21 @@ export class TransactionsService {
     });
   }
 
+  async update(id: string, data: Partial<CreateTransactionDto>, userId: string) {
+    const existing = await this.prisma.transaction.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Transação não encontrada');
+    }
+
+    return this.prisma.transaction.update({
+      where: { id },
+      data,
+    });
+  }
+
   async updateStatus(id: string, status: string, userId: string) {
     const transaction = await this.prisma.transaction.findFirst({
       where: { id, userId },
@@ -48,3 +63,4 @@ export class TransactionsService {
     });
   }
 }
+

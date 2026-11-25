@@ -30,6 +30,9 @@ import { motion } from 'framer-motion';
 // SERVIÇOS
 import { getDashboardStats } from '../services/apiService';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
+import { GettingStartedChecklist } from '../components/GettingStartedChecklist';
+import { useTheme } from '../contexts/ThemeContext';
+import type { Pagina } from '../components/Sidebar';
 import { Order, DashboardStats, ChartData } from '../types';
 import { formatCurrency } from '../utils/format';
 
@@ -68,7 +71,12 @@ interface CategoryData {
   value: number;
 }
 
-export function DashboardPage() {
+interface DashboardPageProps {
+  onNavigate?: (pagina: Pagina) => void;
+}
+
+export function DashboardPage({ onNavigate }: DashboardPageProps = {}) {
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
@@ -196,6 +204,13 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* CHECKLIST DE PRIMEIROS PASSOS */}
+      <GettingStartedChecklist
+        storeSlug={theme?.slug}
+        activeProductsCount={s.activeProducts}
+        onNavigate={onNavigate}
+      />
 
       {/* =========================================================================
           WIDGET COLMEIA HIVE: OS 6 KPIS VISUAIS PROMETIDOS NA LANDING PAGE

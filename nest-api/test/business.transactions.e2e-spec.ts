@@ -5,14 +5,18 @@ import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthGuard } from '../src/auth/auth.guard';
 import { TransactionType } from '@prisma/client';
+const { assertE2EDatabase } = require('./e2e-db-safety') as { assertE2EDatabase: () => void };
 
 describe('Business Rules - Transações Financeiras (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
   const MOCK_USER_ID = '00000000-0000-4000-8000-000000000002';
+  const OUTRO_TENANT_ID = '00000000-0000-4000-8000-000000000003';
 
   beforeAll(async () => {
+    assertE2EDatabase();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -34,8 +38,8 @@ describe('Business Rules - Transações Financeiras (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.transaction.deleteMany({});
-    await prisma.user.deleteMany({});
+    await prisma.transaction.deleteMany({ where: { userId: { in: [MOCK_USER_ID, OUTRO_TENANT_ID] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [MOCK_USER_ID, OUTRO_TENANT_ID] } } });
 
     await prisma.user.create({
       data: {
@@ -88,7 +92,6 @@ describe('Business Rules - Transações Financeiras (e2e)', () => {
       },
     });
 
-    const OUTRO_TENANT_ID = '00000000-0000-4000-8000-000000000003';
     await prisma.user.create({
       data: { id: OUTRO_TENANT_ID, legacyId: 'fake-out', email: 'o@out.com', name: 'out' },
     });

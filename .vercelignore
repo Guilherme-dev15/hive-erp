@@ -1,0 +1,9 @@
+# Legacy Firebase and local-only files that must never enter a Vercel deployment
+serviceAccountKey.json
+api/serviceAccountKey.json
+.env
+.env.*
+**/.env
+**/.env.*
+functions/
+firestore.indexes.json

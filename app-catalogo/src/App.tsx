@@ -10,40 +10,45 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster, toast } from 'react-hot-toast';
 
 import { ProdutoCatalogo, ConfigPublica, ItemCarrinho } from './types';
-import { fetchCatalogData, fetchStoreBySlug } from './services/api';
+import { fetchCatalogData } from './services/api';
+import { extractSlugFromLocation } from './utils/storeIdentity';
 import { BannerCarousel } from './components/BannerCarousel';
 import { CardProduto } from './components/CardProduto';
+import { ModalCarrinho } from './components/ModalCarrinho';
 import { ProductDetailsModal } from './components/ProductDetailsModal';
 import { CategoryFilter } from './components/CategoryFilter';
 
 const useStoreIdentity = () => {
-  const [identity, setIdentity] = useState<{
-    slug: string | null;
-    storeId: string | null;
-  }>({
-    slug: null,
-    storeId: null,
-  });
+  const [slug, setSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    let currentSlug = params.get('loja') || params.get('slug');
-    const directStoreId = params.get('storeId');
+    const configuredBaseDomain = import.meta.env.VITE_CATALOG_BASE_DOMAIN as string | undefined;
+    const { slug: detectedSlug, isSubdomain } = extractSlugFromLocation(
+      {
+        hostname: window.location.hostname,
+        pathname: window.location.pathname,
+        search: window.location.search,
+      },
+      configuredBaseDomain
+    );
 
-    if (!currentSlug) {
-      const host = window.location.hostname;
-      if (!host.includes('localhost') && !host.includes('vercel.app')) {
-        currentSlug = host.split('.')[0];
+    if (detectedSlug) {
+      setSlug(detectedSlug);
+      // Clean URL: apenas se veio com ?loja= ou ?slug= no domínio apex/compartilhado (não no subdomínio),
+      // reescreve a barra de endereço para um path limpo e profissional
+      if (!isSubdomain && window.location.search && window.history.replaceState) {
+        const cleanPath = `/${detectedSlug}`;
+        if (window.location.pathname !== cleanPath) {
+          window.history.replaceState({}, '', cleanPath);
+        }
       }
     }
-
-    setIdentity({ slug: currentSlug, storeId: directStoreId });
   }, []);
 
-  return identity;
+  return slug;
 };
 
-const useStoreData = (slug: string | null, directStoreId: string | null) => {
+const useStoreData = (slug: string | null) => {
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
   const [config, setConfig] = useState<ConfigPublica>({
     whatsappNumber: null,
@@ -57,49 +62,32 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!slug && !directStoreId) return;
+    if (!slug) {
+      setLoading(false);
+      setError('Informe o slug da loja para acessar o catálogo.');
+      return;
+    }
+
+    const catalogSlug = slug;
 
     async function loadData() {
       try {
         setLoading(true);
-        let finalStoreId = directStoreId;
-
-        if (slug && !finalStoreId) {
-          try {
-            const storeData = await fetchStoreBySlug(slug);
-            finalStoreId = storeData.storeId;
-            setConfig((prev) => ({
-              ...prev,
-              ...storeData,
-              storeName: storeData.storeName || 'Loja Virtual',
-              slug: storeData.slug,
-            }));
-            document.title = storeData.storeName || 'Loja Virtual';
-          } catch (err) {
-            throw new Error('Loja não encontrada. Verifique o endereço.');
-          }
-        }
-
-        if (!finalStoreId) throw new Error('ID da loja não identificado.');
-
-        const data = await fetchCatalogData(finalStoreId);
+        setError(null);
+        const data = await fetchCatalogData(catalogSlug);
 
         const safeProducts = (data.produtos || []).map((p: ProdutoCatalogo) => ({
           ...p,
           salePrice: Number(p.salePrice) || 0,
-          promotionalPrice: Number(p.promotionalPrice) || 0,
         }));
 
         setProdutos(safeProducts);
-
-        if (data.config) {
-          setConfig((prev) => ({
-            ...prev,
-            storeId: finalStoreId,
-            ...data.config,
-            storeName: data.config.storeName || prev.storeName,
-          }));
-        }
+        setConfig((prev) => ({
+          ...prev,
+          ...data.config,
+          storeName: data.config.storeName || prev.storeName,
+        }));
+        document.title = data.config.storeName || 'Loja Virtual';
       } catch (err) {
         const error = err as Error;
         console.error('Erro carrega loja:', error);
@@ -110,7 +98,7 @@ const useStoreData = (slug: string | null, directStoreId: string | null) => {
     }
 
     loadData();
-  }, [slug, directStoreId]);
+  }, [slug]);
 
   return { produtos, config, loading, error };
 };
@@ -219,8 +207,8 @@ const useProductFilter = (produtos: ProdutoCatalogo[]) => {
 };
 
 export default function App() {
-  const { slug, storeId } = useStoreIdentity();
-  const { produtos, config, loading, error } = useStoreData(slug, storeId);
+  const slug = useStoreIdentity();
+  const { produtos, config, loading, error } = useStoreData(slug);
 
   const cart = useCart();
   const filter = useProductFilter(produtos);
@@ -402,6 +390,15 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <ModalCarrinho
+        isOpen={cart.isAberto}
+        onClose={() => cart.setIsAberto(false)}
+        itens={cart.itens}
+        setCarrinho={cart.setCarrinho}
+        whatsappNumber={config.whatsappNumber}
+        config={config}
+      />
 
       <ProductDetailsModal
         isOpen={!!selectedProduct}

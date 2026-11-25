@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { updateAdminOrderStatus, emitirNfe } from '../services/apiService';
 import { toast } from 'react-hot-toast';
+import { formatCurrency } from '../utils/format';
 import { Order, OrderItem } from '../types';
 
 interface DetalhePedidoModalProps {
@@ -37,6 +38,7 @@ export function DetalhePedidoModal({
   const isNfeEmitted = pedido.nfeStatus === 'EMITIDA' || !!pedido.nfeKey;
 
   const handleStatusChange = async (newStatus: string) => {
+    if (pedido.status === newStatus) return;
     try {
       setIsUpdating(true);
       await updateAdminOrderStatus(pedido.id, newStatus);
@@ -279,19 +281,28 @@ export function DetalhePedidoModal({
               {/* SELETOR DE STATUS OPERACIONAL */}
               <div className="space-y-4 no-print">
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">
-                  Status Operacional:{' '}
-                  <span className="text-indigo-600 ml-2">{pedido.status}</span>
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">
+                  Logística:{' '}
+                  <span className="text-indigo-600 ml-2 font-bold">{pedido.status}</span>
                 </p>
                 <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100">
-                  {['Orçamento', 'Aguardando Pagamento', 'Em Separação', 'Enviado', 'Concluído'].map((st) => (
+                  {[
+                    'Orçamento',
+                    'Aguardando Pagamento',
+                    'Em Produção',
+                    'Em Separação',
+                    'Enviado',
+                    'Concluído',
+                    'Cancelado',
+                  ].map((st) => (
                     <button
                       key={st}
                       onClick={() => handleStatusChange(st)}
                       disabled={isUpdating}
-                      className={`px-5 py-2 rounded-xl text-[11px] font-black border transition-all ${
+                      className={`px-4 py-2 rounded-xl text-[11px] font-black border transition-all ${
                         pedido.status === st
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                          : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
                       }`}
                     >
                       {st}
@@ -334,22 +345,27 @@ export function DetalhePedidoModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {pedido.items?.map((item: OrderItem, i: number) => (
-                    <tr key={i} className="text-sm">
-                      <td className="p-4 font-bold text-gray-700">
-                        {item.name}
-                      </td>
-                      <td className="p-4 text-center font-black text-indigo-600">
-                        x{item.quantidade}
-                      </td>
-                      <td className="p-4 text-right text-gray-600">
-                        R$ {Number(item.salePrice).toFixed(2)}
-                      </td>
-                      <td className="p-4 text-right font-bold text-gray-900">
-                        R$ {(Number(item.salePrice) * item.quantidade).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {pedido.items?.map((item: any, i: number) => {
+                    const qty = Number(item.quantity ?? item.quantidade ?? 1);
+                    const price = Number(item.salePrice || 0);
+                    const lineTotal = price * qty;
+                    return (
+                      <tr key={i} className="text-sm">
+                        <td className="p-4 font-bold text-gray-700">
+                          {item.name}
+                        </td>
+                        <td className="p-4 text-center font-black text-indigo-600">
+                          x{qty}
+                        </td>
+                        <td className="p-4 text-right text-gray-600">
+                          {formatCurrency(price)}
+                        </td>
+                        <td className="p-4 text-right font-bold text-gray-900">
+                          {formatCurrency(lineTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -360,7 +376,7 @@ export function DetalhePedidoModal({
                     Total do Pedido
                   </p>
                   <p className="text-2xl font-black text-indigo-600">
-                    R$ {Number(pedido.total).toFixed(2)}
+                    {formatCurrency(pedido.total ?? 0)}
                   </p>
                 </div>
               </div>

@@ -29,13 +29,13 @@ import {
 } from 'recharts';
 
 import {
-  getTransacoes,
   createTransacao,
   deleteTransacao,
+  getTransacoes,
   updateTransactionStatus,
 } from '../services/apiService';
-import { Transacao } from '../types';
 import { formatCurrency } from '../utils/format';
+import type { Transacao } from '../types';
 
 type TabType = 'todos' | 'pagar' | 'receber';
 type StatusFilter = 'todos' | 'PENDENTE' | 'PAGO';
@@ -71,7 +71,14 @@ export function FinanceiroPage() {
     try {
       setLoading(true);
       const data = await getTransacoes();
-      setTransactions(data);
+      setTransactions(
+        data.map((transaction) => ({
+          ...transaction,
+          date: String(transaction.date),
+          category: transaction.category ?? 'Geral',
+          type: transaction.type === 'capital' ? 'venda' : transaction.type,
+        }))
+      );
     } catch (e) {
       console.error('Erro ao carregar finanças:', e);
       toast.error('Erro ao carregar dados financeiros');
@@ -158,8 +165,17 @@ export function FinanceiroPage() {
         status: newTrans.status,
       };
 
-      const created = await createTransacao(payload);
-      setTransactions((prev) => [created, ...prev]);
+      const transacaoSalva = await createTransacao(payload);
+
+      setTransactions((prev) => [
+        {
+          ...transacaoSalva,
+          date: String(transacaoSalva.date),
+          category: transacaoSalva.category ?? 'Geral',
+          type: transacaoSalva.type === 'capital' ? 'venda' : transacaoSalva.type,
+        },
+        ...prev,
+      ]);
       setShowModal(false);
       setNewTrans({
         description: '',

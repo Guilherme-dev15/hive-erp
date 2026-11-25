@@ -1,34 +1,29 @@
-import { lazy, Suspense, useState, type ElementType } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  LogOut,
-  Loader2,
-  Menu,
-  X,
-  Shield,
-  LayoutDashboard,
-  ShoppingBag,
-  Package,
-  Users,
-  DollarSign,
-  Percent,
-  Ticket,
-  BarChart3,
-  Settings,
-  Calculator,
-  Briefcase,
-  UserCheck,
-} from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
-// Imports de Autenticação
+// Imports de Autenticação e Tema
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/LoginPage.tsx';
+import { OnboardingPage } from './pages/OnboardingPage.tsx';
+import { LandingPage } from './pages/LandingPage';
+import { LegalPage } from './pages/LegalPage';
+import { getAdminAppUrl, resolvePublicSurface } from './utils/publicRoutes';
+
+// Navegação Moderna SaaS (Sidebar + Topbar)
+import { Sidebar, Pagina } from './components/Sidebar';
+import { Topbar } from './components/Topbar';
+import { TrialBanner } from './components/TrialBanner';
+import { BlockedSubscriptionShell } from './components/BlockedSubscriptionShell';
 
 // Importa as páginas sob demanda para manter o shell inicial enxuto.
 const ProdutosPage = lazy(() =>
   import('./pages/ProdutosPage').then(({ ProdutosPage }) => ({ default: ProdutosPage }))
+);
+const CategoriasPage = lazy(() =>
+  import('./pages/CategoriasPage').then(({ CategoriasPage }) => ({ default: CategoriasPage }))
 );
 const FornecedoresPage = lazy(() =>
   import('./pages/FornecedoresPage').then(({ FornecedoresPage }) => ({ default: FornecedoresPage }))
@@ -63,176 +58,15 @@ const EquipePage = lazy(() =>
 const CampanhasPage = lazy(() =>
   import('./pages/CampanhasPage').then(({ CampanhasPage }) => ({ default: CampanhasPage }))
 );
+const AssinaturaPage = lazy(() =>
+  import('./pages/AssinaturaPage').then(({ AssinaturaPage }) => ({ default: AssinaturaPage }))
+);
+const SuperAdminPage = lazy(() =>
+  import('./pages/SuperAdminPage').then(({ SuperAdminPage }) => ({ default: SuperAdminPage }))
+);
 
 // Importar a Proteção contra Tela Branca
 import { ErrorBoundary } from './components/ErrorBoundary';
-
-// Definição das Rotas
-type Pagina =
-  | 'dashboard'
-  | 'pedidos'
-  | 'clientes'
-  | 'produtos'
-  | 'fornecedores'
-  | 'financeiro'
-  | 'campanhas' // Descontos Globais
-  | 'cupons' // Códigos de Desconto
-  | 'precificacao'
-  | 'relatorios'
-  | 'equipe'
-  | 'configuracoes';
-
-// --- NAVBAR RESPONSIVA ---
-function Navbar({
-  paginaAtual,
-  onNavigate,
-}: {
-  paginaAtual: Pagina;
-  onNavigate: (p: Pagina) => void;
-}) {
-  const { user, userData, logout } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Configuração do Menu com Ícones e Labels
-  const menuItems: { id: Pagina; label: string; icon: ElementType }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'pedidos', label: 'Pedidos', icon: ShoppingBag },
-    { id: 'clientes', label: 'Clientes & CRM', icon: UserCheck },
-    { id: 'produtos', label: 'Produtos', icon: Package },
-    { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
-    { id: 'campanhas', label: 'Promoções', icon: Percent }, // Novo Painel Global
-    { id: 'cupons', label: 'Cupons', icon: Ticket }, // Antigo Cupons
-    { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
-    { id: 'fornecedores', label: 'Fornecedores', icon: Users },
-    { id: 'equipe', label: 'Equipe', icon: Briefcase },
-    { id: 'precificacao', label: 'Calc. Preço', icon: Calculator },
-    { id: 'configuracoes', label: 'Config', icon: Settings },
-  ];
-
-  const handleMobileNavigate = (p: Pagina) => {
-    onNavigate(p);
-    setIsMobileMenuOpen(false);
-  };
-
-  return (
-    <nav className="bg-carvao shadow-lg mb-8 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* LADO ESQUERDO: Logo e Menu Desktop */}
-          <div className="flex">
-            <div
-              className="flex-shrink-0 flex items-center gap-2 cursor-pointer"
-              onClick={() => onNavigate('dashboard')}
-            >
-              <div className="w-8 h-8 bg-dourado rounded-lg flex items-center justify-center text-carvao font-bold">
-                H
-              </div>
-              <h1 className="text-xl font-bold text-dourado hidden sm:block">
-                HIVE ERP
-              </h1>
-            </div>
-
-            {/* Menu Desktop (Hidden em Mobile) */}
-            <div className="hidden xl:ml-6 xl:flex xl:space-x-1 overflow-x-auto no-scrollbar items-center">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5
-                    ${
-                      paginaAtual === item.id
-                        ? 'bg-gray-800 text-dourado border-b-2 border-dourado rounded-none h-full'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    }`}
-                >
-                  <item.icon size={16} />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* LADO DIREITO: Usuário e Toggle Mobile */}
-          <div className="flex items-center ml-4 gap-2">
-            <div className="hidden md:flex flex-col items-end mr-2">
-              <span className="text-xs text-gray-400">Logado como</span>
-              <div className="flex items-center gap-1">
-                {userData?.role === 'owner' && (
-                  <Shield size={12} className="text-dourado" />
-                )}
-                <span className="text-xs text-prata font-bold">
-                  {userData?.name || user?.email?.split('@')[0]}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={logout}
-              className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-red-900/30 transition-colors"
-              title="Sair"
-            >
-              <LogOut size={20} />
-            </button>
-
-            {/* Botão Hambúrguer (Mobile) */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="xl:hidden p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* --- MENU MOBILE DROPDOWN --- */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="xl:hidden bg-carvao border-t border-gray-700 overflow-hidden"
-          >
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => handleMobileNavigate(item.id)}
-                  className={`block w-full text-left px-3 py-3 rounded-md text-base font-medium items-center gap-3
-                    ${
-                      paginaAtual === item.id
-                        ? 'bg-gray-900 text-dourado border-l-4 border-dourado'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    }`}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                </button>
-              ))}
-
-              <div className="border-t border-gray-700 mt-4 pt-4 px-3 pb-2">
-                <div className="flex items-center">
-                  <div className="ml-3">
-                    <div className="text-base font-medium leading-none text-white flex items-center gap-2">
-                      {userData?.name || 'Usuário'}
-                      {userData?.role === 'owner' && (
-                        <Shield size={14} className="text-dourado" />
-                      )}
-                    </div>
-                    <div className="text-sm font-medium leading-none text-gray-400 mt-1">
-                      {user?.email}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </nav>
-  );
-}
 
 function PageLoadingFallback() {
   return (
@@ -251,13 +85,71 @@ function PageLoadingFallback() {
 
 // --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
-  const { user, loading } = useAuth();
+  const { user, userData, needsOnboarding, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigatePublic = (nextPath: string) => {
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+      setPathname(nextPath);
+    }
+    window.scrollTo?.(0, 0);
+  };
+
+  const handleGoToApp = () => {
+    const target = getAdminAppUrl(window.location.hostname);
+    if (target.startsWith('http')) {
+      window.location.assign(target);
+      return;
+    }
+    navigatePublic(target);
+  };
 
   // Tratamento de QR Code
   const params = new URLSearchParams(window.location.search);
   if (params.get('q')) {
     localStorage.setItem('pending_qr_scan', params.get('q') || '');
+  }
+
+  const publicSurface = resolvePublicSurface(window.location.hostname, pathname);
+
+  if (publicSurface === 'terms') {
+    return (
+      <LegalPage
+        document="terms"
+        onNavigate={navigatePublic}
+        onGoToApp={handleGoToApp}
+      />
+    );
+  }
+
+  if (publicSurface === 'privacy') {
+    return (
+      <LegalPage
+        document="privacy"
+        onNavigate={navigatePublic}
+        onGoToApp={handleGoToApp}
+      />
+    );
+  }
+
+  if (publicSurface === 'landing') {
+    return (
+      <LandingPage
+        onStartTrial={handleGoToApp}
+        onNavigate={navigatePublic}
+      />
+    );
   }
 
   if (loading) {
@@ -269,19 +161,48 @@ function ProtectedLayout() {
   }
 
   if (!user) {
-    return <LoginPage />;
+    return <LoginPage onNavigate={navigatePublic} />;
   }
+
+  if (needsOnboarding) {
+    return <OnboardingPage onNavigate={navigatePublic} />;
+  }
+
+  const isSubscriptionBlocked = Boolean(
+    userData?.subscription?.isBlocked && !userData?.isSuperAdmin
+  );
+
+  if (isSubscriptionBlocked) {
+    return (
+      <BlockedSubscriptionShell>
+        <ErrorBoundary key="assinatura-blocked">
+          <Suspense fallback={<PageLoadingFallback />}>
+            <AssinaturaPage mode="blocked" />
+          </Suspense>
+        </ErrorBoundary>
+      </BlockedSubscriptionShell>
+    );
+  }
+
+  const showTrialBanner = Boolean(
+    userData?.subscription &&
+      userData.subscription.effectiveStatus === 'TRIAL' &&
+      !userData.subscription.isExempt &&
+      !userData?.isSuperAdmin
+  );
 
   const renderizarPagina = () => {
     switch (pagina) {
       case 'dashboard':
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={setPagina} />;
       case 'pedidos':
         return <PedidosPage />;
       case 'clientes':
         return <ClientesPage />;
       case 'produtos':
         return <ProdutosPage />;
+      case 'categorias':
+        return <CategoriasPage />;
       case 'fornecedores':
         return <FornecedoresPage />;
       case 'financeiro':
@@ -299,8 +220,12 @@ function ProtectedLayout() {
         return <RelatoriosPage />;
       case 'equipe':
         return <EquipePage />;
+      case 'assinatura':
+        return <AssinaturaPage />;
+      case 'super-admin':
+        return userData?.isSuperAdmin ? <SuperAdminPage /> : <DashboardPage />;
       case 'configuracoes':
-        return <ConfiguracoesPage />;
+        return <ConfiguracoesPage onNavigate={setPagina} />;
       default:
         return (
           <div className="text-center py-20 text-gray-500">
@@ -311,17 +236,39 @@ function ProtectedLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-off-white">
-      <Navbar paginaAtual={pagina} onNavigate={setPagina} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <ErrorBoundary key={pagina}>
-          <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
-            <Suspense fallback={<PageLoadingFallback />}>
-              {renderizarPagina()}
-            </Suspense>
-          </div>
-        </ErrorBoundary>
-      </main>
+    <div className="min-h-screen bg-off-white flex">
+      {/* Sidebar Lateral Moderna */}
+      <Sidebar
+        paginaAtual={pagina}
+        onNavigate={setPagina}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Conteúdo Principal + Topbar */}
+      <div className="flex-1 flex flex-col min-h-screen lg:pl-64 transition-all">
+        <Topbar
+          paginaAtual={pagina}
+          onOpenMobile={() => setMobileMenuOpen(true)}
+        />
+
+        {showTrialBanner && userData?.subscription && (
+          <TrialBanner
+            subscription={userData.subscription}
+            onGoToBilling={() => setPagina('assinatura')}
+          />
+        )}
+
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <ErrorBoundary key={pagina}>
+            <div className="animate-in fade-in duration-300 slide-in-from-bottom-2">
+              <Suspense fallback={<PageLoadingFallback />}>
+                {renderizarPagina()}
+              </Suspense>
+            </div>
+          </ErrorBoundary>
+        </main>
+      </div>
     </div>
   );
 }
@@ -329,8 +276,10 @@ function ProtectedLayout() {
 export default function App() {
   return (
     <AuthProvider>
-      <Toaster position="top-right" />
-      <ProtectedLayout />
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        <ProtectedLayout />
+      </ThemeProvider>
     </AuthProvider>
   );
 }

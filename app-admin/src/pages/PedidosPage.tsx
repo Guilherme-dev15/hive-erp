@@ -45,7 +45,7 @@ import { NovoPedidoModal } from '../components/NovoPedidoModal';
 
 // --- CONFIGURAÇÃO VISUAL ---
 const statusConfig: Record<
-  OrderStatus,
+  string,
   { icon: React.ReactNode; color: string; bg: string; border: string }
 > = {
   'Orçamento': {
@@ -59,6 +59,12 @@ const statusConfig: Record<
     color: 'text-yellow-700',
     bg: 'bg-yellow-50',
     border: 'border-yellow-200',
+  },
+  Pago: {
+    icon: <CheckCircle2 size={14} />,
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
   },
   'Em Produção': {
     icon: <Package size={14} />,
@@ -206,6 +212,9 @@ export function PedidosPage() {
       setPedidos((prev) =>
         prev.map((p) => (p.id === id ? { ...p, status: novoStatus } : p))
       );
+      setPedidoSelecionado((prev) =>
+        prev && prev.id === id ? { ...prev, status: novoStatus } : prev
+      );
     },
     []
   );
@@ -225,6 +234,9 @@ export function PedidosPage() {
         );
 
       setPedidos(sortedPedidos);
+      setPedidoSelecionado((prev) =>
+        prev ? sortedPedidos.find((p: Order) => p.id === prev.id) || prev : null
+      );
       if (configData) setConfig(configData);
     } catch (err) {
       console.error("Erro ao carregar dados dos pedidos:", err);
@@ -242,6 +254,9 @@ export function PedidosPage() {
     pedidoId: string,
     novoStatus: OrderStatus
   ) => {
+    const pedidoAtual = pedidos.find((p) => p.id === pedidoId);
+    if (pedidoAtual && pedidoAtual.status === novoStatus) return;
+
     const tid = toast.loading('Atualizando...');
     setUpdatingId(pedidoId);
     try {
@@ -270,7 +285,7 @@ export function PedidosPage() {
   };
 
   const handlePrintCertificado = useReactToPrint({
-    content: () => certificadoRef.current,
+    contentRef: certificadoRef,
     documentTitle: 'Certificado_Garantia',
   });
 
@@ -306,7 +321,7 @@ export function PedidosPage() {
 
   const stats = useMemo(() => {
     const totalVendas = pedidos.reduce(
-      (acc, p) => (p.status !== 'Cancelado' ? acc + (p.total || 0) : acc),
+      (acc, p) => (p.status !== 'Cancelado' ? acc + (Number(p.total) || 0) : acc),
       0
     );
     const pendentes = pedidos.filter(

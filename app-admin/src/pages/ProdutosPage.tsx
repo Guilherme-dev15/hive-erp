@@ -101,7 +101,7 @@ export function ProdutosPage() {
   // 4. IMPRESSÃO
   const etiquetaRef = useRef<HTMLDivElement>(null);
   const handlePrintEtiquetas = useReactToPrint({
-    content: () => etiquetaRef.current,
+    contentRef: etiquetaRef,
     documentTitle: 'Etiquetas_Produtos',
     onAfterPrint: () => toast.success('Impressão enviada!'),
   });

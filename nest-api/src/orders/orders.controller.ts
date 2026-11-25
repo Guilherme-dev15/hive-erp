@@ -1,17 +1,23 @@
-import { Controller, Post, Param, Body, UseGuards, Request, Get, Patch } from '@nestjs/common';
+import { Controller, Post, Param, Body, UseGuards, Request, Get, Patch, Delete } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/orders')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
   findAll(@Request() req: any) {
     return this.ordersService.findAll(req.user.id);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.findOne(id, req.user.id);
   }
 
   @Post()
@@ -31,5 +37,11 @@ export class OrdersController {
   @Post(':id/emit-nfe')
   emitNfe(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.emitNfe(id, req.user.id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.remove(id, req.user.id);
+  }
   }
 }

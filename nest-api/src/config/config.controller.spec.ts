@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigController } from './config.controller';
 import { ConfigService } from './config.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 describe('ConfigController', () => {
   let controller: ConfigController;
@@ -19,7 +20,10 @@ describe('ConfigController', () => {
           useValue: {},
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(SubscriptionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ConfigController>(ConfigController);
   });

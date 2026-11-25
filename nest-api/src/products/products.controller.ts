@@ -1,12 +1,13 @@
-import { Controller, Get, Param, Post, Put, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Param, Post, Put, Delete, Body, UseGuards, Request } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { BulkMarkupDto, BulkStatusDto } from './dto/bulk-update.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { SubscriptionGuard } from '../billing/subscription.guard';
 
 @Controller('api/v2/products')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, SubscriptionGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
@@ -30,6 +31,11 @@ export class ProductsController {
     return this.productsService.updateBulkStatus(dto, req.user.id);
   }
 
+  @Post('bulk')
+  importBulk(@Body() products: any[], @Request() req: any) {
+    return this.productsService.importBulk(products, req.user.id);
+  }
+
   @Post()
   create(@Body() createProductDto: CreateProductDto, @Request() req: any) {
     return this.productsService.create(createProductDto, req.user.id);
@@ -38,5 +44,10 @@ export class ProductsController {
   @Put(':id')
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @Request() req: any) {
     return this.productsService.update(id, updateProductDto, req.user.id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.productsService.remove(id, req.user.id);
   }
 }

@@ -1,394 +1,440 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users,
   Search,
-  Plus,
-  FileSpreadsheet,
-  Phone,
-  Mail,
-  MapPin,
+  Users,
+  DollarSign,
+  TrendingUp,
   ShoppingBag,
-  Edit2,
-  Trash2,
-  ChevronRight,
   MessageCircle,
+  ExternalLink,
+  Calendar,
+  ChevronRight,
+  X,
+  Loader2,
   Clock,
+  Sparkles,
 } from 'lucide-react';
-import { getCustomers, deleteCustomer } from '../services/apiService';
-import { Customer } from '../types';
-import { ClienteFormModal } from '../components/ClienteFormModal';
-import { ImportClientesModal } from '../components/ImportClientesModal';
-import { formatCurrency } from '../utils/format';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
+import { getCustomers } from '../services/apiService';
+import type { CustomerSummary, CustomersListResponse } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { getContrastColor } from '../utils/themeUtils';
 
 export function ClientesPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const { theme } = useTheme();
+  const primaryColor = theme.primaryColor || '#D4AF37';
+  const contrastOnPrimary = getContrastColor(primaryColor);
 
-  // Modais
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<CustomersListResponse>({
+    data: [],
+    total: 0,
+    totalRevenue: 0,
+    averageTicketGlobal: 0,
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'totalSpent' | 'totalOrders' | 'lastOrderDate' | 'name'>('totalSpent');
+
+  // Modal / Drawer de Detalhes do Cliente
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null);
+
+  useEffect(() => {
+    carregarClientes();
+  }, [sortBy]);
 
   const carregarClientes = async () => {
     try {
       setLoading(true);
-      const data = await getCustomers();
-      setCustomers(data);
-    } catch (err) {
-      console.error('Erro ao carregar clientes:', err);
-      toast.error('Erro ao listar clientes');
+      const res = await getCustomers({
+        search: searchTerm,
+        sortBy,
+        sortOrder: 'desc',
+      });
+      setData(res);
+    } catch (error) {
+      console.error('Erro ao carregar clientes:', error);
+      toast.error('Erro ao carregar carteira de clientes.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     carregarClientes();
-  }, []);
+  };
 
-  const filtered = useMemo(() => {
-    return customers.filter((c) => {
-      const q = search.toLowerCase();
-      return (
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.includes(q)) ||
-        (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.document && c.document.includes(q))
-      );
-    });
-  }, [customers, search]);
+  // Contagem de clientes com mais de 1 compra
+  const recurringCount = useMemo(() => {
+    return data.data.filter((c) => c.totalOrders > 1).length;
+  }, [data.data]);
 
-  const stats = useMemo(() => {
-    const total = customers.length;
-    const comCompras = customers.filter((c) => (c.ordersCount || 0) > 0).length;
-    const totalReceita = customers.reduce((acc, c) => acc + (c.totalSpent || 0), 0);
-    return { total, comCompras, totalReceita };
-  }, [customers]);
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(val);
+  };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Deseja realmente remover o cliente ${name}?`)) return;
+  const formatDate = (dateInput: string | Date) => {
     try {
-      await deleteCustomer(id);
-      toast.success('Cliente removido!');
-      carregarClientes();
-      if (selectedCustomer?.id === id) setSelectedCustomer(null);
-    } catch (err) {
-      console.error('Erro ao deletar cliente:', err);
-      toast.error('Erro ao deletar cliente.');
+      const d = new Date(dateInput);
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(d);
+    } catch {
+      return '-';
     }
   };
 
+  const formatPhone = (phone: string, cleanPhone: string) => {
+    if (!cleanPhone || cleanPhone.length < 10) return phone || 'Sem telefone';
+    if (cleanPhone.length === 11) {
+      return `(${cleanPhone.slice(0, 2)}) ${cleanPhone.slice(2, 7)}-${cleanPhone.slice(7)}`;
+    }
+    return `(${cleanPhone.slice(0, 2)}) ${cleanPhone.slice(2, 6)}-${cleanPhone.slice(6)}`;
+  };
+
+  const openWhatsApp = (customer: CustomerSummary) => {
+    if (!customer.cleanPhone) {
+      toast.error('Este cliente não possui número de telefone cadastrado.');
+      return;
+    }
+    const msg = encodeURIComponent(
+      `Olá ${customer.name}! Tudo bem? Sou da ${theme.storeName || 'loja'} e estou entrando em contato para saber como foi sua experiência conosco!`
+    );
+    window.open(`https://wa.me/55${customer.cleanPhone}?text=${msg}`, '_blank');
+  };
+
   return (
-    <div className="space-y-6 pb-20">
-      {/* HEADER & AÇÕES */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-6">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <Users className="text-amber-500" size={32} />
-            Clientes & CRM
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            Histórico completo de compras, contatos e propostas
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold text-sm rounded-xl shadow-sm transition-all"
+    <div className="space-y-6">
+      {/* Cards de Resumo CRM */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Total de Clientes
+            </p>
+            <h3 className="text-2xl font-black text-gray-900 mt-1">
+              {data.total}
+            </h3>
+          </div>
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm"
+            style={{ backgroundColor: `${primaryColor}15` }}
           >
-            <FileSpreadsheet size={18} className="text-emerald-600" />
-            Importar Planilha
-          </button>
-          <button
-            onClick={() => {
-              setEditingCustomer(null);
-              setIsFormOpen(true);
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-carvao hover:bg-gray-800 text-white font-bold text-sm rounded-xl shadow-md transition-all"
+            <Users size={22} style={{ color: primaryColor }} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              LTV Acumulado
+            </p>
+            <h3 className="text-2xl font-black text-gray-900 mt-1">
+              {formatCurrency(data.totalRevenue)}
+            </h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <DollarSign size={22} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Ticket Médio Geral
+            </p>
+            <h3 className="text-2xl font-black text-gray-900 mt-1">
+              {formatCurrency(data.averageTicketGlobal)}
+            </h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <TrendingUp size={22} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Clientes Recorrentes
+            </p>
+            <h3 className="text-2xl font-black text-gray-900 mt-1">
+              {recurringCount}
+            </h3>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+            <Sparkles size={22} />
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de Filtros e Busca */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-3 justify-between items-center">
+        <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
+          <Search
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
+          <input
+            type="text"
+            placeholder="Buscar por nome ou WhatsApp..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-gray-300 transition-all text-gray-800"
+          />
+        </form>
+
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <span className="text-xs font-bold text-gray-500 whitespace-nowrap hidden sm:inline">
+            Ordenar por:
+          </span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="w-full sm:w-auto px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 outline-none cursor-pointer"
           >
-            <Plus size={18} />
-            Novo Cliente
-          </button>
+            <option value="totalSpent">Maior Faturamento (LTV)</option>
+            <option value="totalOrders">Mais Pedidos Feitos</option>
+            <option value="lastOrderDate">Última Compra (Recente)</option>
+            <option value="name">Nome do Cliente (A-Z)</option>
+          </select>
         </div>
       </div>
 
-      {/* CARDS DE RESUMO (CRM STATS) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-            Total de Clientes
-          </p>
-          <h3 className="text-2xl font-black text-gray-900">{stats.total}</h3>
-          <p className="text-xs text-gray-400 mt-1">Base cadastrada no ERP</p>
+      {/* Lista / Grid de Clientes */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <Loader2 className="animate-spin text-carvao" size={36} />
+          <p className="text-sm font-medium mt-3">Carregando carteira de clientes...</p>
         </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-            Clientes Recorrentes
+      ) : data.data.length === 0 ? (
+        <div className="bg-white p-12 rounded-2xl shadow-sm border border-gray-100 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto text-gray-400 mb-4">
+            <Users size={28} />
+          </div>
+          <h4 className="text-base font-bold text-gray-900">
+            {searchTerm
+              ? 'Nenhum cliente corresponde à busca'
+              : 'Nenhum cliente registrado ainda'}
+          </h4>
+          <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
+            {searchTerm
+              ? 'Verifique a digitação do nome ou telefone e tente novamente.'
+              : 'Conforme seus clientes realizarem compras pelo catálogo ou balcão, eles serão consolidados automaticamente aqui com histórico completo de LTV.'}
           </p>
-          <h3 className="text-2xl font-black text-emerald-600">{stats.comCompras}</h3>
-          <p className="text-xs text-gray-400 mt-1">Já realizaram pedidos</p>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {data.data.map((customer) => {
+            const isRecurring = customer.totalOrders > 1;
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-            Volume de Vendas (LTV)
-          </p>
-          <h3 className="text-2xl font-black text-indigo-600">
-            {formatCurrency(stats.totalReceita)}
-          </h3>
-          <p className="text-xs text-gray-400 mt-1">Faturamento gerado pela base</p>
-        </div>
-      </div>
-
-      {/* BARRA DE PESQUISA */}
-      <div className="relative">
-        <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
-        <input
-          type="text"
-          placeholder="Buscar por nome, telefone/whatsapp, e-mail ou CPF/CNPJ..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-        />
-      </div>
-
-      {/* GRID PRINCIPAL: LISTA E DETALHES CRM */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LISTA DE CLIENTES */}
-        <div className={`lg:col-span-2 space-y-3 ${selectedCustomer ? 'hidden sm:block' : ''}`}>
-          {loading ? (
-            <div className="bg-white p-12 text-center text-gray-400 rounded-2xl border border-gray-100">
-              Carregando clientes...
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="bg-white p-12 text-center text-gray-400 rounded-2xl border border-gray-100">
-              Nenhum cliente encontrado.
-            </div>
-          ) : (
-            filtered.map((cli) => {
-              const isSelected = selectedCustomer?.id === cli.id;
-              const cleanPhone = cli.phone?.replace(/\D/g, '') || '';
-              return (
-                <div
-                  key={cli.id}
-                  onClick={() => setSelectedCustomer(cli)}
-                  className={`bg-white p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between hover:shadow-md ${
-                    isSelected
-                      ? 'border-amber-500 ring-2 ring-amber-500/10 shadow-sm'
-                      : 'border-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-amber-50 text-amber-700 font-bold rounded-2xl flex items-center justify-center text-lg flex-shrink-0">
-                      {cli.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 text-sm">{cli.name}</h4>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 mt-1">
-                        {cli.phone && (
-                          <span className="flex items-center gap-1">
-                            <Phone size={12} /> {cli.phone}
-                          </span>
-                        )}
-                        {cli.email && (
-                          <span className="flex items-center gap-1">
-                            <Mail size={12} /> {cli.email}
-                          </span>
-                        )}
-                        {cli.city && (
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} /> {cli.city}/{cli.state}
-                          </span>
-                        )}
+            return (
+              <motion.div
+                key={customer.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:border-gray-200 transition-all flex flex-col justify-between group"
+              >
+                <div>
+                  {/* Topo do Card */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-base shrink-0 shadow-sm"
+                        style={{
+                          backgroundColor: `${primaryColor}20`,
+                          color: primaryColor,
+                        }}
+                      >
+                        {customer.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-extrabold text-gray-900 truncate">
+                          {customer.name}
+                        </h4>
+                        <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                          {formatPhone(customer.phone, customer.cleanPhone)}
+                        </p>
                       </div>
                     </div>
+
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
+                        isRecurring
+                          ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {isRecurring ? 'Recorrente' : 'Novo'}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs font-bold text-gray-400 uppercase">
-                        {cli.ordersCount || 0} pedidos
-                      </p>
-                      <p className="font-black text-gray-800 text-sm">
-                        {formatCurrency(cli.totalSpent || 0)}
+                  {/* Métricas do Cliente */}
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-xl my-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">
+                        Total Gasto (LTV)
+                      </span>
+                      <p className="font-extrabold text-gray-900 mt-0.5">
+                        {formatCurrency(customer.totalSpent)}
                       </p>
                     </div>
-
-                    {cleanPhone && (
-                      <a
-                        href={`https://wa.me/55${cleanPhone}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
-                        title="Conversar no WhatsApp"
-                      >
-                        <MessageCircle size={18} />
-                      </a>
-                    )}
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingCustomer(cli);
-                        setIsFormOpen(true);
-                      }}
-                      className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors"
-                      title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(cli.id, cli.name);
-                      }}
-                      className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-                      title="Remover"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-
-                    <ChevronRight size={18} className="text-gray-300" />
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">
+                        Pedidos
+                      </span>
+                      <p className="font-extrabold text-gray-900 mt-0.5">
+                        {customer.totalOrders} {customer.totalOrders === 1 ? 'pedido' : 'pedidos'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">
+                        Ticket Médio
+                      </span>
+                      <p className="font-semibold text-gray-700 mt-0.5">
+                        {formatCurrency(customer.averageTicket)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">
+                        Última Compra
+                      </span>
+                      <p className="font-semibold text-gray-700 mt-0.5">
+                        {formatDate(customer.lastOrderDate)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
 
-        {/* DETALHES DO CLIENTE SELECIONADO (HISTÓRICO CRM) */}
-        <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-          {selectedCustomer ? (
-            <div className="space-y-6">
-              <div className="flex items-start justify-between">
+                {/* Rodapé de Ações */}
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setSelectedCustomer(customer)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 transition py-1"
+                  >
+                    <span>Ver Pedidos</span>
+                    <ChevronRight size={14} />
+                  </button>
+
+                  {customer.cleanPhone && (
+                    <button
+                      onClick={() => openWhatsApp(customer)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl transition"
+                      title="Enviar mensagem no WhatsApp"
+                    >
+                      <MessageCircle size={14} />
+                      <span>WhatsApp</span>
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal de Histórico de Pedidos do Cliente */}
+      <AnimatePresence>
+        {selectedCustomer && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedCustomer(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">
+                  <h3 className="text-base font-extrabold text-gray-900">
                     {selectedCustomer.name}
                   </h3>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {selectedCustomer.document ? `Doc: ${selectedCustomer.document}` : 'Sem documento'}
+                  <p className="text-xs text-gray-500 font-medium">
+                    {formatPhone(selectedCustomer.phone, selectedCustomer.cleanPhone)} · {selectedCustomer.totalOrders} pedidos realizados
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    setEditingCustomer(selectedCustomer);
-                    setIsFormOpen(true);
-                  }}
-                  className="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-bold rounded-xl transition-all"
+                  onClick={() => setSelectedCustomer(null)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
                 >
-                  Editar
+                  <X size={18} />
                 </button>
               </div>
 
-              {/* Informações de contato */}
-              <div className="space-y-2.5 text-xs text-gray-600 bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
-                {selectedCustomer.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone size={14} className="text-amber-600" />
-                    <span>{selectedCustomer.phone}</span>
-                  </div>
-                )}
-                {selectedCustomer.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail size={14} className="text-amber-600" />
-                    <span>{selectedCustomer.email}</span>
-                  </div>
-                )}
-                {selectedCustomer.address && (
-                  <div className="flex items-center gap-2">
-                    <MapPin size={14} className="text-amber-600" />
-                    <span>
-                      {selectedCustomer.address}
-                      {selectedCustomer.city ? ` - ${selectedCustomer.city}/${selectedCustomer.state}` : ''}
+              <div className="p-5 overflow-y-auto space-y-3 flex-1 no-scrollbar">
+                <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">
+                      LTV Total
                     </span>
+                    <p className="text-base font-black text-gray-900">
+                      {formatCurrency(selectedCustomer.totalSpent)}
+                    </p>
                   </div>
-                )}
-                {selectedCustomer.notes && (
-                  <div className="pt-2 border-t border-gray-200 text-gray-500 italic">
-                    "{selectedCustomer.notes}"
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">
+                      Ticket Médio
+                    </span>
+                    <p className="text-base font-black text-gray-900">
+                      {formatCurrency(selectedCustomer.averageTicket)}
+                    </p>
                   </div>
-                )}
-              </div>
+                  {selectedCustomer.cleanPhone && (
+                    <button
+                      onClick={() => openWhatsApp(selectedCustomer)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-sm hover:bg-emerald-700 transition"
+                    >
+                      <MessageCircle size={14} />
+                      <span>Conversar</span>
+                    </button>
+                  )}
+                </div>
 
-              {/* Histórico de Compras */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
-                  <ShoppingBag size={14} /> Histórico de Compras & Propostas
+                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider pt-2">
+                  Histórico de Pedidos
                 </h4>
 
-                {selectedCustomer.orders && selectedCustomer.orders.length > 0 ? (
-                  <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-                    {selectedCustomer.orders.map((ord) => (
-                      <div
-                        key={ord.id}
-                        className="p-3 bg-white rounded-xl border border-gray-100 text-xs flex justify-between items-center"
-                      >
-                        <div>
-                          <p className="font-bold text-gray-800">
-                            #{ord.id.slice(0, 6).toUpperCase()}
-                          </p>
-                          <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-                            <Clock size={10} />
-                            {new Date(ord.createdAt as string).toLocaleDateString('pt-BR')}
-                          </span>
+                <div className="space-y-2">
+                  {selectedCustomer.orders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="p-3 bg-white border border-gray-100 rounded-xl flex items-center justify-between shadow-2xs hover:border-gray-200 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                          <ShoppingBag size={15} />
                         </div>
-                        <div className="text-right">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              ord.status === 'Concluído'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : ord.status === 'Orçamento'
-                                  ? 'bg-purple-50 text-purple-700'
-                                  : 'bg-amber-50 text-amber-700'
-                            }`}
-                          >
-                            {ord.status}
-                          </span>
-                          <p className="font-black text-gray-900 mt-1">
+                        <div>
+                          <p className="text-xs font-extrabold text-gray-900">
                             {formatCurrency(ord.total)}
                           </p>
+                          <span className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                            <Clock size={11} className="text-gray-400" />
+                            {formatDate(ord.createdAt)} · {ord.itemsCount} itens
+                          </span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 bg-gray-50 p-4 rounded-xl text-center">
-                    Nenhuma compra ou orçamento registrado ainda.
-                  </p>
-                )}
+
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-700">
+                        {ord.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-400 min-h-[300px]">
-              <Users size={48} className="text-gray-200 mb-2" />
-              <p className="text-sm font-semibold text-gray-600">Nenhum cliente selecionado</p>
-              <p className="text-xs mt-1">Clique em um cliente da lista para ver o histórico e CRM completo.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modais */}
-      <ClienteFormModal
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        cliente={editingCustomer}
-        onSuccess={carregarClientes}
-      />
-
-      <ImportClientesModal
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onSuccess={carregarClientes}
-      />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

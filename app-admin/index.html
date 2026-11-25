@@ -3,25 +3,98 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Hive ERP | Sistema de Gestão e Vitrine Virtual para Joias e Semijoias</title>
     <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      name="description"
+      content="O sistema de gestão feito para marcas de Joias, Semijoias e Prata 925: controle de estoque por medidas (cm/mm), estúdio de fotos NeonStudio e vitrine virtual com pedidos direto no WhatsApp. Comece com 14 dias grátis."
     />
+    <meta
+      name="keywords"
+      content="erp para joias, sistema para semijoias, sistema prata 925, catalogo whatsapp, controle de estoque joias, neonstudio fotos joias, vitrine virtual semijoias"
+    />
+    <meta name="author" content="Hive ERP" />
+    <link rel="canonical" href="https://hiveerp.com.br/" />
 
-    <title>Hive ERP Admin</title>
-    <meta name="description" content="Painel Administrativo Hive ERP" />
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="https://hiveerp.com.br/" />
+    <meta property="og:site_name" content="Hive ERP" />
+    <meta property="og:title" content="Hive ERP | Gestão & Vitrine Virtual para Joias e Semijoias" />
+    <meta
+      property="og:description"
+      content="Estoque por medidas (cm/mm), fotos com fundo branco no NeonStudio e pedidos automáticos no WhatsApp. Teste 14 dias grátis."
+    />
+    <meta property="og:image" content="https://hiveerp.com.br/pwa-512x512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="Hive ERP - O sistema especialista em Joias e Semijoias" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://hiveerp.com.br/" />
+    <meta name="twitter:title" content="Hive ERP | Gestão & Vitrine Virtual para Joias e Semijoias" />
+    <meta
+      name="twitter:description"
+      content="O sistema de gestão feito para marcas de Joias, Semijoias e Prata 925. Teste grátis por 14 dias."
+    />
+    <meta name="twitter:image" content="https://hiveerp.com.br/pwa-512x512.png" />
+
+    <!-- Mobile & PWA Configuration -->
     <meta name="theme-color" content="#343434" />
-
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta
-      name="apple-mobile-web-app-status-bar-style"
-      content="black-translucent"
-    />
-    <meta name="apple-mobile-web-app-title" content="HiveAdmin" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Hive ERP" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Schema Markup JSON-LD -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://hiveerp.com.br/#organization",
+            "name": "Hive ERP",
+            "url": "https://hiveerp.com.br",
+            "logo": "https://hiveerp.com.br/pwa-512x512.png",
+            "description": "Sistema de gestão e vitrine virtual especializado para marcas e lojistas de Joias, Semijoias e Prata 925."
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://hiveerp.com.br/#software",
+            "name": "Hive ERP",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web, Cloud, PWA",
+            "offers": {
+              "@type": "Offer",
+              "price": "97.00",
+              "priceCurrency": "BRL",
+              "priceValidUntil": "2027-12-31"
+            },
+            "description": "ERP completo com NeonStudio para fotos profissionais, controle de medidas (cm/mm/aros), PDV rápido e vitrine virtual integrada com envio de pedidos para o WhatsApp."
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Fallback Semântico para Crawlers / Motores de Busca antes da hidratação do React -->
+      <header style="display: none;">
+        <h1>Hive ERP | O Sistema de Gestão Especialista em Joias, Semijoias e Prata 925</h1>
+        <p>Acelere suas vendas com vitrine virtual integrada, pedidos no WhatsApp, estúdio fotográfico NeonStudio e controle de estoque por medidas.</p>
+        <nav>
+          <a href="/landing">Conhecer o Hive ERP</a>
+          <a href="/termos">Termos de Uso</a>
+          <a href="/privacidade">Política de Privacidade</a>
+          <a href="/entrar">Acessar Painel</a>
+        </nav>
+      </header>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,6 +1,5 @@
-import { IsString, IsOptional, IsNumber, IsEnum, Min, IsUrl, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProductStatus } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString()
@@ -10,7 +9,11 @@ export class CreateProductDto {
   @IsOptional()
   code?: string;
 
-  @IsUUID()
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsString()
   @IsOptional()
   categoryId?: string;
 
@@ -22,7 +25,7 @@ export class CreateProductDto {
   @IsOptional()
   description?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   imageUrl?: string;
 
@@ -52,19 +55,39 @@ export class CreateProductDto {
   @IsOptional()
   weight?: number;
 
-  @IsEnum(ProductStatus)
   @IsOptional()
-  status?: ProductStatus;
+  status?: any;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   supplierId?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   supplierProductUrl?: string;
 
   @IsString()
   @IsOptional()
   legacyId?: string;
+
+  @IsNumber()
+  @Type(() => Number)
+  @IsOptional()
+  markup?: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  @IsOptional()
+  gramPrice?: number;
+
+  @IsString()
+  @IsOptional()
+  cm?: string;
+
+  @IsString()
+  @IsOptional()
+  mm?: string;
+
+  @IsOptional()
+  variantes?: any[];
 }

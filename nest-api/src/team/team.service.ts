@@ -15,52 +15,48 @@ export class TeamService {
     if (!user || user.role !== Role.OWNER) {
       throw new ForbiddenException('Apenas o dono da loja pode gerenciar a equipe');
     }
+    return user;
   }
 
   async getMembers(userId: string) {
-    await this.ensureOwner(userId);
-    // Para simplificar, trazemos todos por enquanto. O ideal no modelo B2B multi-store
-    // eh que os usuarios tenham o storeId, mas o MVP de multitenant via legacyId ainda ta solto pro Firebase.
-    // Vamos listar apenas o user atual por definicao de seguranca caso o MVP so tenha 1 user.
-    return this.prisma.user.findMany({
-       where: { role: Role.SELLER }
-    });
+    const owner = await this.ensureOwner(userId);
+    // Contencao multitenant (Regra 4): enquanto User nao possuir storeId/ownerId dedicado,
+    // listamos exclusivamente o proprio proprietario autenticado sem expor legacyId ou terceiros.
+    return [
+      {
+        id: owner.id,
+        name: owner.name,
+        email: owner.email,
+        role: owner.role,
+        active: owner.active,
+        createdAt: owner.createdAt,
+      },
+    ];
   }
 
-  async inviteMember(dto: InviteMemberDto, ownerId: string) {
+  async inviteMember(_dto: InviteMemberDto, ownerId: string) {
     await this.ensureOwner(ownerId);
+    throw new ForbiddenException(
+      'Gestão multi-usuário por loja está temporariamente desabilitada até a ativação do vínculo por loja.',
+    );
+  }
 
-    // Converte o email pra minusculo (comportamento do React EquipePage:73)
-    const normalizedEmail = dto.email.trim().toLowerCase();
-
-    const existingUser = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (existingUser) {
-      throw new BadRequestException('E-mail ja cadastrado na plataforma');
+  private safeDecodeEmail(rawEmail: string): string {
+    try {
+      return decodeURIComponent(rawEmail);
+    } catch {
+      return rawEmail;
     }
-
-    return this.prisma.user.create({
-      data: {
-        name: dto.name,
-        email: normalizedEmail,
-        role: Role.SELLER,
-        active: true
-        // O Firebase UID (legacyId) sera populado num fluxo de Signup posterior ou Auth0
-      }
-    });
   }
 
   async removeMember(email: string, ownerId: string) {
-    await this.ensureOwner(ownerId);
+    const owner = await this.ensureOwner(ownerId);
+    const normalizedEmail = this.safeDecodeEmail(email).trim().toLowerCase();
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new NotFoundException('Usuario nao encontrado');
+    if (normalizedEmail === owner.email.trim().toLowerCase()) {
+      throw new BadRequestException('Nao e possivel deletar o dono da loja');
     }
 
-    if (user.role === Role.OWNER) {
-       throw new BadRequestException('Nao e possivel deletar o dono da loja');
-    }
-
-    return this.prisma.user.delete({ where: { email } });
+    throw new NotFoundException('Usuario nao encontrado no escopo desta loja');
   }
 }

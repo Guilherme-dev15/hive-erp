@@ -16,9 +16,19 @@ import {
   Globe,
   Image as ImageIcon,
   FileCheck,
+  Zap,
+  Lock,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 import { ConfigFormData } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { getContrastColor } from '../utils/themeUtils';
+import { getCatalogDisplayUrl } from '../utils/catalogUrl';
+import type { Pagina } from '../components/Sidebar';
 
 // --- VARIANTES DE ANIMAÇÃO ---
 const containerVariants = {
@@ -69,7 +79,12 @@ const InputGroup = ({ label, children, description }: InputGroupProps) => (
   </div>
 );
 
-export function ConfiguracoesPage() {
+interface ConfiguracoesPageProps {
+  onNavigate?: (pagina: Pagina) => void;
+}
+
+export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
+  const { setTheme } = useTheme();
   const [formData, setFormData] = useState<ConfigFormData>({
     whatsappNumber: '',
     monthlyGoal: 0,
@@ -89,6 +104,10 @@ export function ConfiguracoesPage() {
     naturezaOperacao: 'Venda de mercadoria',
     nfeSerie: 1,
     nfeProximoNumero: 1,
+    checkoutMode: 'WHATSAPP',
+    hasGatewayAddon: false,
+    gatewayProvider: 'MERCADO_PAGO',
+    gatewayPublicKey: '',
   });
 
   const [loading, setLoading] = useState(true);
@@ -123,6 +142,10 @@ export function ConfiguracoesPage() {
             naturezaOperacao: data.naturezaOperacao || 'Venda de mercadoria',
             nfeSerie: data.nfeSerie || 1,
             nfeProximoNumero: data.nfeProximoNumero || 1,
+            checkoutMode: (data as any).checkoutMode || 'WHATSAPP',
+            hasGatewayAddon: Boolean((data as any).hasGatewayAddon),
+            gatewayProvider: (data as any).gatewayProvider || 'MERCADO_PAGO',
+            gatewayPublicKey: (data as any).gatewayPublicKey || '',
           });
         }
       } catch (error) {
@@ -146,6 +169,12 @@ export function ConfiguracoesPage() {
         .replace(/\s+/g, '-')
         .replace(/[^\w-]/g, '');
       setFormData((prev) => ({ ...prev, slug: formattedSlug }));
+    } else if (name === 'primaryColor' || name === 'secondaryColor') {
+      let colorVal = value.trim();
+      if (colorVal && !colorVal.startsWith('#')) {
+        colorVal = '#' + colorVal;
+      }
+      setFormData((prev) => ({ ...prev, [name]: colorVal }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -161,13 +190,30 @@ export function ConfiguracoesPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        ...formData,
-        banners: [formData.bannerUrl],
-        cardFeePercent: Number(formData.cardFee) || 0,
-        packingCost: Number(formData.packagingCost) || 0,
+        storeName: formData.storeName,
+        slug: formData.slug,
+        whatsappNumber: formData.whatsappNumber || undefined,
+        monthlyGoal: Number(formData.monthlyGoal) || 0,
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        banners: formData.bannerUrl ? [formData.bannerUrl] : [],
+        cardFee: Number(formData.cardFee) || 0,
+        packagingCost: Number(formData.packagingCost) || 0,
+        lowStockThreshold: Number(formData.lowStockThreshold) || 0,
+        warrantyText: formData.warrantyText || '',
+        checkoutMode: formData.checkoutMode || 'WHATSAPP',
+        hasGatewayAddon: formData.hasGatewayAddon ?? false,
+        gatewayProvider: formData.gatewayProvider || undefined,
+        gatewayPublicKey: formData.gatewayPublicKey?.trim() || undefined,
       };
 
       await saveConfig(payload);
+      setTheme({
+        primaryColor: formData.primaryColor,
+        secondaryColor: formData.secondaryColor,
+        storeName: formData.storeName,
+        slug: formData.slug,
+      });
       toast.success('Loja atualizada com sucesso!');
     } catch (error) {
       toast.error('Erro ao salvar.');
@@ -205,7 +251,7 @@ export function ConfiguracoesPage() {
         </div>
         {formData.slug && (
           <a
-            href={`https://hiveerp-catalogo.vercel.app/?loja=${formData.slug}`}
+            href={`https://hiveerp-catalogo.vercel.app/${formData.slug}`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg font-bold hover:bg-indigo-100 transition-colors"
@@ -252,18 +298,37 @@ export function ConfiguracoesPage() {
                 label="Link Personalizado (Slug)"
                 description="O endereço da sua loja na internet."
               >
-                <div className="flex">
-                  <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-gray-200 bg-gray-100 text-gray-500 text-sm font-medium">
-                    hive-erp.../
-                  </span>
-                  <input
-                    name="slug"
-                    value={formData.slug}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 lowercase"
-                    placeholder="minha-loja"
-                  />
-                </div>
+                {(import.meta.env.VITE_CATALOG_BASE_DOMAIN as string | undefined)?.trim() ? (
+                  <div className="flex">
+                    <input
+                      name="slug"
+                      value={formData.slug}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-l-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 lowercase"
+                      placeholder="minha-loja"
+                    />
+                    <span className="inline-flex items-center px-4 rounded-r-xl border border-l-0 border-gray-200 bg-gray-100 text-gray-500 text-sm font-medium">
+                      .{(import.meta.env.VITE_CATALOG_BASE_DOMAIN as string).trim().replace(/^\.+/, '')}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex">
+                    <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-gray-200 bg-gray-100 text-gray-500 text-sm font-medium">
+                      hive-erp.../
+                    </span>
+                    <input
+                      name="slug"
+                      value={formData.slug}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 lowercase"
+                      placeholder="minha-loja"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                  <Globe size={13} className="text-indigo-500" />
+                  Vitrine pública: <span className="font-semibold text-gray-700">{getCatalogDisplayUrl(formData.slug)}</span>
+                </p>
               </InputGroup>
 
               <InputGroup
@@ -323,6 +388,47 @@ export function ConfiguracoesPage() {
                     />
                   </div>
                 </InputGroup>
+              </div>
+
+              {/* Prévia em Tempo Real */}
+              <div className="p-4 bg-gray-50/80 rounded-xl border border-gray-200 space-y-3">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  Prévia em Tempo Real da Sua Marca
+                </p>
+                <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm"
+                      style={{
+                        backgroundColor: formData.primaryColor,
+                        color: getContrastColor(formData.primaryColor),
+                      }}
+                    >
+                      {formData.storeName?.charAt(0) || 'L'}
+                    </div>
+                    <div>
+                      <p
+                        className="text-sm font-bold truncate max-w-[150px]"
+                        style={{ color: formData.secondaryColor }}
+                      >
+                        {formData.storeName || 'Sua Loja'}
+                      </p>
+                      <p className="text-xs text-gray-400 font-mono">
+                        {formData.slug || 'sua-loja'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm transition"
+                    style={{
+                      backgroundColor: formData.primaryColor,
+                      color: getContrastColor(formData.primaryColor),
+                    }}
+                  >
+                    Botão Principal
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -446,6 +552,119 @@ export function ConfiguracoesPage() {
                   />
                 </div>
               </InputGroup>
+            </div>
+          </motion.div>
+
+          {/* --- 3.1 MODO DE FECHAMENTO DE VENDAS & GATEWAY (ORDER BUMP) --- */}
+          <motion.div
+            variants={itemVariants}
+            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6"
+          >
+            <SectionHeader
+              icon={Zap}
+              title="Fechamento de Vendas no Catálogo"
+              description="Escolha como seus clientes finalizam a compra na vitrine pública."
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Opção 1: WhatsApp (Padrão Gratuito) */}
+              <div
+                onClick={() => setFormData((prev) => ({ ...prev, checkoutMode: 'WHATSAPP' }))}
+                className={`p-5 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                  formData.checkoutMode === 'WHATSAPP'
+                    ? 'border-emerald-500 bg-emerald-50/30 shadow-sm'
+                    : 'border-gray-200 bg-gray-50/50 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
+                    <Smartphone size={22} />
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                    Padrão • Incluso
+                  </span>
+                </div>
+                <h4 className="font-bold text-gray-900 mt-3 text-base">
+                  Finalizar no WhatsApp
+                </h4>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Os clientes montam o pedido na vitrine e enviam os itens direto para o seu WhatsApp para combinação de pagamento e entrega sem burocracia.
+                </p>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                  <CheckCircle2 size={15} />
+                  <span>Sem taxas de intermediação</span>
+                </div>
+              </div>
+
+              {/* Opção 2: Gateway Integrado (Checkout Online) */}
+              <div
+                onClick={() => {
+                  if (formData.hasGatewayAddon) {
+                    setFormData((prev) => ({ ...prev, checkoutMode: 'GATEWAY' }));
+                  }
+                }}
+                className={`p-5 rounded-2xl border-2 transition-all relative ${
+                  formData.checkoutMode === 'GATEWAY'
+                    ? 'border-indigo-600 bg-indigo-50/30 shadow-sm cursor-pointer'
+                    : formData.hasGatewayAddon
+                    ? 'border-gray-200 bg-gray-50/50 hover:border-gray-300 cursor-pointer'
+                    : 'border-dashed border-gray-300 bg-gray-50/80 cursor-default'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="p-2.5 bg-indigo-100 text-indigo-700 rounded-xl">
+                    <CreditCard size={22} />
+                  </div>
+                  {formData.hasGatewayAddon ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
+                      Módulo Ativo
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
+                      <Sparkles size={12} /> Recurso Opcional
+                    </span>
+                  )}
+                </div>
+
+                <h4 className="font-bold text-gray-900 mt-3 text-base flex items-center gap-2">
+                  <span>Checkout Online Integrado</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                    Pix Automático + Cartão
+                  </span>
+                </h4>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Receba pagamentos com confirmação instantânea no Pix e Cartão parcelado direto na sua vitrine, com baixa automática de estoque.
+                </p>
+
+                {!formData.hasGatewayAddon ? (
+                  <div className="mt-4 p-3 bg-white rounded-xl border border-amber-200 space-y-2">
+                    <p className="text-xs font-semibold text-gray-800">
+                      Disponível mediante ativação do Módulo de Checkout Online.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('assinatura')}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                    >
+                      <span>Conhecer e Ativar Módulo</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                    <label className="block text-xs font-bold text-gray-700">
+                      Chave Pública Mercado Pago (Public Key)
+                    </label>
+                    <input
+                      name="gatewayPublicKey"
+                      value={formData.gatewayPublicKey || ''}
+                      onChange={handleChange}
+                      placeholder="APP_USR-xxxx..."
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
 
