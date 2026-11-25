@@ -186,12 +186,19 @@ export const uploadImage = async (file: File): Promise<string> => {
 // DOMÍNIO: PRODUTOS
 // ============================================================================
 export const getAdminProdutos = async (): Promise<ProdutoAdmin[]> => {
-  const { data } = await apiClient.get<ProdutoAdmin[]>('/api/v2/products');
-  return data.map((prod) => ({
+  const { data } = await apiClient.get<any>('/api/v2/products');
+  const list: any[] = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+    ? data.data
+    : Array.isArray(data?.products)
+    ? data.products
+    : [];
+  return list.map((prod) => ({
     ...prod,
-    variantes: prod.variantes || [],
-    cm: prod.cm || '',
-    mm: prod.mm || '',
+    variantes: Array.isArray(prod?.variantes) ? prod.variantes : [],
+    cm: prod?.cm || '',
+    mm: prod?.mm || '',
   }));
 };
 export const createAdminProduto = async (
@@ -221,8 +228,14 @@ export const importProductsBulk = async (
 // DOMÍNIO: PEDIDOS (GESTÃO DE VENDAS)
 // ============================================================================
 export const getAdminOrders = async (): Promise<PedidoAdmin[]> => {
-  const { data } = await apiClient.get('/api/v2/orders');
-  return data;
+  const { data } = await apiClient.get<any>('/api/v2/orders');
+  return Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+    ? data.data
+    : Array.isArray(data?.orders)
+    ? data.orders
+    : [];
 };
 export const updateAdminOrderStatus = async (
   orderId: string,

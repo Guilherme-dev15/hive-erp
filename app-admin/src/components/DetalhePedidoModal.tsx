@@ -344,7 +344,7 @@ export function DetalhePedidoModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {pedido.items?.map((item: any, i: number) => {
+                  {(Array.isArray(pedido?.items) ? pedido.items : []).map((item: any, i: number) => {
                     const qty = Number(item.quantity ?? item.quantidade ?? 1);
                     const price = Number(item.salePrice || 0);
                     const lineTotal = price * qty;

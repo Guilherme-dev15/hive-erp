@@ -229,7 +229,15 @@ export function PedidosPage() {
         getAdminOrders(),
         getConfig(),
       ]);
-      const sortedPedidos = pedidosData
+      const rawPedidos: Order[] = Array.isArray(pedidosData)
+        ? pedidosData
+        : Array.isArray((pedidosData as any)?.data)
+        ? (pedidosData as any).data
+        : Array.isArray((pedidosData as any)?.orders)
+        ? (pedidosData as any).orders
+        : [];
+
+      const sortedPedidos = rawPedidos
         .filter((p: Order) => p && p.id)
         .sort(
           (a: Order, b: Order) =>
@@ -314,7 +322,8 @@ export function PedidosPage() {
   };
 
   const pedidosFiltrados = useMemo(() => {
-    return pedidos.filter((pedido) => {
+    const list = Array.isArray(pedidos) ? pedidos : [];
+    return list.filter((pedido) => {
       const termo = searchTerm.toLowerCase();
       const matchText =
         pedido.id?.toLowerCase().includes(termo) ||
@@ -347,14 +356,15 @@ export function PedidosPage() {
   }, [pedidos, searchTerm, dateFilter, statusFilter]);
 
   const stats = useMemo(() => {
-    const totalVendas = pedidos.reduce(
+    const list = Array.isArray(pedidos) ? pedidos : [];
+    const totalVendas = list.reduce(
       (acc, p) => (p.status !== 'Cancelado' ? acc + (Number(p.total) || 0) : acc),
       0
     );
-    const pendentes = pedidos.filter(
+    const pendentes = list.filter(
       (p) => p.status === 'Aguardando Pagamento' || p.status === 'Em Produção'
     ).length;
-    const concluidos = pedidos.filter(
+    const concluidos = list.filter(
       (p) => p.status === 'Concluído' || p.status === 'Enviado'
     ).length;
     return { totalVendas, pendentes, concluidos };
@@ -464,7 +474,7 @@ export function PedidosPage() {
             >
               <FileCheck size={14} /> NF-e Emitida
             </button>
-            {statusOrdem.map((status) => (
+            {(Array.isArray(statusOrdem) ? statusOrdem : []).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -522,7 +532,7 @@ export function PedidosPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 <AnimatePresence>
-                  {pedidosFiltrados.map((pedido) => {
+                  {(Array.isArray(pedidosFiltrados) ? pedidosFiltrados : []).map((pedido) => {
                     const statusStyle =
                       statusConfig[pedido.status as OrderStatus] ||
                       statusConfig['Aguardando Pagamento'];
@@ -569,7 +579,7 @@ export function PedidosPage() {
                               }
                               className={`appearance-none px-3 py-1.5 rounded-full text-xs font-bold border ${statusStyle.bg} ${statusStyle.color} ${statusStyle.border} outline-none cursor-pointer`}
                             >
-                              {statusOrdem.map((s) => (
+                              {(Array.isArray(statusOrdem) ? statusOrdem : []).map((s) => (
                                 <option key={s} value={s}>
                                   {s}
                                 </option>
@@ -643,13 +653,13 @@ export function PedidosPage() {
           </div>
         ) : (
           <div className="flex overflow-x-auto pb-6 gap-4 items-start custom-scrollbar">
-            {statusOrdem.map((status) => {
-              const pedidosDoStatus = pedidosFiltrados.filter(
+            {(Array.isArray(statusOrdem) ? statusOrdem : []).map((status) => {
+              const pedidosDoStatus = (Array.isArray(pedidosFiltrados) ? pedidosFiltrados : []).filter(
                 (p) =>
                   p.status === status ||
                   (status === 'Aguardando Pagamento' && !p.status)
               );
-              const estilo = statusConfig[status];
+              const estilo = statusConfig[status as OrderStatus] || statusConfig['Aguardando Pagamento'];
               return (
                 <div
                   key={status}
@@ -666,7 +676,7 @@ export function PedidosPage() {
                     </span>
                   </div>
                   <div className="p-2 space-y-2 overflow-y-auto flex-1">
-                    {pedidosDoStatus.map((pedido) => (
+                    {(Array.isArray(pedidosDoStatus) ? pedidosDoStatus : []).map((pedido) => (
                       <motion.div
                         key={pedido.id}
                         layoutId={pedido.id}

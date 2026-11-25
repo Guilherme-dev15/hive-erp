@@ -91,7 +91,7 @@ export function NovoPedidoModal({
 
   const handleCustomerSelect = (id: string) => {
     setSelectedCustomerId(id);
-    const found = (customers || []).find((c) => c.id === id);
+    const found = (Array.isArray(customers) ? customers : []).find((c) => c.id === id);
     if (found) {
       setCustomerName(found.name);
       setCustomerPhone(found.phone || '');
@@ -100,17 +100,18 @@ export function NovoPedidoModal({
 
   const addItem = () => {
     if (!selectedProductId) return;
-    const prod = (products || []).find((p) => p.id === selectedProductId);
+    const prod = (Array.isArray(products) ? products : []).find((p) => p.id === selectedProductId);
     if (!prod) return;
 
-    const existingIndex = items.findIndex((i) => i.productId === prod.id);
+    const currentItems = Array.isArray(items) ? items : [];
+    const existingIndex = currentItems.findIndex((i) => i.productId === prod.id);
     if (existingIndex >= 0) {
-      const updated = [...items];
+      const updated = [...currentItems];
       updated[existingIndex].quantity += 1;
       setItems(updated);
     } else {
       setItems([
-        ...items,
+        ...currentItems,
         {
           productId: prod.id,
           name: prod.name,
@@ -126,16 +127,19 @@ export function NovoPedidoModal({
 
   const updateItemQty = (index: number, qty: number) => {
     if (qty <= 0) return;
-    const updated = [...items];
+    const updated = [...(Array.isArray(items) ? items : [])];
     updated[index].quantity = qty;
     setItems(updated);
   };
 
   const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
+    setItems((Array.isArray(items) ? items : []).filter((_, i) => i !== index));
   };
 
-  const subtotal = items.reduce((acc, item) => acc + item.salePrice * item.quantity, 0);
+  const subtotal = (Array.isArray(items) ? items : []).reduce(
+    (acc, item) => acc + item.salePrice * item.quantity,
+    0
+  );
   const total = Math.max(0, subtotal - (Number(discount) || 0));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,7 +166,7 @@ export function NovoPedidoModal({
         discount: Number(discount) || 0,
         total,
         notes: notes || undefined,
-        items: items.map((i) => ({
+        items: (Array.isArray(items) ? items : []).map((i) => ({
           productId: i.productId,
           name: i.name,
           code: i.code,
@@ -273,7 +277,7 @@ export function NovoPedidoModal({
                     className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
                   >
                     <option value="">Cliente avulso...</option>
-                    {(customers || []).map((c) => (
+                    {(Array.isArray(customers) ? customers : []).map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
                       </option>
@@ -328,7 +332,7 @@ export function NovoPedidoModal({
                   className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
                 >
                   <option value="">Selecione um produto do catálogo para adicionar...</option>
-                  {(products || []).map((p) => (
+                  {(Array.isArray(products) ? products : []).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} {p.code ? `(${p.code})` : ''} — {formatCurrency(p.salePrice)} (Estoque: {p.quantity})
                     </option>
@@ -358,7 +362,7 @@ export function NovoPedidoModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {(items || []).map((item, index) => (
+                      {(Array.isArray(items) ? items : []).map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50/50">
                           <td className="p-3 font-semibold text-gray-800">
                             {item.name}
