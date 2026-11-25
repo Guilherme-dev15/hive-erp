@@ -307,15 +307,15 @@ export function PedidosPage() {
     try {
       setEmittingNfeId(pedidoId);
       const res = await emitirNfe(pedidoId);
-      toast.success('NF-e emitida e autorizada com sucesso pela SEFAZ!');
+      toast.success('Comprovante sequencial registrado com sucesso!');
       await carregarDados(true);
       if (res && res.id) {
         setPedidoSelecionado(res);
         setModalOpen(true);
       }
     } catch (error: any) {
-      console.error('Erro ao emitir NF-e:', error);
-      toast.error(error.response?.data?.message || 'Erro ao emitir NF-e.');
+      console.error('Erro ao registrar comprovante:', error);
+      toast.error(error.response?.data?.message || 'Erro ao registrar comprovante.');
     } finally {
       setEmittingNfeId(null);
     }
@@ -346,9 +346,9 @@ export function PedidosPage() {
       if (!matchText) return false;
 
       if (statusFilter !== 'Todos') {
-        if (statusFilter === 'NF-e Emitida') {
+        if (statusFilter === 'Comprovante Emitido' || statusFilter === 'NF-e Emitida') {
           if (!isNfeEmitted(pedido)) return false;
-        } else if (statusFilter === 'NF-e Pendente') {
+        } else if (statusFilter === 'Sem Comprovante' || statusFilter === 'NF-e Pendente') {
           if (isNfeEmitted(pedido) || pedido.status === 'Cancelado') return false;
         } else if (pedido.status !== statusFilter) {
           return false;
@@ -409,13 +409,13 @@ export function PedidosPage() {
               <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
                 Gestão de Pedidos
               </h1>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-full text-amber-800 text-xs font-bold">
-                <FileText size={13} className="text-amber-600" />
-                NF-e em 1 clique
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200/80 rounded-full text-indigo-800 text-xs font-bold">
+                <FileText size={13} className="text-indigo-600" />
+                Comprovante & Declaração em 1 clique
               </span>
             </div>
             <p className="text-gray-500 mt-1">
-              Acompanhe vendas, status, expedição e emissão de notas fiscais SEFAZ.
+              Acompanhe vendas, status, expedição, comprovantes e declarações de envio.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -475,16 +475,16 @@ export function PedidosPage() {
               Todos
             </button>
             <button
-              onClick={() => setStatusFilter('NF-e Pendente')}
-              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${statusFilter === 'NF-e Pendente' ? 'bg-amber-500 text-white shadow-md' : 'text-amber-700 bg-amber-50 hover:bg-amber-100'}`}
+              onClick={() => setStatusFilter('Comprovante Emitido')}
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${statusFilter === 'Comprovante Emitido' ? 'bg-emerald-600 text-white shadow-md' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`}
             >
-              <FileText size={14} /> NF-e Pendente
+              <FileCheck size={14} /> Comprovante Emitido
             </button>
             <button
-              onClick={() => setStatusFilter('NF-e Emitida')}
-              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${statusFilter === 'NF-e Emitida' ? 'bg-emerald-600 text-white shadow-md' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`}
+              onClick={() => setStatusFilter('Sem Comprovante')}
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${statusFilter === 'Sem Comprovante' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
             >
-              <FileCheck size={14} /> NF-e Emitida
+              <FileText size={14} /> Sem Comprovante
             </button>
             {(Array.isArray(statusOrdem) ? statusOrdem : []).map((status) => (
               <button
@@ -537,7 +537,7 @@ export function PedidosPage() {
                   <th className="px-6 py-4">Pedido / Data</th>
                   <th className="px-6 py-4">Cliente</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-center">Nota Fiscal (NF-e)</th>
+                  <th className="px-6 py-4 text-center">Comprovante & Envio</th>
                   <th className="px-6 py-4 text-right">Total</th>
                   <th className="px-6 py-4 text-center">Ações</th>
                 </tr>
@@ -603,7 +603,7 @@ export function PedidosPage() {
                           {isNfeEmitted(pedido) ? (
                             <div className="inline-flex flex-col items-center gap-1">
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <FileCheck size={12} /> Nº {pedido.nfeNumber || 1} • Autorizada
+                                <FileCheck size={12} /> Comprovante Nº {pedido.nfeNumber || 1}
                               </span>
                               <button
                                 type="button"
@@ -613,9 +613,9 @@ export function PedidosPage() {
                                   setModalOpen(true);
                                 }}
                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
-                                title="Ver DANFE / Detalhes Fiscais"
+                                title="Ver Comprovante e Declaração de Envio"
                               >
-                                <FileText size={12} /> Ver / Imprimir DANFE
+                                <Eye size={12} /> Ver / Imprimir
                               </button>
                             </div>
                           ) : (
@@ -625,15 +625,15 @@ export function PedidosPage() {
                                 handleEmitirNfeDirect(pedido.id);
                               }}
                               disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado' || pedido.status === 'Orçamento'}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all disabled:opacity-50"
-                              title="Emitir NF-e autorizada pela SEFAZ"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all disabled:opacity-50"
+                              title="Registrar comprovante e gerar declaração de envio"
                             >
                               {emittingNfeId === pedido.id ? (
                                 <Loader2 size={13} className="animate-spin" />
                               ) : (
                                 <FileText size={13} />
                               )}
-                              Emitir NF-e
+                              Gerar Comprovante
                             </button>
                           )}
                         </td>
@@ -731,9 +731,9 @@ export function PedidosPage() {
                                 setModalOpen(true);
                               }}
                               className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 transition"
-                              title="Ver DANFE / Detalhes"
+                              title="Ver Comprovante e Declaração"
                             >
-                              <FileCheck size={10} /> NF-e Nº {pedido.nfeNumber || 1}
+                              <FileCheck size={10} /> Nº {pedido.nfeNumber || 1}
                             </button>
                           ) : (
                             <button
@@ -743,9 +743,9 @@ export function PedidosPage() {
                                 handleEmitirNfeDirect(pedido.id);
                               }}
                               disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado' || pedido.status === 'Orçamento'}
-                              className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1 transition disabled:opacity-50"
+                              className="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg border border-indigo-200 flex items-center gap-1 transition disabled:opacity-50"
                             >
-                              <FileText size={10} /> NF-e
+                              <FileText size={10} /> Comprovante
                             </button>
                           )}
                         </div>

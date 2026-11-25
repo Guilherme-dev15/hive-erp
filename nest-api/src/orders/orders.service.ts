@@ -323,35 +323,12 @@ export class OrdersService {
       return order;
     }
 
-    // Obter dados fiscais do emitente
+    // Obter numeração sequencial de comprovantes da loja
     const config = await this.prisma.config.findUnique({ where: { userId } });
-    const nfeSerie = config?.nfeSerie || 1;
     const currentNumber = config?.nfeProximoNumero || 1;
-    const cnpj = (config?.cnpjEmitente || '00000000000191').replace(/\D/g, '').padEnd(14, '0').slice(0, 14);
-
-    // Gerador de Chave de Acesso SEFAZ (44 dígitos padrão nacional)
-    // Formato: cUF(2) + AAMM(4) + CNPJ(14) + mod(2) + serie(3) + nNF(9) + tpEmis(1) + cNF(8) + cDV(1)
     const now = new Date();
-    const uf = '35'; // SP padrão
-    const aamm = `${now.getFullYear().toString().slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const mod = '55'; // NF-e modelo 55
-    const serieStr = String(nfeSerie).padStart(3, '0');
-    const nNFStr = String(currentNumber).padStart(9, '0');
-    const tpEmis = '1'; // Normal
-    const cNF = Math.floor(10000000 + Math.random() * 90000000).toString();
-
-    // Cálculo do dígito verificador módulo 11
-    const baseKey = `${uf}${aamm}${cnpj}${mod}${serieStr}${nNFStr}${tpEmis}${cNF}`;
-    let soma = 0;
-    let peso = 2;
-    for (let i = baseKey.length - 1; i >= 0; i--) {
-      soma += parseInt(baseKey[i], 10) * peso;
-      peso = peso === 9 ? 2 : peso + 1;
-    }
-    const resto = soma % 11;
-    const cDV = resto < 2 ? 0 : 11 - resto;
-    const nfeKey = `${baseKey}${cDV}`;
-    const nfeProtocol = `1${uf}${aamm.slice(0, 2)}${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    const nfeKey = `REC-${String(currentNumber).padStart(8, '0')}`;
+    const nfeProtocol = `AUT-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${currentNumber}`;
 
     // Atualiza próximo número no config
     if (config) {

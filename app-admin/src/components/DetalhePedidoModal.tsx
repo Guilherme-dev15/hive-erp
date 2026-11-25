@@ -6,6 +6,7 @@ import {
   Printer,
   Phone,
   FileText,
+  FileCheck,
   CheckCircle2,
   Copy,
   ExternalLink,
@@ -34,7 +35,9 @@ export function DetalhePedidoModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEmittingNfe, setIsEmittingNfe] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
-  const [showDanfePreview, setShowDanfePreview] = useState(false);
+  const [printDocType, setPrintDocType] = useState<'COMPROVANTE' | 'DECLARACAO'>('COMPROVANTE');
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewType, setPreviewType] = useState<'COMPROVANTE' | 'DECLARACAO'>('COMPROVANTE');
 
   useEffect(() => {
     setCurrentPedido(pedido);
@@ -71,21 +74,28 @@ export function DetalhePedidoModal({
       if (updated && updated.id) {
         setCurrentPedido(updated);
       }
-      toast.success('NF-e emitida e autorizada com sucesso pela SEFAZ!');
+      toast.success('Comprovante sequencial registrado com sucesso!');
       if (onUpdate) await onUpdate();
     } catch (error: any) {
-      console.error('Erro ao emitir NF-e:', error);
-      toast.error(error.response?.data?.message || 'Erro ao emitir NF-e');
+      console.error('Erro ao registrar comprovante:', error);
+      toast.error(error.response?.data?.message || 'Erro ao registrar comprovante');
     } finally {
       setIsEmittingNfe(false);
     }
+  };
+
+  const handlePrint = (type: 'COMPROVANTE' | 'DECLARACAO') => {
+    setPrintDocType(type);
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const handleCopyKey = () => {
     if (!activePedido.nfeKey) return;
     navigator.clipboard.writeText(activePedido.nfeKey);
     setCopiedKey(true);
-    toast.success('Chave de acesso copiada!');
+    toast.success('Código do comprovante copiado!');
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
@@ -119,28 +129,50 @@ export function DetalhePedidoModal({
             className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-100 print-content print:max-h-none print:shadow-none"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* CABEÇALHO PARA IMPRESSÃO (DANFE OU COMPROVANTE) */}
+            {/* CABEÇALHO PARA IMPRESSÃO */}
             <div className="hidden print:block p-4 border-b-2 border-gray-800 mb-4">
-              <div className="flex justify-between items-start border-b pb-3 mb-3">
+              {printDocType === 'DECLARACAO' ? (
                 <div>
-                  <h1 className="text-xl font-black uppercase tracking-tight">
-                    {isNfeEmitted ? 'DANFE - Documento Auxiliar da Nota Fiscal Eletrônica' : activePedido.status === 'Orçamento' ? 'Proposta Comercial / Orçamento' : 'Comprovante de Venda'}
-                  </h1>
-                  <p className="text-xs text-gray-600 font-medium">Hive ERP - Sistema de Gestão Empresarial</p>
+                  <div className="text-center border-b pb-2 mb-3">
+                    <h1 className="text-xl font-black uppercase tracking-tight">
+                      DECLARAÇÃO DE CONTEÚDO
+                    </h1>
+                    <p className="text-[10px] text-gray-500">
+                      Conforme regulamentação postal e tributária nacional para transporte de encomendas
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs border p-3 rounded mb-3">
+                    <div>
+                      <p className="font-bold text-[10px] uppercase text-gray-500 mb-1">1. Remetente</p>
+                      <p className="font-bold">Loja Oficial Hive ERP</p>
+                      <p className="text-gray-600">Comprovante de Venda Interno</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-[10px] uppercase text-gray-500 mb-1">2. Destinatário</p>
+                      <p className="font-bold">{activePedido.customerName || 'Consumidor Final'}</p>
+                      <p className="text-gray-600">{activePedido.customerPhone || 'Telefone não informado'}</p>
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-gray-50 border rounded text-[10px] text-gray-600 mb-3 leading-tight">
+                    <strong>Declaração do Remetente:</strong> Declaro sob as penas da lei que não me enquadro no conceito de contribuinte do ICMS e que a presente remessa de bens não constitui fato gerador do referido imposto, sendo o transporte destinado ao consumidor final.
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold">Pedido #{activePedido.id.toUpperCase()}</p>
-                  <p className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</p>
-                </div>
-              </div>
-
-              {isNfeEmitted && (
-                <div className="p-3 bg-gray-50 border border-gray-300 rounded text-xs space-y-1 mb-3">
-                  <p><span className="font-bold">CHAVE DE ACESSO:</span> {formatKey(activePedido.nfeKey)}</p>
-                  <div className="flex justify-between">
-                    <p><span className="font-bold">NÚMERO:</span> {activePedido.nfeNumber || 1} | <span className="font-bold">SÉRIE:</span> 1</p>
-                    <p><span className="font-bold">PROTOCOLO:</span> {activePedido.nfeProtocol || '135240001892837'}</p>
-                    <p><span className="font-bold">STATUS:</span> AUTORIZADA SEFAZ</p>
+              ) : (
+                <div className="flex justify-between items-start border-b pb-3 mb-3">
+                  <div>
+                    <h1 className="text-xl font-black uppercase tracking-tight">
+                      {activePedido.status === 'Orçamento' ? 'PROPOSTA COMERCIAL / ORÇAMENTO' : 'COMPROVANTE DE VENDA & RECIBO'}
+                    </h1>
+                    <p className="text-xs text-gray-600 font-medium">Hive ERP - Sistema de Gestão Empresarial</p>
+                    {isNfeEmitted && (
+                      <p className="text-xs text-indigo-700 font-bold mt-1">
+                        Comprovante Registrado Nº {activePedido.nfeNumber || 1} • {activePedido.nfeProtocol || 'AUT'}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">Pedido #{activePedido.id.toUpperCase()}</p>
+                    <p className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</p>
                   </div>
                 </div>
               )}
@@ -174,7 +206,7 @@ export function DetalhePedidoModal({
                     </span>
                     {isNfeEmitted && (
                       <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                        <ShieldCheck size={12} /> NF-e Emitida
+                        <ShieldCheck size={12} /> Comprovante Nº {activePedido.nfeNumber || 1}
                       </span>
                     )}
                   </div>
@@ -182,9 +214,9 @@ export function DetalhePedidoModal({
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => handlePrint('COMPROVANTE')}
                   className="p-2.5 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-indigo-600 border border-gray-100"
-                  title="Imprimir (Comprovante / DANFE)"
+                  title="Imprimir Comprovante de Venda"
                 >
                   <Printer size={20} />
                 </button>
@@ -219,126 +251,129 @@ export function DetalhePedidoModal({
                 </div>
               )}
 
-              {/* MÓDULO FISCAL NF-e */}
+              {/* MÓDULO DE DOCUMENTOS DE VENDA & ENVIO (SEM CUSTO & OPCIONAL) */}
               {activePedido.status !== 'Orçamento' && (
                 <div className="no-print">
-                  {isNfeEmitted ? (
-                    <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-3">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 size={18} className="text-emerald-600" />
-                          <h4 className="text-sm font-bold text-emerald-950">
-                            Nota Fiscal Eletrônica Emitida e Autorizada (SEFAZ)
-                          </h4>
-                        </div>
-                        <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-full">
-                          NF-e Nº {activePedido.nfeNumber || 1} • Série 1
-                        </span>
-                      </div>
-
-                      <div className="p-3 bg-white border border-emerald-100 rounded-xl flex items-center justify-between gap-3 text-xs">
-                        <div className="truncate">
-                          <span className="font-bold text-gray-500 uppercase block text-[10px]">
-                            Chave de Acesso (44 dígitos)
-                          </span>
-                          <span className="font-mono text-gray-800 font-semibold tracking-wide">
-                            {formatKey(activePedido.nfeKey)}
-                          </span>
-                        </div>
-                        <button
-                          onClick={handleCopyKey}
-                          className="p-2 hover:bg-gray-100 text-gray-500 hover:text-emerald-700 rounded-lg transition-colors flex items-center gap-1 font-semibold text-xs whitespace-nowrap"
-                          title="Copiar Chave de Acesso"
-                        >
-                          <Copy size={14} />
-                          {copiedKey ? 'Copiado!' : 'Copiar'}
-                        </button>
-                      </div>
-
-                      {/* DANFE PREVIEW CARD QUANDO TOGGLE ATIVADO */}
-                      {showDanfePreview && (
-                        <div className="p-4 bg-white border-2 border-gray-800 rounded-xl space-y-3 font-mono text-xs shadow-inner">
-                          <div className="flex justify-between items-center border-b pb-2">
-                            <div>
-                              <p className="font-bold uppercase text-xs text-gray-900">DANFE - Documento Auxiliar da NF-e</p>
-                              <p className="text-[10px] text-gray-500">Transmissão em ambiente de produção SEFAZ</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-indigo-700">NF-e Nº {activePedido.nfeNumber || 1}</p>
-                              <p className="text-[10px] text-gray-500">Série 1</p>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase">Chave de Acesso</p>
-                            <p className="font-bold tracking-wider text-xs text-gray-800 bg-gray-50 p-2 rounded border border-gray-200 select-all">
-                              {formatKey(activePedido.nfeKey)}
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                            <div>
-                              <span className="text-gray-400 uppercase text-[9px] block font-bold">Destinatário</span>
-                              <span className="font-bold text-gray-900">{activePedido.customerName || 'Consumidor Final'}</span>
-                              <span className="text-gray-500 block text-[10px]">{activePedido.customerPhone || 'Telefone não informado'}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-gray-400 uppercase text-[9px] block font-bold">Protocolo de Autorização</span>
-                              <span className="font-bold text-emerald-700">{activePedido.nfeProtocol || '135240001892837'}</span>
-                              <span className="text-gray-500 block text-[10px]">Status: Autorizada (100)</span>
-                            </div>
-                          </div>
-                          <div className="border-t pt-2 flex justify-between items-center">
-                            <span className="font-bold text-gray-700">Valor Total da Nota:</span>
-                            <span className="font-black text-sm text-gray-900">{formatCurrency(activePedido.total ?? 0)}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center pt-1 text-xs text-emerald-800">
-                        <span>Protocolo SEFAZ: <strong>{activePedido.nfeProtocol || '135240001892837'}</strong></span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowDanfePreview(!showDanfePreview)}
-                            className="px-3 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
-                            title="Visualizar espelho completo da DANFE na tela"
-                          >
-                            <Eye size={13} /> {showDanfePreview ? 'Ocultar DANFE' : 'Visualizar DANFE'}
-                          </button>
-                          <button
-                            onClick={() => window.print()}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
-                            title="Imprimir DANFE"
-                          >
-                            <Printer size={13} /> Imprimir DANFE
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm border border-slate-800">
+                  <div className="p-5 bg-gradient-to-br from-gray-50 to-indigo-50/30 rounded-2xl border border-gray-200/80 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-sm">
                           <FileText size={20} />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-white">
-                            Emissão de Nota Fiscal (NF-e)
-                          </h4>
-                          <p className="text-xs text-slate-300">
-                            Gere a NF-e direto da venda com autorização instantânea da SEFAZ
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-gray-900">
+                              Documentos de Venda & Envio
+                            </h4>
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                              Sem Custo • Opcional
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {isNfeEmitted
+                              ? `Comprovante registrado Nº ${activePedido.nfeNumber || 1} • Código: ${activePedido.nfeProtocol || 'AUT'}`
+                              : 'Emita comprovante de venda para o cliente ou declaração para Correios / transportadoras'}
                           </p>
                         </div>
                       </div>
+
+                      {!isNfeEmitted && (
+                        <button
+                          onClick={handleEmitNfe}
+                          disabled={isEmittingNfe}
+                          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5 disabled:opacity-50"
+                          title="Registrar número sequencial de comprovante para este pedido"
+                        >
+                          <FileCheck size={14} />
+                          {isEmittingNfe ? 'Registrando...' : 'Registrar Comprovante'}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200/60">
                       <button
-                        onClick={handleEmitNfe}
-                        disabled={isEmittingNfe}
-                        className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
+                        type="button"
+                        onClick={() => handlePrint('COMPROVANTE')}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
                       >
-                        <FileText size={15} />
-                        {isEmittingNfe ? 'Emitindo NF-e...' : 'Emitir Nota Fiscal'}
+                        <Printer size={14} className="text-indigo-600" />
+                        Imprimir Comprovante de Venda
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePrint('DECLARACAO')}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                      >
+                        <Package size={14} className="text-amber-600" />
+                        Imprimir Declaração de Conteúdo (Envios)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPreview(!showPreview)}
+                        className="px-3 py-2 text-indigo-600 hover:text-indigo-800 font-bold text-xs transition-colors flex items-center gap-1 ml-auto"
+                      >
+                        <Eye size={14} />
+                        {showPreview ? 'Ocultar Prévia' : 'Visualizar na Tela'}
                       </button>
                     </div>
-                  )}
+
+                    {/* PRÉVIA VISUAL NA TELA */}
+                    {showPreview && (
+                      <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3 font-mono text-xs shadow-sm">
+                        <div className="flex justify-between items-center border-b pb-2">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewType('COMPROVANTE')}
+                              className={`px-2.5 py-1 rounded text-[11px] font-bold ${previewType === 'COMPROVANTE' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                            >
+                              Comprovante
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewType('DECLARACAO')}
+                              className={`px-2.5 py-1 rounded text-[11px] font-bold ${previewType === 'DECLARACAO' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                            >
+                              Declaração de Conteúdo
+                            </button>
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase">
+                            Prévia do Documento
+                          </span>
+                        </div>
+
+                        {previewType === 'DECLARACAO' ? (
+                          <div className="space-y-2">
+                            <div className="p-2.5 bg-amber-50/60 border border-amber-200 rounded text-[11px]">
+                              <p className="font-bold text-amber-900">DECLARAÇÃO DE CONTEÚDO (TRANSPORTE POSTAL)</p>
+                              <p className="text-[10px] text-amber-800">Modelo oficial regulamentado aceito por Correios, Jadlog, Loggi e transportadoras.</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                              <div className="border p-2 rounded">
+                                <span className="text-gray-400 text-[9px] block font-bold uppercase">Remetente</span>
+                                <span className="font-bold text-gray-800">Hive ERP / Loja</span>
+                              </div>
+                              <div className="border p-2 rounded">
+                                <span className="text-gray-400 text-[9px] block font-bold uppercase">Destinatário</span>
+                                <span className="font-bold text-gray-800">{activePedido.customerName || 'Consumidor Final'}</span>
+                                <span className="text-gray-500 block text-[10px]">{activePedido.customerPhone || 'Tel não informado'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center text-[11px]">
+                              <span className="font-bold text-gray-800">Comprovante de Venda #{activePedido.id.toUpperCase()}</span>
+                              <span className="font-bold text-emerald-600">{formatCurrency(activePedido.total ?? 0)}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500">Recibo detalhado para entrega ao cliente com relação de itens e garantia da loja.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

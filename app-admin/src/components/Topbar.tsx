@@ -441,8 +441,8 @@ export function Topbar({ paginaAtual, onOpenMobile, onNavigate }: TopbarProps) {
                         #{o.id.slice(0, 6).toUpperCase()} • {o.customerName || 'Cliente'}
                       </div>
                       <div className="text-[10px] text-gray-400">
-                        {o.nfeStatus === 'AUTORIZADA'
-                          ? `NF-e Nº ${o.nfeNumber || 1} (Autorizada SEFAZ)`
+                        {o.nfeStatus === 'AUTORIZADA' || o.nfeStatus === 'EMITIDA' || o.nfeKey
+                          ? `Comprovante Nº ${o.nfeNumber || 1}`
                           : `Status: ${o.status}`}
                       </div>
                     </div>
