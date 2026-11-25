@@ -139,6 +139,7 @@ vi.mock('lucide-react', () => {
     CreditCard: Icon,
     DollarSign: Icon,
     ExternalLink: Icon,
+    FileText: Icon,
     Globe: Icon,
     LayoutDashboard: Icon,
     Loader2: Icon,
@@ -148,6 +149,7 @@ vi.mock('lucide-react', () => {
     MessageCircle: Icon,
     Package: Icon,
     Percent: Icon,
+    Search: Icon,
     Settings: Icon,
     Shield: Icon,
     ShieldCheck: Icon,
@@ -155,9 +157,10 @@ vi.mock('lucide-react', () => {
     Sparkles: Icon,
     Tags: Icon,
     Ticket: Icon,
+    User: Icon,
     UserCheck: Icon,
     Users: Icon,
-    UserCheck: Icon,
+    Command: Icon,
     X: Icon,
   };
 });

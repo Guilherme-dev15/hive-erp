@@ -24,6 +24,7 @@ import {
   DollarSign,
   CheckCircle2,
   FileText,
+  FileCheck,
   Plus,
 } from 'lucide-react';
 import {
@@ -36,6 +37,7 @@ import {
   updateAdminOrderStatus,
   getConfig,
   deleteAdminOrder,
+  emitirNfe,
 } from '../services/apiService';
 import { type ConfigFormData } from '../types/schemas';
 
@@ -196,6 +198,7 @@ export function PedidosPage() {
     null
   );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [emittingNfeId, setEmittingNfeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('list');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -284,6 +287,20 @@ export function PedidosPage() {
     }
   };
 
+  const handleEmitirNfeDirect = async (pedidoId: string) => {
+    try {
+      setEmittingNfeId(pedidoId);
+      await emitirNfe(pedidoId);
+      toast.success('NF-e emitida e autorizada com sucesso pela SEFAZ!');
+      await carregarDados(true);
+    } catch (error: any) {
+      console.error('Erro ao emitir NF-e:', error);
+      toast.error(error.response?.data?.message || 'Erro ao emitir NF-e.');
+    } finally {
+      setEmittingNfeId(null);
+    }
+  };
+
   const handlePrintCertificado = useReactToPrint({
     contentRef: certificadoRef,
     documentTitle: 'Certificado_Garantia',
@@ -302,10 +319,20 @@ export function PedidosPage() {
       const matchText =
         pedido.id?.toLowerCase().includes(termo) ||
         pedido.customerName?.toLowerCase().includes(termo) ||
-        pedido.customerPhone?.includes(termo);
+        pedido.customerPhone?.includes(termo) ||
+        pedido.nfeKey?.includes(termo) ||
+        String(pedido.nfeNumber || '').includes(termo);
       if (!matchText) return false;
-      if (statusFilter !== 'Todos' && pedido.status !== statusFilter)
-        return false;
+
+      if (statusFilter !== 'Todos') {
+        if (statusFilter === 'NF-e Emitida') {
+          if (pedido.nfeStatus !== 'AUTORIZADA') return false;
+        } else if (statusFilter === 'NF-e Pendente') {
+          if (pedido.nfeStatus === 'AUTORIZADA' || pedido.status === 'Cancelado') return false;
+        } else if (pedido.status !== statusFilter) {
+          return false;
+        }
+      }
 
       if (dateFilter !== 'all') {
         const segundos = getDateSeconds(pedido.createdAt);
@@ -356,11 +383,17 @@ export function PedidosPage() {
       <div className="space-y-8 pb-20">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
-              Gestão de Pedidos
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
+                Gestão de Pedidos
+              </h1>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-full text-amber-800 text-xs font-bold">
+                <FileText size={13} className="text-amber-600" />
+                NF-e em 1 clique
+              </span>
+            </div>
             <p className="text-gray-500 mt-1">
-              Acompanhe vendas, status e expedição em tempo real.
+              Acompanhe vendas, status, expedição e emissão de notas fiscais SEFAZ.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -419,6 +452,18 @@ export function PedidosPage() {
             >
               Todos
             </button>
+            <button
+              onClick={() => setStatusFilter('NF-e Pendente')}
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${statusFilter === 'NF-e Pendente' ? 'bg-amber-500 text-white shadow-md' : 'text-amber-700 bg-amber-50 hover:bg-amber-100'}`}
+            >
+              <FileText size={14} /> NF-e Pendente
+            </button>
+            <button
+              onClick={() => setStatusFilter('NF-e Emitida')}
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${statusFilter === 'NF-e Emitida' ? 'bg-emerald-600 text-white shadow-md' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`}
+            >
+              <FileCheck size={14} /> NF-e Emitida
+            </button>
             {statusOrdem.map((status) => (
               <button
                 key={status}
@@ -470,6 +515,7 @@ export function PedidosPage() {
                   <th className="px-6 py-4">Pedido / Data</th>
                   <th className="px-6 py-4">Cliente</th>
                   <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-center">Nota Fiscal (NF-e)</th>
                   <th className="px-6 py-4 text-right">Total</th>
                   <th className="px-6 py-4 text-center">Ações</th>
                 </tr>
@@ -529,6 +575,33 @@ export function PedidosPage() {
                                 </option>
                               ))}
                             </select>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {pedido.nfeStatus === 'AUTORIZADA' ? (
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <FileCheck size={12} /> Nº {pedido.nfeNumber || 1}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono">SEFAZ Autorizada</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEmitirNfeDirect(pedido.id);
+                              }}
+                              disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado'}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all disabled:opacity-50"
+                              title="Emitir NF-e autorizada pela SEFAZ"
+                            >
+                              {emittingNfeId === pedido.id ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <FileText size={13} />
+                              )}
+                              Emitir NF-e
+                            </button>
                           )}
                         </td>
                         <td className="px-6 py-4 text-right font-bold text-gray-900">
@@ -612,9 +685,28 @@ export function PedidosPage() {
                         <h4 className="font-bold text-gray-800 text-sm truncate">
                           {pedido.customerName || 'Cliente'}
                         </h4>
-                        <p className="font-bold text-indigo-600 mt-2 text-sm">
-                          {formatCurrency(pedido.total)}
-                        </p>
+                        <div className="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-gray-100">
+                          <p className="font-bold text-indigo-600 text-sm">
+                            {formatCurrency(pedido.total)}
+                          </p>
+                          {pedido.nfeStatus === 'AUTORIZADA' ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                              <FileCheck size={10} /> NF-e Nº {pedido.nfeNumber || 1}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEmitirNfeDirect(pedido.id);
+                              }}
+                              disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado'}
+                              className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1 transition"
+                            >
+                              <FileText size={10} /> NF-e
+                            </button>
+                          )}
+                        </div>
                       </motion.div>
                     ))}
                   </div>

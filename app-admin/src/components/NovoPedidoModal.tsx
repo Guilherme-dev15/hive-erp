@@ -56,10 +56,25 @@ export function NovoPedidoModal({
       setLoadingData(true);
       Promise.all([getCustomers(), getAdminProdutos()])
         .then(([custs, prods]) => {
-          setCustomers(custs);
-          setProducts(prods.filter((p) => p.status === 'ativo'));
+          const custList = Array.isArray(custs)
+            ? custs
+            : Array.isArray((custs as any)?.data)
+            ? (custs as any).data
+            : [];
+          setCustomers(custList);
+
+          const prodList = Array.isArray(prods)
+            ? prods
+            : Array.isArray((prods as any)?.data)
+            ? (prods as any).data
+            : [];
+          setProducts(prodList.filter((p: any) => p && p.status === 'ativo'));
         })
-        .catch((err) => console.error('Erro ao carregar dados:', err))
+        .catch((err) => {
+          console.error('Erro ao carregar dados:', err);
+          setCustomers([]);
+          setProducts([]);
+        })
         .finally(() => setLoadingData(false));
 
       // Reset
@@ -76,7 +91,7 @@ export function NovoPedidoModal({
 
   const handleCustomerSelect = (id: string) => {
     setSelectedCustomerId(id);
-    const found = customers.find((c) => c.id === id);
+    const found = (customers || []).find((c) => c.id === id);
     if (found) {
       setCustomerName(found.name);
       setCustomerPhone(found.phone || '');
@@ -85,7 +100,7 @@ export function NovoPedidoModal({
 
   const addItem = () => {
     if (!selectedProductId) return;
-    const prod = products.find((p) => p.id === selectedProductId);
+    const prod = (products || []).find((p) => p.id === selectedProductId);
     if (!prod) return;
 
     const existingIndex = items.findIndex((i) => i.productId === prod.id);
@@ -258,7 +273,7 @@ export function NovoPedidoModal({
                     className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
                   >
                     <option value="">Cliente avulso...</option>
-                    {customers.map((c) => (
+                    {(customers || []).map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
                       </option>
@@ -313,7 +328,7 @@ export function NovoPedidoModal({
                   className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
                 >
                   <option value="">Selecione um produto do catálogo para adicionar...</option>
-                  {products.map((p) => (
+                  {(products || []).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} {p.code ? `(${p.code})` : ''} — {formatCurrency(p.salePrice)} (Estoque: {p.quantity})
                     </option>
@@ -343,7 +358,7 @@ export function NovoPedidoModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {items.map((item, index) => (
+                      {(items || []).map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50/50">
                           <td className="p-3 font-semibold text-gray-800">
                             {item.name}

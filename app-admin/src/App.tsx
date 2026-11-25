@@ -250,6 +250,7 @@ function ProtectedLayout() {
         <Topbar
           paginaAtual={pagina}
           onOpenMobile={() => setMobileMenuOpen(true)}
+          onNavigate={setPagina}
         />
 
         {showTrialBanner && userData?.subscription && (
