@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -10,6 +10,7 @@ import {
   Copy,
   ExternalLink,
   ShieldCheck,
+  Eye,
 } from 'lucide-react';
 import { updateAdminOrderStatus, emitirNfe } from '../services/apiService';
 import { toast } from 'react-hot-toast';
@@ -29,19 +30,30 @@ export function DetalhePedidoModal({
   pedido,
   onUpdate,
 }: DetalhePedidoModalProps) {
+  const [currentPedido, setCurrentPedido] = useState<Order | null>(pedido);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEmittingNfe, setIsEmittingNfe] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [showDanfePreview, setShowDanfePreview] = useState(false);
 
-  if (!pedido) return null;
+  useEffect(() => {
+    setCurrentPedido(pedido);
+  }, [pedido]);
 
-  const isNfeEmitted = pedido.nfeStatus === 'EMITIDA' || !!pedido.nfeKey;
+  const activePedido = currentPedido || pedido;
+  if (!activePedido) return null;
+
+  const isNfeEmitted =
+    activePedido.nfeStatus === 'EMITIDA' ||
+    activePedido.nfeStatus === 'AUTORIZADA' ||
+    Boolean(activePedido.nfeKey);
 
   const handleStatusChange = async (newStatus: string) => {
-    if (pedido.status === newStatus) return;
+    if (activePedido.status === newStatus) return;
     try {
       setIsUpdating(true);
-      await updateAdminOrderStatus(pedido.id, newStatus);
+      await updateAdminOrderStatus(activePedido.id, newStatus);
+      setCurrentPedido((prev) => (prev ? { ...prev, status: newStatus as any } : prev));
       toast.success('Status atualizado!');
       if (onUpdate) await onUpdate();
     } catch (error) {
@@ -55,7 +67,10 @@ export function DetalhePedidoModal({
   const handleEmitNfe = async () => {
     try {
       setIsEmittingNfe(true);
-      await emitirNfe(pedido.id);
+      const updated = await emitirNfe(activePedido.id);
+      if (updated && updated.id) {
+        setCurrentPedido(updated);
+      }
       toast.success('NF-e emitida e autorizada com sucesso pela SEFAZ!');
       if (onUpdate) await onUpdate();
     } catch (error: any) {
@@ -67,8 +82,8 @@ export function DetalhePedidoModal({
   };
 
   const handleCopyKey = () => {
-    if (!pedido.nfeKey) return;
-    navigator.clipboard.writeText(pedido.nfeKey);
+    if (!activePedido.nfeKey) return;
+    navigator.clipboard.writeText(activePedido.nfeKey);
     setCopiedKey(true);
     toast.success('Chave de acesso copiada!');
     setTimeout(() => setCopiedKey(false), 2000);
@@ -109,22 +124,22 @@ export function DetalhePedidoModal({
               <div className="flex justify-between items-start border-b pb-3 mb-3">
                 <div>
                   <h1 className="text-xl font-black uppercase tracking-tight">
-                    {isNfeEmitted ? 'DANFE - Documento Auxiliar da Nota Fiscal Eletrônica' : pedido.status === 'Orçamento' ? 'Proposta Comercial / Orçamento' : 'Comprovante de Venda'}
+                    {isNfeEmitted ? 'DANFE - Documento Auxiliar da Nota Fiscal Eletrônica' : activePedido.status === 'Orçamento' ? 'Proposta Comercial / Orçamento' : 'Comprovante de Venda'}
                   </h1>
                   <p className="text-xs text-gray-600 font-medium">Hive ERP - Sistema de Gestão Empresarial</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">Pedido #{pedido.id.toUpperCase()}</p>
+                  <p className="text-sm font-bold">Pedido #{activePedido.id.toUpperCase()}</p>
                   <p className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
 
               {isNfeEmitted && (
                 <div className="p-3 bg-gray-50 border border-gray-300 rounded text-xs space-y-1 mb-3">
-                  <p><span className="font-bold">CHAVE DE ACESSO:</span> {formatKey(pedido.nfeKey)}</p>
+                  <p><span className="font-bold">CHAVE DE ACESSO:</span> {formatKey(activePedido.nfeKey)}</p>
                   <div className="flex justify-between">
-                    <p><span className="font-bold">NÚMERO:</span> {pedido.nfeNumber || 1} | <span className="font-bold">SÉRIE:</span> 1</p>
-                    <p><span className="font-bold">PROTOCOLO:</span> {pedido.nfeProtocol || '135240001892837'}</p>
+                    <p><span className="font-bold">NÚMERO:</span> {activePedido.nfeNumber || 1} | <span className="font-bold">SÉRIE:</span> 1</p>
+                    <p><span className="font-bold">PROTOCOLO:</span> {activePedido.nfeProtocol || '135240001892837'}</p>
                     <p><span className="font-bold">STATUS:</span> AUTORIZADA SEFAZ</p>
                   </div>
                 </div>
@@ -136,7 +151,7 @@ export function DetalhePedidoModal({
               <div className="flex items-center gap-4">
                 <div
                   className={`p-3 rounded-2xl ${
-                    pedido.status === 'Orçamento'
+                    activePedido.status === 'Orçamento'
                       ? 'bg-purple-50 text-purple-700'
                       : 'bg-indigo-50 text-indigo-600'
                   }`}
@@ -145,17 +160,17 @@ export function DetalhePedidoModal({
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    {pedido.status === 'Orçamento' ? 'Orçamento' : 'Pedido'} #{pedido.id.toUpperCase()}
+                    {activePedido.status === 'Orçamento' ? 'Orçamento' : 'Pedido'} #{activePedido.id.toUpperCase()}
                   </h2>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span
                       className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                        pedido.status === 'Orçamento'
+                        activePedido.status === 'Orçamento'
                           ? 'bg-purple-100 text-purple-800'
                           : 'bg-indigo-100 text-indigo-800'
                       }`}
                     >
-                      {pedido.status}
+                      {activePedido.status}
                     </span>
                     {isNfeEmitted && (
                       <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
@@ -184,7 +199,7 @@ export function DetalhePedidoModal({
 
             <div className="p-8 overflow-y-auto space-y-6 print:p-0">
               {/* BOTÃO PROMINENTE PARA APROVAÇÃO SE FOR ORÇAMENTO */}
-              {pedido.status === 'Orçamento' && (
+              {activePedido.status === 'Orçamento' && (
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
                   <div>
                     <h4 className="text-sm font-bold text-purple-900">
@@ -205,7 +220,7 @@ export function DetalhePedidoModal({
               )}
 
               {/* MÓDULO FISCAL NF-e */}
-              {pedido.status !== 'Orçamento' && (
+              {activePedido.status !== 'Orçamento' && (
                 <div className="no-print">
                   {isNfeEmitted ? (
                     <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-3">
@@ -217,7 +232,7 @@ export function DetalhePedidoModal({
                           </h4>
                         </div>
                         <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-full">
-                          NF-e Nº {pedido.nfeNumber || 1} • Série 1
+                          NF-e Nº {activePedido.nfeNumber || 1} • Série 1
                         </span>
                       </div>
 
@@ -227,7 +242,7 @@ export function DetalhePedidoModal({
                             Chave de Acesso (44 dígitos)
                           </span>
                           <span className="font-mono text-gray-800 font-semibold tracking-wide">
-                            {formatKey(pedido.nfeKey)}
+                            {formatKey(activePedido.nfeKey)}
                           </span>
                         </div>
                         <button
@@ -240,14 +255,63 @@ export function DetalhePedidoModal({
                         </button>
                       </div>
 
+                      {/* DANFE PREVIEW CARD QUANDO TOGGLE ATIVADO */}
+                      {showDanfePreview && (
+                        <div className="p-4 bg-white border-2 border-gray-800 rounded-xl space-y-3 font-mono text-xs shadow-inner">
+                          <div className="flex justify-between items-center border-b pb-2">
+                            <div>
+                              <p className="font-bold uppercase text-xs text-gray-900">DANFE - Documento Auxiliar da NF-e</p>
+                              <p className="text-[10px] text-gray-500">Transmissão em ambiente de produção SEFAZ</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-indigo-700">NF-e Nº {activePedido.nfeNumber || 1}</p>
+                              <p className="text-[10px] text-gray-500">Série 1</p>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">Chave de Acesso</p>
+                            <p className="font-bold tracking-wider text-xs text-gray-800 bg-gray-50 p-2 rounded border border-gray-200 select-all">
+                              {formatKey(activePedido.nfeKey)}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                            <div>
+                              <span className="text-gray-400 uppercase text-[9px] block font-bold">Destinatário</span>
+                              <span className="font-bold text-gray-900">{activePedido.customerName || 'Consumidor Final'}</span>
+                              <span className="text-gray-500 block text-[10px]">{activePedido.customerPhone || 'Telefone não informado'}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-gray-400 uppercase text-[9px] block font-bold">Protocolo de Autorização</span>
+                              <span className="font-bold text-emerald-700">{activePedido.nfeProtocol || '135240001892837'}</span>
+                              <span className="text-gray-500 block text-[10px]">Status: Autorizada (100)</span>
+                            </div>
+                          </div>
+                          <div className="border-t pt-2 flex justify-between items-center">
+                            <span className="font-bold text-gray-700">Valor Total da Nota:</span>
+                            <span className="font-black text-sm text-gray-900">{formatCurrency(activePedido.total ?? 0)}</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center pt-1 text-xs text-emerald-800">
-                        <span>Protocolo SEFAZ: <strong>{pedido.nfeProtocol || '135240001892837'}</strong></span>
-                        <button
-                          onClick={() => window.print()}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
-                        >
-                          <Printer size={13} /> Imprimir DANFE
-                        </button>
+                        <span>Protocolo SEFAZ: <strong>{activePedido.nfeProtocol || '135240001892837'}</strong></span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowDanfePreview(!showDanfePreview)}
+                            className="px-3 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
+                            title="Visualizar espelho completo da DANFE na tela"
+                          >
+                            <Eye size={13} /> {showDanfePreview ? 'Ocultar DANFE' : 'Visualizar DANFE'}
+                          </button>
+                          <button
+                            onClick={() => window.print()}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
+                            title="Imprimir DANFE"
+                          >
+                            <Printer size={13} /> Imprimir DANFE
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -282,7 +346,7 @@ export function DetalhePedidoModal({
               <div className="space-y-4 no-print">
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">
                   Logística:{' '}
-                  <span className="text-indigo-600 ml-2 font-bold">{pedido.status}</span>
+                  <span className="text-indigo-600 ml-2 font-bold">{activePedido.status}</span>
                 </p>
                 <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100">
                   {[
@@ -299,7 +363,7 @@ export function DetalhePedidoModal({
                       onClick={() => handleStatusChange(st)}
                       disabled={isUpdating}
                       className={`px-4 py-2 rounded-xl text-[11px] font-black border transition-all ${
-                        pedido.status === st
+                        activePedido.status === st
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
                           : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
                       }`}
@@ -317,10 +381,10 @@ export function DetalhePedidoModal({
                     Cliente / Destinatário
                   </p>
                   <p className="font-bold text-gray-900">
-                    {pedido.customerName || 'Venda Online'}
+                    {activePedido.customerName || 'Venda Online'}
                   </p>
                   <p className="text-sm text-gray-500 flex items-center gap-2">
-                    <Phone size={14} /> {pedido.customerPhone || 'Não informado'}
+                    <Phone size={14} /> {activePedido.customerPhone || 'Não informado'}
                   </p>
                 </div>
                 <div className="p-6 rounded-2xl border border-gray-100 space-y-2">
@@ -328,7 +392,7 @@ export function DetalhePedidoModal({
                     Observações
                   </p>
                   <p className="text-sm text-gray-500 italic">
-                    {pedido.notes || 'Nenhuma observação informada.'}
+                    {activePedido.notes || 'Nenhuma observação informada.'}
                   </p>
                 </div>
               </div>
@@ -344,7 +408,7 @@ export function DetalhePedidoModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(Array.isArray(pedido?.items) ? pedido.items : []).map((item: any, i: number) => {
+                  {(Array.isArray(activePedido?.items) ? activePedido.items : []).map((item: any, i: number) => {
                     const qty = Number(item.quantity ?? item.quantidade ?? 1);
                     const price = Number(item.salePrice || 0);
                     const lineTotal = price * qty;
@@ -375,7 +439,7 @@ export function DetalhePedidoModal({
                     Total do Pedido
                   </p>
                   <p className="text-2xl font-black text-indigo-600">
-                    {formatCurrency(pedido.total ?? 0)}
+                    {formatCurrency(activePedido.total ?? 0)}
                   </p>
                 </div>
               </div>

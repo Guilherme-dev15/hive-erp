@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo, useRef, createElement } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -224,7 +224,7 @@ export function ProdutosPage() {
         import('../components/CatologPDF'),
       ]);
 
-      const doc = React.createElement(CatalogPDF, {
+      const doc = createElement(CatalogPDF, {
         produtos: produtosParaPdf,
         storeName: storeConfig?.storeName || 'Catálogo de Produtos',
       });

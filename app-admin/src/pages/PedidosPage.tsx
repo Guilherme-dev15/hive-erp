@@ -295,12 +295,24 @@ export function PedidosPage() {
     }
   };
 
+  const isNfeEmitted = useCallback((p: Order) => {
+    return (
+      p.nfeStatus === 'AUTORIZADA' ||
+      p.nfeStatus === 'EMITIDA' ||
+      Boolean(p.nfeKey)
+    );
+  }, []);
+
   const handleEmitirNfeDirect = async (pedidoId: string) => {
     try {
       setEmittingNfeId(pedidoId);
-      await emitirNfe(pedidoId);
+      const res = await emitirNfe(pedidoId);
       toast.success('NF-e emitida e autorizada com sucesso pela SEFAZ!');
       await carregarDados(true);
+      if (res && res.id) {
+        setPedidoSelecionado(res);
+        setModalOpen(true);
+      }
     } catch (error: any) {
       console.error('Erro ao emitir NF-e:', error);
       toast.error(error.response?.data?.message || 'Erro ao emitir NF-e.');
@@ -335,9 +347,9 @@ export function PedidosPage() {
 
       if (statusFilter !== 'Todos') {
         if (statusFilter === 'NF-e Emitida') {
-          if (pedido.nfeStatus !== 'AUTORIZADA') return false;
+          if (!isNfeEmitted(pedido)) return false;
         } else if (statusFilter === 'NF-e Pendente') {
-          if (pedido.nfeStatus === 'AUTORIZADA' || pedido.status === 'Cancelado') return false;
+          if (isNfeEmitted(pedido) || pedido.status === 'Cancelado') return false;
         } else if (pedido.status !== statusFilter) {
           return false;
         }
@@ -588,12 +600,23 @@ export function PedidosPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {pedido.nfeStatus === 'AUTORIZADA' ? (
-                            <div className="inline-flex flex-col items-center gap-0.5">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <FileCheck size={12} /> Nº {pedido.nfeNumber || 1}
+                          {isNfeEmitted(pedido) ? (
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <FileCheck size={12} /> Nº {pedido.nfeNumber || 1} • Autorizada
                               </span>
-                              <span className="text-[10px] text-gray-400 font-mono">SEFAZ Autorizada</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPedidoSelecionado(pedido);
+                                  setModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                                title="Ver DANFE / Detalhes Fiscais"
+                              >
+                                <FileText size={12} /> Ver / Imprimir DANFE
+                              </button>
                             </div>
                           ) : (
                             <button
@@ -601,7 +624,7 @@ export function PedidosPage() {
                                 e.stopPropagation();
                                 handleEmitirNfeDirect(pedido.id);
                               }}
-                              disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado'}
+                              disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado' || pedido.status === 'Orçamento'}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all disabled:opacity-50"
                               title="Emitir NF-e autorizada pela SEFAZ"
                             >
@@ -699,10 +722,19 @@ export function PedidosPage() {
                           <p className="font-bold text-indigo-600 text-sm">
                             {formatCurrency(pedido.total)}
                           </p>
-                          {pedido.nfeStatus === 'AUTORIZADA' ? (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                          {isNfeEmitted(pedido) ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPedidoSelecionado(pedido);
+                                setModalOpen(true);
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 transition"
+                              title="Ver DANFE / Detalhes"
+                            >
                               <FileCheck size={10} /> NF-e Nº {pedido.nfeNumber || 1}
-                            </span>
+                            </button>
                           ) : (
                             <button
                               type="button"
@@ -710,8 +742,8 @@ export function PedidosPage() {
                                 e.stopPropagation();
                                 handleEmitirNfeDirect(pedido.id);
                               }}
-                              disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado'}
-                              className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1 transition"
+                              disabled={emittingNfeId === pedido.id || pedido.status === 'Cancelado' || pedido.status === 'Orçamento'}
+                              className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1 transition disabled:opacity-50"
                             >
                               <FileText size={10} /> NF-e
                             </button>
