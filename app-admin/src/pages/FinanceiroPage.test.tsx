@@ -62,9 +62,9 @@ describe('FinanceiroPage', () => {
     });
 
     // Entradas: 250, Saídas: 50, Saldo: 200
-    expect(screen.getByText('Total Receitas')).toBeInTheDocument();
-    expect(screen.getByText('Total Despesas')).toBeInTheDocument();
-    expect(screen.getByText('Saldo Atual')).toBeInTheDocument();
+    expect(screen.getByText('Saldo em Caixa (Realizado)')).toBeInTheDocument();
+    expect(screen.getByText('Contas a Receber (Pendente)')).toBeInTheDocument();
+    expect(screen.getByText('Contas a Pagar (Pendente)')).toBeInTheDocument();
   });
 
   it('permite criar novo lançamento financeiro', async () => {
@@ -81,17 +81,23 @@ describe('FinanceiroPage', () => {
     render(<FinanceiroPage />);
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Ex: Conta de Luz/i)).toBeInTheDocument();
+      expect(screen.getByText('Novo Lançamento')).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByPlaceholderText(/Ex: Conta de Luz/i), {
+    fireEvent.click(screen.getByText('Novo Lançamento'));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Ex: Fornecedor Madeiras/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Fornecedor Madeiras/i), {
       target: { value: 'Conta de Luz' },
     });
     fireEvent.change(screen.getByPlaceholderText('0.00'), {
       target: { value: '100' },
     });
 
-    const btnSubmit = screen.getByText('Confirmar Lançamento');
+    const btnSubmit = screen.getByText('Salvar Lançamento');
     fireEvent.click(btnSubmit);
 
     await waitFor(() => {

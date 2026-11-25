@@ -63,6 +63,7 @@ describe('Auditoria E2E Multitenant & Onboarding SaaS (Regra 4)', () => {
       deleteMany: jest.fn(),
       create: jest.fn(),
       groupBy: jest.fn(),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 0 } }),
     },
     coupon: {
       findMany: jest.fn(),

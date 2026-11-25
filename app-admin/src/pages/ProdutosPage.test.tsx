@@ -8,6 +8,9 @@ vi.mock('@react-pdf/renderer', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@react-pdf/renderer')>();
   return {
     ...actual,
+    pdf: vi.fn(() => ({
+      toBlob: vi.fn().mockResolvedValue(new Blob(['mock pdf content'], { type: 'application/pdf' })),
+    })),
     PDFDownloadLink: ({ children }: { children: React.ReactNode | ((params: { loading: boolean }) => React.ReactNode) }) => (
       <div data-testid="pdf-mock">{typeof children === 'function' ? children({ loading: false }) : children}</div>
     ),

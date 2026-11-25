@@ -43,5 +43,4 @@ export class OrdersController {
   remove(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.remove(id, req.user.id);
   }
-  }
 }

@@ -4,6 +4,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus, TransactionType } from '@prisma/client';
 
 export const STATUS_UI_TO_PRISMA: Record<string, OrderStatus> = {
+  'Orçamento': OrderStatus.ORCAMENTO,
   'Aguardando Pagamento': OrderStatus.AGUARDANDO_PAGAMENTO,
   'Pago': OrderStatus.PAGO,
   'Em Produção': OrderStatus.EM_PRODUCAO,
@@ -12,6 +13,7 @@ export const STATUS_UI_TO_PRISMA: Record<string, OrderStatus> = {
   'Concluído': OrderStatus.CONCLUIDO,
   'Cancelado': OrderStatus.CANCELADO,
   // Also support direct string keys
+  ORCAMENTO: OrderStatus.ORCAMENTO,
   AGUARDANDO_PAGAMENTO: OrderStatus.AGUARDANDO_PAGAMENTO,
   PAGO: OrderStatus.PAGO,
   EM_PRODUCAO: OrderStatus.EM_PRODUCAO,
@@ -22,6 +24,7 @@ export const STATUS_UI_TO_PRISMA: Record<string, OrderStatus> = {
 };
 
 export const STATUS_PRISMA_TO_UI: Record<OrderStatus, string> = {
+  [OrderStatus.ORCAMENTO]: 'Orçamento',
   [OrderStatus.AGUARDANDO_PAGAMENTO]: 'Aguardando Pagamento',
   [OrderStatus.PAGO]: 'Aguardando Pagamento',
   [OrderStatus.EM_PRODUCAO]: 'Em Produção',
@@ -370,6 +373,5 @@ export class OrdersService {
       },
       include: { items: true, customer: true },
     });
-  }
   }
 }

@@ -19,7 +19,6 @@ import { LoggerModule } from 'nestjs-pino';
 import { PublicCatalogModule } from './public-catalog/public-catalog.module';
 import { PreviewMigrationModule } from './preview-migration/preview-migration.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
-import { CustomersModule } from './customers/customers.module';
 import { BillingModule } from './billing/billing.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
 

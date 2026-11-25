@@ -44,12 +44,6 @@ import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
 import { StockModal } from '../components/StockModal';
 import { ImportXmlModal } from '../components/ImportXmlModal';
 
-const PDFDownloadLink = lazy(() =>
-  import('@react-pdf/renderer').then(({ PDFDownloadLink }) => ({ default: PDFDownloadLink }))
-);
-const CatalogPDF = lazy(() =>
-  import('../components/CatologPDF').then(({ CatalogPDF }) => ({ default: CatalogPDF }))
-);
 const ImportModal = lazy(() =>
   import('../components/ImportModal').then(({ ImportModal }) => ({ default: ImportModal }))
 );
@@ -207,7 +201,12 @@ export function ProdutosPage() {
     setIsGeneratingPdf(false);
   };
 
-  const handlePreparePdf = () => {
+  const handleDownloadPdf = async () => {
+    if (produtosParaPdf.length === 0) {
+      toast.error('Nenhum produto disponível para gerar o catálogo.');
+      return;
+    }
+
     if (
       selectedIds.length === 0 &&
       !confirm(
@@ -216,7 +215,36 @@ export function ProdutosPage() {
     ) {
       return;
     }
+
     setIsGeneratingPdf(true);
+    const toastId = toast.loading('Gerando catálogo PDF...');
+    try {
+      const [{ pdf }, { CatalogPDF }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../components/CatologPDF'),
+      ]);
+
+      const doc = React.createElement(CatalogPDF, {
+        produtos: produtosParaPdf,
+        storeName: storeConfig?.storeName || 'Catálogo de Produtos',
+      });
+
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `catalogo_${storeConfig?.slug || 'produtos'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast.success('Catálogo baixado com sucesso!', { id: toastId });
+    } catch (err: any) {
+      console.error('Erro ao gerar catálogo PDF:', err);
+      toast.error('Erro ao gerar o catálogo PDF. Verifique se as imagens dos produtos são válidas.', { id: toastId });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const onPrintClick = () => {
@@ -330,38 +358,21 @@ export function ProdutosPage() {
               <Tag size={18} />
             </button>
 
-            {isGeneratingPdf ? (
-              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-100 animate-pulse">
-                <Suspense fallback={FEATURE_FALLBACK}>
-                  <PDFDownloadLink
-                    document={
-                      <CatalogPDF
-                        produtos={produtosParaPdf}
-                        storeName={storeConfig?.storeName || 'Catálogo'}
-                      />
-                    }
-                    fileName="catalogo_produtos.pdf"
-                    className="flex items-center gap-2 text-[#d19900] font-bold text-xs"
-                  >
-                    {({ loading: pdfLoading }) => (pdfLoading ? 'Gerando...' : 'Baixar PDF')}
-                  </PDFDownloadLink>
-                </Suspense>
-                <button
-                  onClick={() => setIsGeneratingPdf(false)}
-                  className="hover:bg-red-50 p-1 rounded-full"
-                >
-                  <X size={12} className="text-red-400" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handlePreparePdf}
-                className="p-2.5 rounded-lg text-gray-500 hover:text-[#d19900] hover:bg-white hover:shadow-sm transition-all"
-                title="Gerar Catálogo PDF"
-              >
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className={`p-2.5 rounded-lg text-gray-500 hover:text-[#d19900] hover:bg-white hover:shadow-sm transition-all flex items-center gap-1.5 ${isGeneratingPdf ? 'animate-pulse text-[#d19900] bg-white shadow-sm cursor-wait' : ''}`}
+              title="Gerar Catálogo PDF"
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 size={18} className="animate-spin text-[#d19900]" />
+                  <span className="text-xs font-bold text-[#d19900]">Gerando PDF...</span>
+                </>
+              ) : (
                 <FileDown size={18} />
-              </button>
-            )}
+              )}
+            </button>
           </div>
 
           <div className="h-8 w-px bg-gray-200 mx-2 hidden lg:block"></div>

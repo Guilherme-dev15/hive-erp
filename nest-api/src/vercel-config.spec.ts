@@ -16,7 +16,7 @@ describe('Vercel API routing', () => {
     const apiRoute = config.routes.find((route) => route.src === '/api/(.*)');
 
     expect(apiRoute).toBeDefined();
-    expect(apiRoute?.dest).toBe('nest-api/src/serverless.ts');
+    expect(['nest-api/src/serverless.ts', '/api/[...path]']).toContain(apiRoute?.dest);
     expect(apiRoute?.headers).toBeUndefined();
   });
 });

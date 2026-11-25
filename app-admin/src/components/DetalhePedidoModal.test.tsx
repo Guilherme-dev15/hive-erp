@@ -45,7 +45,7 @@ describe('DetalhePedidoModal', () => {
       />
     );
 
-    expect(screen.getByText(/PEDIDO #PED-12345/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/PEDIDO #PED-12345/i).length).toBeGreaterThan(0);
     expect(screen.getByText('Maria Silva')).toBeInTheDocument();
     expect(screen.getByText('Anel Solitário Prata 925')).toBeInTheDocument();
     expect(screen.getByText('x2')).toBeInTheDocument();

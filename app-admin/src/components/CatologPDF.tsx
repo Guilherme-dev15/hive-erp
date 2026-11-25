@@ -141,14 +141,9 @@ export const CatalogPDF: React.FC<CatalogPDFProps> = ({
         {produtos.map((p) => (
           <View key={p.id} style={styles.card} wrap={false}>
             <View style={styles.imageContainer}>
-              {p.imageUrl ? (
+              {p.imageUrl && typeof p.imageUrl === 'string' && (p.imageUrl.startsWith('http://') || p.imageUrl.startsWith('https://') || p.imageUrl.startsWith('data:image/')) ? (
                 <Image
-                  src={{
-                    uri: p.imageUrl,
-                    method: 'GET',
-                    headers: {},
-                    body: '',
-                  }}
+                  src={p.imageUrl}
                   style={styles.image}
                 />
               ) : (

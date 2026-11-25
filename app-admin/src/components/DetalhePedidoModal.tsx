@@ -281,7 +281,6 @@ export function DetalhePedidoModal({
               {/* SELETOR DE STATUS OPERACIONAL */}
               <div className="space-y-4 no-print">
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">
                   Logística:{' '}
                   <span className="text-indigo-600 ml-2 font-bold">{pedido.status}</span>
                 </p>

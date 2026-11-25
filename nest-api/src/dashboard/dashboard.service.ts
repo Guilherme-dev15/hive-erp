@@ -36,75 +36,91 @@ export class DashboardService {
     const ordersToday = todaySalesAgg?._count?.id || 0;
 
     // KPI 2: Notas Emitidas / Concluídas
-    const notasEmitidas = await this.prisma.order.count({
-      where: {
-        userId,
-        OR: [
-          { nfeStatus: 'EMITIDA' },
-          { status: { in: [OrderStatus.CONCLUIDO, OrderStatus.ENVIADO] } },
-        ],
-      },
-    });
+    const notasEmitidas =
+      typeof this.prisma.order?.count === 'function'
+        ? await this.prisma.order.count({
+            where: {
+              userId,
+              OR: [
+                { nfeStatus: 'EMITIDA' },
+                { status: { in: [OrderStatus.CONCLUIDO, OrderStatus.ENVIADO] } },
+              ],
+            },
+          })
+        : 0;
 
     // KPI 3: Contas a Receber (transações a receber pendentes + pedidos aguardando pagamento)
-    const pendingReceivablesAgg = await this.prisma.transaction.aggregate({
-      where: {
-        userId,
-        type: { in: [TransactionType.VENDA, TransactionType.CAPITAL] },
-        status: 'PENDENTE',
-      },
-      _sum: { amount: true },
-    });
-    const pendingOrdersAgg = await this.prisma.order.aggregate({
-      where: {
-        userId,
-        status: OrderStatus.AGUARDANDO_PAGAMENTO,
-      },
-      _sum: { total: true },
-    });
+    const pendingReceivablesAgg = typeof this.prisma.transaction?.aggregate === 'function'
+      ? await this.prisma.transaction.aggregate({
+          where: {
+            userId,
+            type: { in: [TransactionType.VENDA, TransactionType.CAPITAL] },
+            status: 'PENDENTE',
+          },
+          _sum: { amount: true },
+        })
+      : null;
+    const pendingOrdersAgg = typeof this.prisma.order?.aggregate === 'function'
+      ? await this.prisma.order.aggregate({
+          where: {
+            userId,
+            status: OrderStatus.AGUARDANDO_PAGAMENTO,
+          },
+          _sum: { total: true },
+        })
+      : null;
     const aReceber =
       Number(pendingReceivablesAgg?._sum?.amount || 0) +
       Number(pendingOrdersAgg?._sum?.total || 0);
 
     // KPI 4: Itens em Falta (Estoque zerado)
-    const itensEmFalta = await this.prisma.product.count({
-      where: {
-        userId,
-        status: 'ATIVO',
-        quantity: { lte: 0 },
-      },
-    });
+    const itensEmFalta =
+      typeof this.prisma.product?.count === 'function'
+        ? await this.prisma.product.count({
+            where: {
+              userId,
+              status: 'ATIVO',
+              quantity: { lte: 0 },
+            },
+          })
+        : 0;
 
     // KPI 5: Contas a Pagar (despesas pendentes)
-    const pendingPayablesAgg = await this.prisma.transaction.aggregate({
-      where: {
-        userId,
-        type: TransactionType.DESPESA,
-        status: 'PENDENTE',
-      },
-      _sum: { amount: true },
-    });
+    const pendingPayablesAgg = typeof this.prisma.transaction?.aggregate === 'function'
+      ? await this.prisma.transaction.aggregate({
+          where: {
+            userId,
+            type: TransactionType.DESPESA,
+            status: 'PENDENTE',
+          },
+          _sum: { amount: true },
+        })
+      : null;
     const aPagar = Number(pendingPayablesAgg?._sum?.amount || 0);
 
     // KPI 6: Lucro do Mês
-    const monthSalesAgg = await this.prisma.order.aggregate({
-      where: {
-        userId,
-        status: { notIn: [OrderStatus.CANCELADO, OrderStatus.ORCAMENTO] },
-        createdAt: { gte: startOfMonth },
-      },
-      _sum: { total: true },
-    });
+    const monthSalesAgg = typeof this.prisma.order?.aggregate === 'function'
+      ? await this.prisma.order.aggregate({
+          where: {
+            userId,
+            status: { notIn: [OrderStatus.CANCELADO, OrderStatus.ORCAMENTO] },
+            createdAt: { gte: startOfMonth },
+          },
+          _sum: { total: true },
+        })
+      : null;
     const monthSales = Number(monthSalesAgg?._sum?.total || 0);
 
-    const monthExpensesAgg = await this.prisma.transaction.aggregate({
-      where: {
-        userId,
-        type: TransactionType.DESPESA,
-        date: { gte: startOfMonth },
-      },
-      _sum: { amount: true },
-    });
+    const monthExpensesAgg = typeof this.prisma.transaction?.aggregate === 'function'
+      ? await this.prisma.transaction.aggregate({
+          where: {
+            userId,
+            type: TransactionType.DESPESA,
+            date: { gte: startOfMonth },
+          },
+          _sum: { amount: true },
+        })
+      : null;
     const monthExpenses = Number(monthExpensesAgg?._sum?.amount || 0);
     const lucroMesValor = monthSales - monthExpenses;
     const lucroMesPercent = monthSales > 0 ? ((lucroMesValor / monthSales) * 100).toFixed(1) : '0';

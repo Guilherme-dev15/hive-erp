@@ -16,9 +16,15 @@ export class ErrorBoundary extends Component<Props, State> {
     errorInfo: '',
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error | unknown): State {
     // Atualiza o state para que a próxima renderização mostre a UI alternativa
-    return { hasError: true, errorInfo: error.message };
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+        ? error
+        : (error as any)?.message || 'Erro inesperado ao carregar componente';
+    return { hasError: true, errorInfo: message };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
