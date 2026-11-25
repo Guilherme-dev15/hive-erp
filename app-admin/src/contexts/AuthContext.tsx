@@ -45,22 +45,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const token = await currentUser.getIdToken();
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-          // Usa o backend NestJS(PostgreSQL) para verificar a saúde/perfil em vez do Firestore
-          const response = await apiClient.get('/api/v2/auth/me');
+          try {
+            // Usa o backend NestJS(PostgreSQL) para verificar a saúde/perfil
+            const response = await apiClient.get('/api/v2/auth/me');
 
-          if (response.data && response.data.active) {
-            setUserData(response.data as UserData);
-            setUser(currentUser);
-          } else {
-            toast.error('Acesso negado. Usuário inativo no ERP.');
-            await signOut(auth);
-            setUser(null);
-            setUserData(null);
-            delete apiClient.defaults.headers.common['Authorization'];
+            if (response.data && response.data.active) {
+              setUserData(response.data as UserData);
+              setUser(currentUser);
+            } else {
+              toast.error('Acesso negado. Usuário inativo no ERP.');
+              await signOut(auth);
+              setUser(null);
+              setUserData(null);
+              delete apiClient.defaults.headers.common['Authorization'];
+            }
+          } catch (meError: any) {
+            // Se o usuário ainda não existir no PostgreSQL (novo cliente), auto-provisiona com 14 dias grátis
+            if (meError?.response?.status === 401 || meError?.response?.status === 404) {
+              try {
+                const regRes = await apiClient.post('/api/v2/auth/register', {
+                  name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Novo Usuário',
+                  email: currentUser.email,
+                  legacyId: currentUser.uid,
+                });
+                toast.success('Bem-vindo ao Hive ERP! Seus 14 dias de teste grátis foram ativados.');
+                setUserData({
+                  name: regRes.data.user.name,
+                  role: regRes.data.user.role,
+                  active: true,
+                });
+                setUser(currentUser);
+              } catch (regError) {
+                console.error('Erro no auto-provisionamento:', regError);
+                toast.error('Erro ao ativar conta.');
+                await signOut(auth);
+                setUser(null);
+                setUserData(null);
+                delete apiClient.defaults.headers.common['Authorization'];
+              }
+            } else {
+              throw meError;
+            }
           }
         } catch (error) {
           console.error('Erro ao validar usuário:', error);
-          toast.error('Erro de conexão ao validar permissões. Você possui conta cadastrada?');
+          toast.error('Erro de conexão ao validar permissões.');
           await signOut(auth);
           setUser(null);
           setUserData(null);

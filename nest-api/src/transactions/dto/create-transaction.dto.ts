@@ -23,6 +23,15 @@ export class CreateTransactionDto {
   @IsOptional()
   category?: string;
 
+  @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  dueDate?: Date;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
   @IsUUID()
   @IsOptional()
   productId?: string;

@@ -15,6 +15,7 @@ import {
   CreditCard,
   Globe,
   Image as ImageIcon,
+  FileCheck,
 } from 'lucide-react';
 import { getConfig, saveConfig } from '../services/apiService';
 import { ConfigFormData } from '../types';
@@ -82,6 +83,12 @@ export function ConfiguracoesPage() {
     lowStockThreshold: 5,
     bannerUrl: '',
     banners: [],
+    cnpjEmitente: '',
+    inscricaoEstadual: '',
+    regimeTributario: 'SIMPLES_NACIONAL',
+    naturezaOperacao: 'Venda de mercadoria',
+    nfeSerie: 1,
+    nfeProximoNumero: 1,
   });
 
   const [loading, setLoading] = useState(true);
@@ -110,6 +117,12 @@ export function ConfiguracoesPage() {
             lowStockThreshold: data.lowStockThreshold || 5,
             bannerUrl: bannerAtual,
             banners: data.banners || [],
+            cnpjEmitente: data.cnpjEmitente || '',
+            inscricaoEstadual: data.inscricaoEstadual || '',
+            regimeTributario: data.regimeTributario || 'SIMPLES_NACIONAL',
+            naturezaOperacao: data.naturezaOperacao || 'Venda de mercadoria',
+            nfeSerie: data.nfeSerie || 1,
+            nfeProximoNumero: data.nfeProximoNumero || 1,
           });
         }
       } catch (error) {
@@ -454,6 +467,101 @@ export function ConfiguracoesPage() {
               className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-sm leading-relaxed"
               placeholder="Ex: Garantia vitalícia na prata 925..."
             />
+          </motion.div>
+
+          {/* --- 5. EMISSÃO FISCAL (NF-e / SEFAZ) --- */}
+          <motion.div
+            variants={itemVariants}
+            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm lg:col-span-2"
+          >
+            <SectionHeader
+              icon={FileCheck}
+              title="Emissão Fiscal (NF-e / SEFAZ)"
+              description="Parâmetros para faturamento e emissão de notas fiscais eletrônicas."
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <InputGroup
+                label="CNPJ do Emitente"
+                description="CNPJ da sua empresa cadastrada na SEFAZ."
+              >
+                <input
+                  name="cnpjEmitente"
+                  value={formData.cnpjEmitente || ''}
+                  onChange={handleChange}
+                  placeholder="00.000.000/0001-00"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                />
+              </InputGroup>
+
+              <InputGroup
+                label="Inscrição Estadual (IE)"
+                description="Número de IE estadual ativo."
+              >
+                <input
+                  name="inscricaoEstadual"
+                  value={formData.inscricaoEstadual || ''}
+                  onChange={handleChange}
+                  placeholder="Ex: 123.456.789.000"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                />
+              </InputGroup>
+
+              <InputGroup
+                label="Regime Tributário"
+                description="Classificação fiscal da empresa."
+              >
+                <select
+                  name="regimeTributario"
+                  value={formData.regimeTributario || 'SIMPLES_NACIONAL'}
+                  onChange={handleChange}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                >
+                  <option value="SIMPLES_NACIONAL">Simples Nacional (MEI / ME / EPP)</option>
+                  <option value="LUCRO_PRESUMIDO">Lucro Presumido</option>
+                  <option value="LUCRO_REAL">Lucro Real</option>
+                </select>
+              </InputGroup>
+
+              <InputGroup
+                label="Natureza da Operação"
+                description="CFOP padrão nas emissões."
+              >
+                <input
+                  name="naturezaOperacao"
+                  value={formData.naturezaOperacao || 'Venda de mercadoria'}
+                  onChange={handleChange}
+                  placeholder="Ex: Venda de mercadoria adquirida de terceiros"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                />
+              </InputGroup>
+
+              <InputGroup
+                label="Série da NF-e"
+                description="Série autorizada pela SEFAZ."
+              >
+                <input
+                  type="number"
+                  name="nfeSerie"
+                  value={formData.nfeSerie || 1}
+                  onChange={handleChange}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                />
+              </InputGroup>
+
+              <InputGroup
+                label="Próximo Número de Nota"
+                description="Numeração sequencial."
+              >
+                <input
+                  type="number"
+                  name="nfeProximoNumero"
+                  value={formData.nfeProximoNumero || 1}
+                  onChange={handleChange}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                />
+              </InputGroup>
+            </div>
           </motion.div>
         </div>
 

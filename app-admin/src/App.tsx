@@ -17,6 +17,7 @@ import {
   Settings,
   Calculator,
   Briefcase,
+  UserCheck,
 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
@@ -47,6 +48,9 @@ const ConfiguracoesPage = lazy(() =>
 const PedidosPage = lazy(() =>
   import('./pages/PedidosPage').then(({ PedidosPage }) => ({ default: PedidosPage }))
 );
+const ClientesPage = lazy(() =>
+  import('./pages/ClientesPage').then(({ ClientesPage }) => ({ default: ClientesPage }))
+);
 const RelatoriosPage = lazy(() =>
   import('./pages/RelatoriosPage').then(({ RelatoriosPage }) => ({ default: RelatoriosPage }))
 );
@@ -67,6 +71,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 type Pagina =
   | 'dashboard'
   | 'pedidos'
+  | 'clientes'
   | 'produtos'
   | 'fornecedores'
   | 'financeiro'
@@ -92,6 +97,7 @@ function Navbar({
   const menuItems: { id: Pagina; label: string; icon: ElementType }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pedidos', label: 'Pedidos', icon: ShoppingBag },
+    { id: 'clientes', label: 'Clientes & CRM', icon: UserCheck },
     { id: 'produtos', label: 'Produtos', icon: Package },
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
     { id: 'campanhas', label: 'Promoções', icon: Percent }, // Novo Painel Global
@@ -272,6 +278,8 @@ function ProtectedLayout() {
         return <DashboardPage />;
       case 'pedidos':
         return <PedidosPage />;
+      case 'clientes':
+        return <ClientesPage />;
       case 'produtos':
         return <ProdutosPage />;
       case 'fornecedores':

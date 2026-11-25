@@ -18,6 +18,14 @@ export interface DashboardStats {
   lucroLiquido: number;
   saldoTotal: number;
   activeProducts: number;
+  // 6 KPIs da Colmeia Hive
+  vendasHoje?: number;
+  notasEmitidas?: number;
+  aReceber?: number;
+  itensEmFalta?: number;
+  lucroMes?: number;
+  lucroMesPercent?: number;
+  aPagar?: number;
 }
 
 export interface ChartData {
@@ -71,6 +79,7 @@ export interface ProdutoVariante {
 // ============================================================================
 
 export type OrderStatus =
+  | 'Orçamento'
   | 'Aguardando Pagamento'
   | 'Em Produção'
   | 'Em Separação'
@@ -88,12 +97,30 @@ export interface OrderLineItem {
   imageUrl?: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  document?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  notes?: string;
+  ordersCount?: number;
+  totalSpent?: number;
+  orders?: Order[];
+  createdAt?: FirestoreDate;
+}
+
 export interface Order {
   id: string;
   createdAt: FirestoreDate;
   status: OrderStatus;
 
   // Cliente
+  customerId?: string;
   customerName: string;
   customerPhone: string;
 
@@ -106,6 +133,13 @@ export interface Order {
   // Detalhes
   notes?: string;
   financialRegistered?: boolean;
+
+  // Emissão Fiscal NF-e
+  nfeKey?: string;
+  nfeNumber?: number;
+  nfeStatus?: 'NAO_EMITIDA' | 'EMITIDA' | 'CANCELADA' | string;
+  nfeProtocol?: string;
+  nfeIssuedAt?: FirestoreDate;
 }
 
 // ============================================================================
@@ -114,11 +148,13 @@ export interface Order {
 
 export interface Transacao {
   id: string;
-  type: 'venda' | 'despesa' | 'capital';
+  type: 'venda' | 'despesa' | 'capital' | 'receita';
   date: FirestoreDate;
   amount: number;
   description: string;
-  category?: string; // Adicionado para categorizar despesas no Gráfico
+  category?: string;
+  dueDate?: FirestoreDate;
+  status?: 'PAGO' | 'PENDENTE' | 'CANCELADO'; // Adicionado para categorizar despesas no Gráfico
   productId?: string;
   orderId?: string;
 }

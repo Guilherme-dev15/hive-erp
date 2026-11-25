@@ -23,6 +23,8 @@ import {
   Trash2,
   DollarSign,
   CheckCircle2,
+  FileText,
+  Plus,
 } from 'lucide-react';
 import {
   TooltipProps,
@@ -39,12 +41,19 @@ import { type ConfigFormData } from '../types/schemas';
 
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
 import { CertificadoImpressao } from '../components/CertificadoImpressao';
+import { NovoPedidoModal } from '../components/NovoPedidoModal';
 
 // --- CONFIGURAÇÃO VISUAL ---
 const statusConfig: Record<
   OrderStatus,
   { icon: React.ReactNode; color: string; bg: string; border: string }
 > = {
+  'Orçamento': {
+    icon: <FileText size={14} />,
+    color: 'text-purple-700',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+  },
   'Aguardando Pagamento': {
     icon: <Clock size={14} />,
     color: 'text-yellow-700',
@@ -84,6 +93,7 @@ const statusConfig: Record<
 };
 
 const statusOrdem: OrderStatus[] = [
+  'Orçamento',
   'Aguardando Pagamento',
   'Em Produção',
   'Em Separação',
@@ -175,6 +185,7 @@ export function PedidosPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [isNovoModalOpen, setIsNovoModalOpen] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState<Order | null>(
     null
   );
@@ -337,19 +348,27 @@ export function PedidosPage() {
               Acompanhe vendas, status e expedição em tempo real.
             </p>
           </div>
-          <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+              onClick={() => setIsNovoModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-carvao hover:bg-gray-800 text-white font-bold text-sm rounded-xl shadow-md transition-all"
             >
-              <ListIcon size={20} />
+              <Plus size={18} /> Novo Pedido / Orçamento
             </button>
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`p-2 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <LayoutGrid size={20} />
-            </button>
+            <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <ListIcon size={20} />
+              </button>
+              <button
+                onClick={() => setViewMode('kanban')}
+                className={`p-2 rounded-md transition-all ${viewMode === 'kanban' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <LayoutGrid size={20} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -596,6 +615,12 @@ export function PedidosPage() {
         onClose={() => setModalOpen(false)}
         pedido={pedidoSelecionado}
         onUpdate={() => carregarDados(true)}
+      />
+
+      <NovoPedidoModal
+        isOpen={isNovoModalOpen}
+        onClose={() => setIsNovoModalOpen(false)}
+        onSuccess={() => carregarDados(true)}
       />
 
       <CertificadoImpressao

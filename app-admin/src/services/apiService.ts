@@ -5,6 +5,7 @@ import {
   ProdutoAdmin,
   Category,
   Fornecedor,
+  Customer,
   Order as PedidoAdmin, // Renomeando para consistência
   Transacao,
   Coupon,
@@ -109,6 +110,10 @@ export const updateAdminOrderStatus = async (
   });
   return data;
 };
+export const emitirNfe = async (orderId: string): Promise<any> => {
+  const { data } = await apiClient.post(`/api/v2/orders/${orderId}/emit-nfe`);
+  return data;
+};
 export const deleteAdminOrder = async (orderId: string): Promise<void> => {
   await apiClient.delete(`/api/v2/orders/${orderId}`);
 };
@@ -138,6 +143,14 @@ export const updateTransacao = async (
 };
 export const deleteTransacao = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v2/transactions/${id}`);
+};
+
+export const updateTransactionStatus = async (
+  id: string,
+  status: string
+): Promise<Transacao> => {
+  const { data } = await apiClient.patch(`/api/v2/transactions/${id}/status`, { status });
+  return data;
 };
 
 // ============================================================================
@@ -292,5 +305,51 @@ export const inviteTeamMember = async (name: string, email: string) => {
 
 export const removeTeamMember = async (email: string) => {
   const { data } = await apiClient.delete(`/api/v2/team/${email}`);
+  return data;
+};
+
+// ==========================================
+// CLIENTES & CRM
+// ==========================================
+export const getCustomers = async (): Promise<Customer[]> => {
+  const { data } = await apiClient.get<Customer[]>('/api/v2/customers');
+  return data;
+};
+
+export const getCustomer = async (id: string): Promise<Customer> => {
+  const { data } = await apiClient.get<Customer>(`/api/v2/customers/${id}`);
+  return data;
+};
+
+export const createCustomer = async (customerData: Partial<Customer>): Promise<Customer> => {
+  const { data } = await apiClient.post<Customer>('/api/v2/customers', customerData);
+  return data;
+};
+
+export const updateCustomer = async (id: string, customerData: Partial<Customer>): Promise<Customer> => {
+  const { data } = await apiClient.put<Customer>(`/api/v2/customers/${id}`, customerData);
+  return data;
+};
+
+export const deleteCustomer = async (id: string): Promise<void> => {
+  await apiClient.delete(`/api/v2/customers/${id}`);
+};
+
+export const importCustomersBulk = async (items: Partial<Customer>[]): Promise<{ count: number }> => {
+  const { data } = await apiClient.post<{ count: number }>('/api/v2/customers/bulk', items);
+  return data;
+};
+
+// ==========================================
+// REGISTRO PÚBLICO (14 DIAS TRIAL)
+// ==========================================
+export const registerUser = async (payload: {
+  name: string;
+  email: string;
+  phone?: string;
+  storeName?: string;
+  legacyId?: string;
+}) => {
+  const { data } = await apiClient.post('/api/v2/auth/register', payload);
   return data;
 };

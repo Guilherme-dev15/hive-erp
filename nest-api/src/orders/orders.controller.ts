@@ -27,4 +27,9 @@ export class OrdersController {
   ) {
     return this.ordersService.updateStatus(id, updateStatusDto.status, req.user.id);
   }
+
+  @Post(':id/emit-nfe')
+  emitNfe(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.emitNfe(id, req.user.id);
+  }
 }

@@ -11,6 +11,7 @@ import {
   Filter,
   FolderTree,
   FileSpreadsheet,
+  FileCode,
   FileDown,
   CheckSquare,
   Square,
@@ -41,6 +42,7 @@ import { ProdutoFormModal } from '../components/ProdutoFormModal';
 import { CategoryModal } from '../components/CategoryModal';
 import { EtiquetaImpressao } from '../components/EtiquetaImpressao';
 import { StockModal } from '../components/StockModal';
+import { ImportXmlModal } from '../components/ImportXmlModal';
 
 const PDFDownloadLink = lazy(() =>
   import('@react-pdf/renderer').then(({ PDFDownloadLink }) => ({ default: PDFDownloadLink }))
@@ -108,6 +110,7 @@ export function ProdutosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportXmlOpen, setIsImportXmlOpen] = useState(false);
   const [isNeonOpen, setIsNeonOpen] = useState(false);
   const [produtoEditando, setProdutoEditando] = useState<ProdutoAdmin | null>(
     null
@@ -378,6 +381,14 @@ export function ProdutosPage() {
               title="Importar Excel"
             >
               <FileSpreadsheet size={18} />
+            </button>
+
+            <button
+              onClick={() => setIsImportXmlOpen(true)}
+              className="p-3 bg-white border border-gray-200 text-gray-600 rounded-xl hover:border-indigo-200 hover:text-indigo-600 transition-colors shadow-sm"
+              title="Entrada por XML (NF-e)"
+            >
+              <FileCode size={18} />
             </button>
           </div>
 
@@ -754,6 +765,12 @@ export function ProdutosPage() {
           />
         </Suspense>
       )}
+
+      <ImportXmlModal
+        isOpen={isImportXmlOpen}
+        onClose={() => setIsImportXmlOpen(false)}
+        onSuccess={carregarTudo}
+      />
 
       {isNeonOpen && (
         <Suspense fallback={FEATURE_FALLBACK}>

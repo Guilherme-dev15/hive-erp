@@ -10,6 +10,10 @@ export class DashboardService {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
     // Agregação 1: Total de Pedidos e Receita Total (Apenas concluídos)
     const totalAgg = await this.prisma.order.aggregate({
       where: { userId, status: OrderStatus.CONCLUIDO },
@@ -17,14 +21,93 @@ export class DashboardService {
       _sum: { total: true },
     });
 
-    // Agregação 2: Pedidos Hoje
-    const todayAgg = await this.prisma.order.aggregate({
+    // Agregação 2: Pedidos e Vendas Hoje
+    const todaySalesAgg = await this.prisma.order.aggregate({
       where: {
         userId,
+        status: { in: [OrderStatus.CONCLUIDO, OrderStatus.PAGO, OrderStatus.ENVIADO, OrderStatus.EM_SEPARACAO] },
         createdAt: { gte: startOfToday },
       },
       _count: { id: true },
+      _sum: { total: true },
     });
+
+    const vendasHoje = Number(todaySalesAgg?._sum?.total || 0);
+    const ordersToday = todaySalesAgg?._count?.id || 0;
+
+    // KPI 2: Notas Emitidas / Concluídas
+    const notasEmitidas = await this.prisma.order.count({
+      where: {
+        userId,
+        OR: [
+          { nfeStatus: 'EMITIDA' },
+          { status: { in: [OrderStatus.CONCLUIDO, OrderStatus.ENVIADO] } },
+        ],
+      },
+    });
+
+    // KPI 3: Contas a Receber (transações a receber pendentes + pedidos aguardando pagamento)
+    const pendingReceivablesAgg = await this.prisma.transaction.aggregate({
+      where: {
+        userId,
+        type: { in: [TransactionType.VENDA, TransactionType.CAPITAL] },
+        status: 'PENDENTE',
+      },
+      _sum: { amount: true },
+    });
+    const pendingOrdersAgg = await this.prisma.order.aggregate({
+      where: {
+        userId,
+        status: OrderStatus.AGUARDANDO_PAGAMENTO,
+      },
+      _sum: { total: true },
+    });
+    const aReceber =
+      Number(pendingReceivablesAgg?._sum?.amount || 0) +
+      Number(pendingOrdersAgg?._sum?.total || 0);
+
+    // KPI 4: Itens em Falta (Estoque zerado)
+    const itensEmFalta = await this.prisma.product.count({
+      where: {
+        userId,
+        status: 'ATIVO',
+        quantity: { lte: 0 },
+      },
+    });
+
+    // KPI 5: Contas a Pagar (despesas pendentes)
+    const pendingPayablesAgg = await this.prisma.transaction.aggregate({
+      where: {
+        userId,
+        type: TransactionType.DESPESA,
+        status: 'PENDENTE',
+      },
+      _sum: { amount: true },
+    });
+    const aPagar = Number(pendingPayablesAgg?._sum?.amount || 0);
+
+    // KPI 6: Lucro do Mês
+    const monthSalesAgg = await this.prisma.order.aggregate({
+      where: {
+        userId,
+        status: { notIn: [OrderStatus.CANCELADO, OrderStatus.ORCAMENTO] },
+        createdAt: { gte: startOfMonth },
+      },
+      _sum: { total: true },
+    });
+    const monthSales = Number(monthSalesAgg?._sum?.total || 0);
+
+    const monthExpensesAgg = await this.prisma.transaction.aggregate({
+      where: {
+        userId,
+        type: TransactionType.DESPESA,
+        date: { gte: startOfMonth },
+      },
+      _sum: { amount: true },
+    });
+    const monthExpenses = Number(monthExpensesAgg?._sum?.amount || 0);
+    const lucroMesValor = monthSales - monthExpenses;
+    const lucroMesPercent = monthSales > 0 ? ((lucroMesValor / monthSales) * 100).toFixed(1) : '0';
 
     // Contagem de produtos ativos
     const activeProducts = await this.prisma.product.count({
@@ -35,30 +118,37 @@ export class DashboardService {
     const transactionsAgg = await this.prisma.transaction.groupBy({
       by: ['type'],
       where: { userId },
-      _sum: { amount: true }
+      _sum: { amount: true },
     });
 
     let totalDespesas = 0;
     let totalCapital = 0;
 
-    transactionsAgg.forEach(t => {
+    transactionsAgg.forEach((t) => {
       if (t.type === TransactionType.DESPESA) totalDespesas += Number(t._sum.amount || 0);
       if (t.type === TransactionType.CAPITAL) totalCapital += Number(t._sum.amount || 0);
     });
 
     const totalOrders = totalAgg._count.id || 0;
     const totalRevenue = Number(totalAgg._sum.total || 0);
-    const ordersToday = todayAgg._count.id || 0;
     const lucroLiquido = totalRevenue - totalDespesas;
     const saldoTotal = totalRevenue + totalCapital - totalDespesas;
 
     return {
       stats: {
         totalVendas: totalRevenue,
-        lucroLiquido: lucroLiquido, 
-        totalDespesas: totalDespesas, 
+        lucroLiquido: lucroLiquido,
+        totalDespesas: totalDespesas,
         saldoTotal: saldoTotal,
         activeProducts,
+        // Os 6 KPIs da Colmeia Hive
+        vendasHoje,
+        notasEmitidas,
+        aReceber,
+        itensEmFalta,
+        lucroMes: lucroMesValor,
+        lucroMesPercent: Number(lucroMesPercent),
+        aPagar,
       },
       // Compatibilidade retroativa
       totalOrders,

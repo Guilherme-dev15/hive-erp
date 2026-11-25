@@ -88,6 +88,14 @@ export const configSchema = z.object({
 
   // Garantia (Aceita texto ou vazio)
   warrantyText: z.string().optional().default(''),
+
+  // Configurações Fiscais (NF-e)
+  cnpjEmitente: z.string().optional(),
+  inscricaoEstadual: z.string().optional(),
+  regimeTributario: z.string().optional().default('SIMPLES_NACIONAL'),
+  naturezaOperacao: z.string().optional().default('Venda de mercadoria'),
+  nfeSerie: z.coerce.number().optional().default(1),
+  nfeProximoNumero: z.coerce.number().optional().default(1),
 });
 
 export type ConfigFormData = z.infer<typeof configSchema>;

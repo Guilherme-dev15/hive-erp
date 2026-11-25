@@ -30,6 +30,10 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
+  @IsUUID()
+  @IsOptional()
+  customerId?: string;
+
   @IsString()
   customerName: string;
 

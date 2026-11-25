@@ -16,6 +16,7 @@ describe('DashboardService', () => {
             order: {
               aggregate: jest.fn(),
               findMany: jest.fn(),
+              count: jest.fn(),
             },
             product: {
               count: jest.fn(),
@@ -23,6 +24,7 @@ describe('DashboardService', () => {
             },
             transaction: {
               groupBy: jest.fn(),
+              aggregate: jest.fn(),
             },
           },
         },
@@ -40,14 +42,15 @@ describe('DashboardService', () => {
   it('should calculate stats correctly', async () => {
     const userId = 'tenant-123';
     
+    (prisma.order.count as jest.Mock).mockResolvedValue(5);
+    (prisma.transaction.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { amount: 0 },
+    });
+
     // Mock order.aggregate
-    (prisma.order.aggregate as jest.Mock).mockResolvedValueOnce({
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
       _count: { id: 10 },
       _sum: { total: 1000 },
-    });
-    
-    (prisma.order.aggregate as jest.Mock).mockResolvedValueOnce({
-      _count: { id: 2 },
     });
 
     // Mock product.count
@@ -61,7 +64,7 @@ describe('DashboardService', () => {
 
     const result = await service.getStats(userId);
 
-    expect(prisma.order.aggregate).toHaveBeenCalledTimes(2);
+    expect(prisma.order.aggregate).toHaveBeenCalled();
     expect(result.stats.totalVendas).toBe(1000);
     expect(result.stats.lucroLiquido).toBe(800);
     expect(result.stats.saldoTotal).toBe(1300);

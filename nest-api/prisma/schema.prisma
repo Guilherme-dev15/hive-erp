@@ -30,6 +30,7 @@ enum PaymentMethod {
 }
 
 enum OrderStatus {
+  ORCAMENTO
   AGUARDANDO_PAGAMENTO
   PAGO
   EM_PRODUCAO
@@ -49,8 +50,10 @@ model User {
   id        String   @id @default(uuid()) @db.Uuid
   email     String   @unique
   name      String
+  phone     String?
   role      Role     @default(OWNER)
   active    Boolean  @default(true)
+  trialEndsAt DateTime? @map("trial_ends_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -58,6 +61,7 @@ model User {
   config         Config?
   categories     Category[]
   suppliers      Supplier[]
+  customers      Customer[]
   products       Product[]
   coupons        Coupon[]
   orders         Order[]
@@ -86,6 +90,14 @@ model Config {
   packagingCost     Decimal  @default(0) @map("packaging_cost") @db.Decimal(10, 2)
   lowStockThreshold Int      @default(5) @map("low_stock_threshold")
   warrantyText      String?  @map("warranty_text") @db.Text
+
+  // Configurações Fiscais (NF-e / NFC-e)
+  cnpjEmitente      String?  @map("cnpj_emitente")
+  inscricaoEstadual String?  @map("inscricao_estadual")
+  regimeTributario  String?  @default("SIMPLES_NACIONAL") @map("regime_tributario")
+  naturezaOperacao  String?  @default("Venda de mercadoria") @map("natureza_operacao")
+  nfeSerie          Int?     @default(1) @map("nfe_serie")
+  nfeProximoNumero  Int?     @default(1) @map("nfe_proximo_numero")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -205,10 +217,36 @@ model Coupon {
   @@map("coupons")
 }
 
+model Customer {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  email        String?
+  phone        String?
+  document     String?   // CPF ou CNPJ
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?   @map("zip_code")
+  notes        String?   @db.Text
+
+  orders       Order[]
+
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("customers")
+}
+
 model Order {
   id     String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  customerId    String?     @map("customer_id") @db.Uuid
+  customer      Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   customerName  String      @map("customer_name")
   customerPhone String?     @map("customer_phone")
@@ -225,6 +263,13 @@ model Order {
   gatewayOrderId    String?        @map("gateway_order_id")
   gatewayPaymentUrl String?        @map("gateway_payment_url")
   gatewayStatus     String?        @map("gateway_status")
+
+  // Emissão Fiscal NF-e
+  nfeKey       String?   @map("nfe_key")
+  nfeNumber    Int?      @map("nfe_number")
+  nfeStatus    String?   @default("NAO_EMITIDA") @map("nfe_status")
+  nfeProtocol  String?   @map("nfe_protocol")
+  nfeIssuedAt  DateTime? @map("nfe_issued_at")
 
   items        OrderItem[]
   transactions Transaction[]
@@ -265,6 +310,8 @@ model Transaction {
   amount      Decimal         @db.Decimal(10, 2)
   description String          @db.Text
   category    String?
+  dueDate     DateTime?       @map("due_date")
+  status      String          @default("PAGO")
 
   // Referência do Gateway caso seja uma venda capturada
   gatewayTransactionId String? @map("gateway_transaction_id")

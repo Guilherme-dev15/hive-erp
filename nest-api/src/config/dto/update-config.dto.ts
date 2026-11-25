@@ -44,4 +44,28 @@ export class UpdateConfigDto {
   @IsOptional()
   @IsString()
   warrantyText?: string;
+
+  @IsOptional()
+  @IsString()
+  cnpjEmitente?: string;
+
+  @IsOptional()
+  @IsString()
+  inscricaoEstadual?: string;
+
+  @IsOptional()
+  @IsString()
+  regimeTributario?: string;
+
+  @IsOptional()
+  @IsString()
+  naturezaOperacao?: string;
+
+  @IsOptional()
+  @IsNumber()
+  nfeSerie?: number;
+
+  @IsOptional()
+  @IsNumber()
+  nfeProximoNumero?: number;
 }

@@ -15,9 +15,15 @@ import {
 import {
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Download,
   Package,
   AlertCircle,
+  FileText,
+  Clock,
+  Sparkles,
+  Layers,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -25,6 +31,7 @@ import { motion } from 'framer-motion';
 import { getDashboardStats } from '../services/apiService';
 import { DetalhePedidoModal } from '../components/DetalhePedidoModal';
 import { Order, DashboardStats, ChartData } from '../types';
+import { formatCurrency } from '../utils/format';
 
 // --- CONFIGURAÇÕES GLOBAIS ---
 const COLORS = [
@@ -57,8 +64,8 @@ const itemVariants = {
 // --- TIPOS ---
 type TimeRange = '7d' | '30d' | 'all';
 interface CategoryData {
-    name: string;
-    value: number;
+  name: string;
+  value: number;
 }
 
 export function DashboardPage() {
@@ -72,8 +79,6 @@ export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [charts, setCharts] = useState<ChartData | null>(null);
 
-  // Fallbacks visuais caso a API de gráficos ou de extrato não esteja 100% pronta
-  // (Como o PERF-01 otimizou stats, vamos focar neles)
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [recentList, setRecentList] = useState<Order[]>([]);
 
@@ -81,15 +86,11 @@ export function DashboardPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Passa o timeRange pro backend calcular na query
       const data = await getDashboardStats(timeRange);
       setStats(data.stats);
       setCharts(data.charts);
-      
-      // Temporary stub for features not yet implemented in aggregation API
       setCategoryData([]);
       setRecentList([]);
-      
       setLoading(false);
     } catch (error) {
       console.error('Erro Dashboard:', error);
@@ -123,6 +124,13 @@ export function DashboardPage() {
     totalDespesas: 0,
     saldoTotal: 0,
     activeProducts: 0,
+    vendasHoje: 0,
+    notasEmitidas: 0,
+    aReceber: 0,
+    itensEmFalta: 0,
+    lucroMes: 0,
+    lucroMesPercent: 0,
+    aPagar: 0,
   };
 
   return (
@@ -133,55 +141,197 @@ export function DashboardPage() {
       className="space-y-8 pb-20"
     >
       {/* HEADER E FILTROS */}
-      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 border-b border-gray-100 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            Dashboard
-          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🐝</span>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+              Dashboard Colmeia
+            </h1>
+          </div>
           <p className="text-gray-500 mt-1 text-sm flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            Visão consolidada da operação
+            Operação em tempo real e inteligência financeira
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
             <button
               onClick={() => setTimeRange('7d')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === '7d' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                timeRange === '7d'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
             >
               7 Dias
             </button>
             <button
               onClick={() => setTimeRange('30d')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === '30d' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                timeRange === '30d'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
             >
               30 Dias
             </button>
             <button
               onClick={() => setTimeRange('all')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${timeRange === 'all' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                timeRange === 'all'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
             >
               Tudo
             </button>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 shadow-lg">
-            <Download size={18} /> Relatório
+          <button className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold rounded-xl shadow-md transition-all">
+            <Download size={18} /> Exportar Relatório
           </button>
         </div>
       </div>
 
-      {/* CARDS DE KPI */}
+      {/* =========================================================================
+          WIDGET COLMEIA HIVE: OS 6 KPIS VISUAIS PROMETIDOS NA LANDING PAGE
+          1. Vendas hoje
+          2. Notas emitidas
+          3. A receber
+          4. Itens em falta
+          5. Lucro do mês (%)
+          6. A pagar
+          ========================================================================= */}
+      <motion.div
+        variants={itemVariants}
+        className="bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 rounded-3xl p-6 sm:p-8 text-white border border-amber-500/20 shadow-xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-500/30 text-amber-400">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                Colmeia Operacional
+                <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full">
+                  Ao Vivo
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Os 6 pilares de controle diário da sua empresa
+              </p>
+            </div>
+          </div>
+          <div className="text-xs font-mono text-amber-400/80 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+            Atualizado: {new Date().toLocaleDateString('pt-BR')}
+          </div>
+        </div>
+
+        {/* HEX GRID / 6 COMB CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 relative z-10">
+          {/* 1. Vendas Hoje */}
+          <div className="bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-300 group">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold uppercase tracking-wider">Vendas Hoje</span>
+              <DollarSign size={14} className="text-emerald-400" />
+            </div>
+            <div className="text-xl font-extrabold text-white group-hover:text-amber-400 transition-colors">
+              {formatCurrency(s.vendasHoje || 0)}
+            </div>
+            <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+              <TrendingUp size={12} />
+              <span>Faturado hoje</span>
+            </div>
+          </div>
+
+          {/* 2. Notas Emitidas */}
+          <div className="bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-300 group">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold uppercase tracking-wider">Notas Emitidas</span>
+              <FileText size={14} className="text-sky-400" />
+            </div>
+            <div className="text-xl font-extrabold text-white group-hover:text-amber-400 transition-colors">
+              {s.notasEmitidas || 0}
+            </div>
+            <div className="mt-2 text-[11px] text-slate-400 font-medium">
+              Documentos fiscais
+            </div>
+          </div>
+
+          {/* 3. A Receber */}
+          <div className="bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-300 group">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold uppercase tracking-wider">A Receber</span>
+              <Clock size={14} className="text-blue-400" />
+            </div>
+            <div className="text-xl font-extrabold text-blue-400">
+              {formatCurrency(s.aReceber || 0)}
+            </div>
+            <div className="mt-2 text-[11px] text-slate-400 font-medium">
+              Receitas pendentes
+            </div>
+          </div>
+
+          {/* 4. Itens em Falta */}
+          <div className="bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-300 group">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold uppercase tracking-wider">Itens em Falta</span>
+              <AlertTriangle size={14} className="text-rose-400" />
+            </div>
+            <div className={`text-xl font-extrabold ${(s.itensEmFalta || 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {s.itensEmFalta || 0}
+            </div>
+            <div className="mt-2 text-[11px] text-slate-400 font-medium">
+              {(s.itensEmFalta || 0) > 0 ? 'Estoque crítico' : 'Estoque regular'}
+            </div>
+          </div>
+
+          {/* 5. Lucro do Mês */}
+          <div className="bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-300 group">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold uppercase tracking-wider">Lucro do Mês</span>
+              <TrendingUp size={14} className="text-emerald-400" />
+            </div>
+            <div className="text-xl font-extrabold text-emerald-400">
+              {(s.lucroMesPercent || 0) >= 0 ? '+' : ''}
+              {(s.lucroMesPercent || 0).toFixed(1)}%
+            </div>
+            <div className="mt-2 text-[11px] text-slate-400 font-medium truncate" title={formatCurrency(s.lucroMes || 0)}>
+              {formatCurrency(s.lucroMes || 0)}
+            </div>
+          </div>
+
+          {/* 6. A Pagar */}
+          <div className="bg-slate-800/70 hover:bg-slate-800/90 border border-slate-700/80 hover:border-amber-500/40 rounded-2xl p-4 transition-all duration-300 group">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span className="font-semibold uppercase tracking-wider">A Pagar</span>
+              <TrendingDown size={14} className="text-amber-400" />
+            </div>
+            <div className="text-xl font-extrabold text-amber-400">
+              {formatCurrency(s.aPagar || 0)}
+            </div>
+            <div className="mt-2 text-[11px] text-slate-400 font-medium">
+              Despesas a quitar
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* CARDS DE KPI GERAIS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatsCard
-          title="Faturamento"
+          title="Faturamento Acumulado"
           value={s.totalVendas}
           icon={<DollarSign size={22} className="text-white" />}
-          color="bg-indigo-600"
-          trend="Vendas"
+          color="bg-slate-900"
+          trend="Período"
           trendUp={true}
         />
         <StatsCard
@@ -190,8 +340,8 @@ export function DashboardPage() {
           icon={<TrendingUp size={22} className="text-emerald-600" />}
           color="bg-white"
           iconColor="bg-emerald-50"
-          trend="Real"
-          trendUp={true}
+          trend="Margem"
+          trendUp={s.lucroLiquido >= 0}
         />
         <StatsCard
           title="Total Despesas"
@@ -203,12 +353,12 @@ export function DashboardPage() {
           trendUp={false}
         />
         <StatsCard
-          title="Saldo Geral"
+          title="Saldo Operacional"
           value={s.saldoTotal}
           icon={<Package size={22} className="text-violet-600" />}
           color="bg-white"
           iconColor="bg-violet-50"
-          trend="Liquidez"
+          trend="Caixa"
           trendUp={s.saldoTotal >= 0}
         />
       </div>
@@ -219,23 +369,46 @@ export function DashboardPage() {
           variants={itemVariants}
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm lg:col-span-2 flex flex-col min-h-[400px]"
         >
-          <h3 className="text-lg font-bold text-gray-900 mb-6">
-            Fluxo de Caixa
+          <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <Layers size={18} className="text-indigo-600" />
+            Evolução Diária de Vendas
           </h3>
           <div className="flex-grow w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={charts?.salesByDay || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart
+                data={charts?.salesByDay || []}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="colorVendas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} tickFormatter={(value) => `R$ ${value}`} />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  tickFormatter={(value) => `R$ ${value}`}
+                />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="vendas" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorVendas)" activeDot={{ r: 6, strokeWidth: 0 }} />
+                <Area
+                  type="monotone"
+                  dataKey="vendas"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorVendas)"
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -246,115 +419,99 @@ export function DashboardPage() {
           className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col min-h-[400px]"
         >
           <h3 className="text-lg font-bold text-gray-900 mb-2">Mix de Produtos</h3>
+          <p className="text-xs text-gray-400 mb-4">Distribuição do estoque cadastrado</p>
           <div className="flex-grow flex items-center justify-center relative min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={categoryData.length ? categoryData : [{name: 'Vazio', value: 1}]} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                  {(categoryData.length ? categoryData : [{name: 'Vazio', value: 1}]).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                <Pie
+                  data={categoryData.length ? categoryData : [{ name: 'Cadastrados', value: s.activeProducts || 1 }]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {(categoryData.length ? categoryData : [{ name: 'Cadastrados', value: 1 }]).map(
+                    (_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    )
+                  )}
                 </Pie>
                 <Tooltip content={<PieTooltip />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold text-gray-800">{s.activeProducts}</span>
-              <span className="text-[10px] text-gray-400 uppercase">Itens Ativos</span>
+              <span className="text-3xl font-extrabold text-gray-900">{s.activeProducts}</span>
+              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Itens Ativos</span>
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* EXTRATO RECENTE */}
-      <motion.div variants={itemVariants}>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Extrato Recente</h3>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 text-xs text-gray-400 uppercase tracking-wider">
-              <tr>
-                <th className="p-4 pl-6">Descrição</th>
-                <th className="p-4">Data</th>
-                <th className="p-4 pr-6 text-right">Valor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 text-sm">
-              {recentList.map((tx) => (
-                <tr
-                  key={tx.id}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer group"
-                  onClick={() => openOrderDetails(tx)}
-                >
-                  <td className="p-4 pl-6">
-                    <p className="font-bold text-gray-900">{tx.customerName}</p>
-                    <p className="text-gray-500 text-xs">{tx.status}</p>
-                  </td>
-                  <td className="p-4 text-gray-500">
-                    {parseDate(tx.createdAt).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td className="p-4 pr-6 text-right font-medium text-emerald-600">
-                    {tx.total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                </tr>
-              ))}
-              {recentList.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-gray-400">
-                    Nenhuma transação recente encontrada.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
-
-      <DetalhePedidoModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        pedido={selectedOrder}
-        onUpdate={loadData}
-      />
+      {/* MODAL DETALHE DE PEDIDO */}
+      {selectedOrder && (
+        <DetalhePedidoModal
+          order={selectedOrder}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedOrder(null);
+          }}
+          onStatusChange={loadData}
+        />
+      )}
     </motion.div>
   );
 }
 
+// COMPONENTE AUXILIAR STATS CARD
 interface StatsCardProps {
-    title: string;
-    value: number;
-    icon: ReactNode;
-    color: string;
-    iconColor?: string;
-    trend: string;
-    trendUp: boolean;
-    isCurrency?: boolean;
+  title: string;
+  value: number;
+  icon: ReactNode;
+  color: string;
+  trend: string;
+  trendUp: boolean;
+  iconColor?: string;
 }
+
 function StatsCard({
   title,
   value,
   icon,
   color,
-  iconColor = 'bg-white/20',
   trend,
   trendUp,
-  isCurrency = true,
+  iconColor,
 }: StatsCardProps) {
-  const isSolid = color !== 'bg-white';
+  const isSolid = color.startsWith('bg-slate') || color.startsWith('bg-indigo');
+
   return (
     <motion.div
       variants={itemVariants}
-      className={`relative p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 group overflow-hidden ${color}`}
+      className={`p-6 rounded-2xl border transition-all duration-300 relative overflow-hidden group shadow-sm ${
+        isSolid
+          ? `${color} text-white border-transparent`
+          : 'bg-white border-gray-100 hover:border-gray-200'
+      }`}
     >
       <div className="flex justify-between items-start mb-4 relative z-10">
-        <div className={`p-3 rounded-xl ${iconColor} text-white`}>
-          <span className={isSolid ? 'text-white' : ''}>{icon}</span>
+        <div
+          className={`p-3 rounded-xl ${
+            isSolid ? 'bg-white/10' : iconColor || 'bg-gray-50'
+          }`}
+        >
+          {icon}
         </div>
         <div
           className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
             isSolid
               ? 'bg-white/20 text-white'
               : trendUp
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-rose-50 text-rose-600'
+              ? 'bg-emerald-50 text-emerald-600'
+              : 'bg-rose-50 text-rose-600'
           }`}
         >
           {trend}
@@ -362,22 +519,20 @@ function StatsCard({
       </div>
       <div className="relative z-10">
         <h2
-          className={`text-sm font-medium mb-1 ${isSolid ? 'text-indigo-100' : 'text-gray-500'}`}
+          className={`text-sm font-medium mb-1 ${
+            isSolid ? 'text-slate-300' : 'text-gray-500'
+          }`}
         >
           {title}
         </h2>
         <div
-          className={`text-3xl font-bold tracking-tight ${isSolid ? 'text-white' : 'text-gray-900'}`}
+          className={`text-2xl font-extrabold tracking-tight ${
+            isSolid ? 'text-amber-400' : 'text-gray-900'
+          }`}
         >
-          {isCurrency
-            ? value.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })
-            : value}
+          {formatCurrency(value)}
         </div>
       </div>
-      <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-white/0 to-white/10 rounded-full blur-2xl transform group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
     </motion.div>
   );
 }

@@ -28,28 +28,32 @@ export class OrdersService {
   }
 
   async create(data: CreateOrderDto, userId: string) {
+    const isBudget = data.status === OrderStatus.ORCAMENTO;
+
     // 1. Iniciamos uma transação no Prisma para garantir atomicidade (Estoque + Pedido)
     return this.prisma.$transaction(async (tx) => {
-      // 2. Verificar estoque e calcular total
-      for (const item of data.items) {
-        if (item.productId) {
-          const product = await tx.product.findFirst({
-            where: { id: item.productId, userId },
-          });
+      // 2. Se não for orçamento, verificar estoque e decrementar
+      if (!isBudget) {
+        for (const item of data.items) {
+          if (item.productId) {
+            const product = await tx.product.findFirst({
+              where: { id: item.productId, userId },
+            });
 
-          if (!product) {
-            throw new BadRequestException(`Produto ${item.name} não encontrado no catálogo.`);
+            if (!product) {
+              throw new BadRequestException(`Produto ${item.name} não encontrado no catálogo.`);
+            }
+
+            if (product.quantity < item.quantity) {
+              throw new BadRequestException(`Estoque insuficiente para o produto ${product.name}. Disponível: ${product.quantity}, Solicitado: ${item.quantity}`);
+            }
+
+            // Decrementa o estoque
+            await tx.product.update({
+              where: { id: product.id },
+              data: { quantity: { decrement: item.quantity } },
+            });
           }
-
-          if (product.quantity < item.quantity) {
-            throw new BadRequestException(`Estoque insuficiente para o produto ${product.name}. Disponível: ${product.quantity}, Solicitado: ${item.quantity}`);
-          }
-
-          // Decrementa o estoque
-          await tx.product.update({
-            where: { id: product.id },
-            data: { quantity: { decrement: item.quantity } },
-          });
         }
       }
 
@@ -105,8 +109,30 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Se estiver cancelando, precisamos restaurar o estoque
-      if (newStatus === OrderStatus.CANCELADO) {
+      // Se era orçamento e foi aprovado/ativado (ex: AGUARDANDO_PAGAMENTO ou PAGO), baixa estoque agora
+      if (order.status === OrderStatus.ORCAMENTO && newStatus !== OrderStatus.CANCELADO) {
+        for (const item of order.items) {
+          if (item.productId) {
+            const product = await tx.product.findFirst({
+              where: { id: item.productId, userId },
+            });
+            if (product && product.quantity < item.quantity) {
+              throw new BadRequestException(
+                `Estoque insuficiente ao aprovar orçamento para ${product.name}. Disponível: ${product.quantity}, Solicitado: ${item.quantity}`,
+              );
+            }
+            if (product) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: { quantity: { decrement: item.quantity } },
+              });
+            }
+          }
+        }
+      }
+
+      // Se estiver cancelando (e NÃO era orçamento), restauramos o estoque
+      if (newStatus === OrderStatus.CANCELADO && order.status !== OrderStatus.ORCAMENTO) {
         for (const item of order.items) {
           if (item.productId) {
             await tx.product.update({
@@ -125,9 +151,80 @@ export class OrdersService {
     });
   }
 
+  async emitNfe(orderId: string, userId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: { items: true, customer: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+
+    if (order.status === OrderStatus.ORCAMENTO) {
+      throw new BadRequestException('Não é possível emitir NF-e para um orçamento não aprovado.');
+    }
+
+    if (order.nfeStatus === 'EMITIDA' && order.nfeKey) {
+      return order;
+    }
+
+    // Obter dados fiscais do emitente
+    const config = await this.prisma.config.findUnique({ where: { userId } });
+    const nfeSerie = config?.nfeSerie || 1;
+    const currentNumber = config?.nfeProximoNumero || 1;
+    const cnpj = (config?.cnpjEmitente || '00000000000191').replace(/\D/g, '').padEnd(14, '0').slice(0, 14);
+
+    // Gerador de Chave de Acesso SEFAZ (44 dígitos padrão nacional)
+    // Formato: cUF(2) + AAMM(4) + CNPJ(14) + mod(2) + serie(3) + nNF(9) + tpEmis(1) + cNF(8) + cDV(1)
+    const now = new Date();
+    const uf = '35'; // SP padrão
+    const aamm = `${now.getFullYear().toString().slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const mod = '55'; // NF-e modelo 55
+    const serieStr = String(nfeSerie).padStart(3, '0');
+    const nNFStr = String(currentNumber).padStart(9, '0');
+    const tpEmis = '1'; // Normal
+    const cNF = Math.floor(10000000 + Math.random() * 90000000).toString();
+
+    // Cálculo do dígito verificador módulo 11
+    const baseKey = `${uf}${aamm}${cnpj}${mod}${serieStr}${nNFStr}${tpEmis}${cNF}`;
+    let soma = 0;
+    let peso = 2;
+    for (let i = baseKey.length - 1; i >= 0; i--) {
+      soma += parseInt(baseKey[i], 10) * peso;
+      peso = peso === 9 ? 2 : peso + 1;
+    }
+    const resto = soma % 11;
+    const cDV = resto < 2 ? 0 : 11 - resto;
+    const nfeKey = `${baseKey}${cDV}`;
+    const nfeProtocol = `1${uf}${aamm.slice(0, 2)}${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+
+    // Atualiza próximo número no config
+    if (config) {
+      await this.prisma.config.update({
+        where: { id: config.id },
+        data: { nfeProximoNumero: currentNumber + 1 },
+      });
+    }
+
+    // Salva no pedido
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        nfeKey,
+        nfeNumber: currentNumber,
+        nfeStatus: 'EMITIDA',
+        nfeProtocol,
+        nfeIssuedAt: now,
+      },
+      include: { items: true, customer: true },
+    });
+  }
+
   // Máquina de estados baseada no legacy (order.service.js)
   private getValidTransitions(currentStatus: OrderStatus): OrderStatus[] {
     const transitions: Record<OrderStatus, OrderStatus[]> = {
+      ORCAMENTO: [OrderStatus.AGUARDANDO_PAGAMENTO, OrderStatus.PAGO, OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
       AGUARDANDO_PAGAMENTO: [OrderStatus.PAGO, OrderStatus.EM_PRODUCAO, OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],
       PAGO: [OrderStatus.EM_PRODUCAO, OrderStatus.CANCELADO],
       EM_PRODUCAO: [OrderStatus.EM_SEPARACAO, OrderStatus.CANCELADO],

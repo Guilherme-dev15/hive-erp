@@ -12,6 +12,7 @@ import { CouponsModule } from './coupons/coupons.module';
 import { ConfigModule } from './config/config.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PaymentsModule } from './payments/payments.module';
+import { CustomersModule } from './customers/customers.module';
 import { LoggerModule } from 'nestjs-pino';
 
 @Module({
@@ -39,7 +40,8 @@ import { LoggerModule } from 'nestjs-pino';
     CouponsModule, 
     ConfigModule, 
     DashboardModule,
-    PaymentsModule
+    PaymentsModule,
+    CustomersModule
   ],
   controllers: [AppController],
   providers: [AppService],

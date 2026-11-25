@@ -15,12 +15,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "nest-api/src/serverless.ts",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-test-uid, Accept, Origin"
-      }
+      "dest": "nest-api/src/serverless.ts"
     },
     {
       "src": "/assets/(.*)",

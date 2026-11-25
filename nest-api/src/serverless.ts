@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import serverlessExpress from '@vendia/serverless-express';
 import { Handler, Context, Callback } from 'aws-lambda';
 import { Logger } from 'nestjs-pino';
+import { createCorsOptions, parseAllowedOrigins } from './config/cors';
 
 let cachedServer: Handler;
 
@@ -11,38 +12,19 @@ async function bootstrap() {
   if (!cachedServer) {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-    app.setGlobalPrefix('api/v2');
-
     app.useLogger(app.get(Logger));
 
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      })
+    );
 
-    // Configurando CORS seguro
-    const allowedOrigins = process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',')
-      : [
-          'https://hive-erp.vercel.app',
-          'https://hiveerp-catalogo.vercel.app'
-        ];
-
-    app.enableCors({
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Permitimos ausência de origin (ex: chamadas Server-to-Server ou curl), ou origins homologados
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
-      },
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      preflightContinue: true,
-      optionsSuccessStatus: 204,
-      credentials: true,
-    });
+    app.enableCors(
+      createCorsOptions(parseAllowedOrigins(process.env.ALLOWED_ORIGINS))
+    );
 
     await app.init();
 
@@ -52,7 +34,11 @@ async function bootstrap() {
   return cachedServer;
 }
 
-export default async function handler(event: any, context: Context, callback: Callback) {
+export default async function handler(
+  event: any,
+  context: Context,
+  callback: Callback
+) {
   const server = await bootstrap();
   return server(event, context, callback);
 }

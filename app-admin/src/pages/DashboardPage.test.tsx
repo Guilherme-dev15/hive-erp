@@ -20,13 +20,22 @@ vi.mock('framer-motion', () => ({
 }));
 
 // Mock lucide-react to avoid invalid React child errors during render in JSDOM
-vi.mock('lucide-react', () => ({
-  DollarSign: () => <span data-testid="icon-dollar" />,
-  TrendingUp: () => <span data-testid="icon-trending" />,
-  Download: () => <span data-testid="icon-download" />,
-  Package: () => <span data-testid="icon-package" />,
-  AlertCircle: () => <span data-testid="icon-alert" />,
-}));
+vi.mock('lucide-react', () => {
+  const MockIcon = () => <span data-testid="mock-icon" />;
+  return {
+    DollarSign: MockIcon,
+    TrendingUp: MockIcon,
+    TrendingDown: MockIcon,
+    Download: MockIcon,
+    Package: MockIcon,
+    AlertCircle: MockIcon,
+    FileText: MockIcon,
+    Clock: MockIcon,
+    Sparkles: MockIcon,
+    Layers: MockIcon,
+    AlertTriangle: MockIcon,
+  };
+});
 
 // Mock recharts because it uses ResizeObserver which doesn't exist in JSDOM
 vi.mock('recharts', () => ({
