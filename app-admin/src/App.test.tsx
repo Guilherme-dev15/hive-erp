@@ -128,6 +128,10 @@ vi.mock('./components/ErrorBoundary', () => ({
 vi.mock('lucide-react', () => {
   const Icon = () => null;
   return {
+    AlertCircle: Icon,
+    AlertTriangle: Icon,
+    ArrowLeft: Icon,
+    ArrowRight: Icon,
     BarChart3: Icon,
     Briefcase: Icon,
     Calculator: Icon,
@@ -141,12 +145,14 @@ vi.mock('lucide-react', () => {
     Lock: Icon,
     LogOut: Icon,
     Menu: Icon,
+    MessageCircle: Icon,
     Package: Icon,
     Percent: Icon,
     Settings: Icon,
     Shield: Icon,
     ShieldCheck: Icon,
     ShoppingBag: Icon,
+    Sparkles: Icon,
     Tags: Icon,
     Ticket: Icon,
     UserCheck: Icon,

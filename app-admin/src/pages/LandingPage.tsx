@@ -1,19 +1,16 @@
+import React from 'react';
 import {
   ArrowRight,
-  BarChart3,
-  Camera,
   CheckCircle2,
-  CreditCard,
   ExternalLink,
-  Globe,
+  MessageCircle,
   Package,
-  Ruler,
-  ShieldCheck,
-  ShoppingBag,
+  ShoppingCart,
+  DollarSign,
+  FileText,
+  Users,
+  BarChart3,
   Sparkles,
-  Store,
-  TrendingUp,
-  Zap,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -21,508 +18,494 @@ interface LandingPageProps {
   onNavigate: (path: '/termos' | '/privacidade') => void;
 }
 
-const NICHES = [
-  { icon: '💍', title: 'Prata 925 & 950', desc: 'Controle de estoque por malha e gramas' },
-  { icon: '✨', title: 'Semijoias Banhadas', desc: 'Gestão de banhos e termos de garantia' },
-  { icon: '👑', title: 'Joias em Ouro 18k', desc: 'Markup de pedras preciosas e segurança' },
-  { icon: '💎', title: 'Acessórios & Zircônias', desc: 'Vitrines públicas de alto padrão visual' },
-];
-
-const FEATURES = [
-  {
-    icon: Camera,
-    badge: 'Exclusivo',
-    title: 'NeonStudio™ Fundo Branco em 1 Clique',
-    description:
-      'Enquadre suas joias com mira milimétrica e zoom suave de 0.5x a 5x. Exporte em fundo branco puro #FFFFFF direto do celular sem Photoshop.',
-  },
-  {
-    icon: Ruler,
-    badge: 'Especialista',
-    title: 'Medidas Específicas de Joias',
-    description:
-      'Cadastre colares em centímetros (40cm, 45cm, 60cm), anéis com grade de aros (12 ao 26), pingentes em milímetros e correntes por malha (Veneziana, Grumet).',
-  },
-  {
-    icon: Globe,
-    badge: '0% Comissão',
-    title: 'Vitrine no Seu Subdomínio',
-    description:
-      'Sua vitrine pública pronta em sua-loja.hiveerp.com.br. O cliente monta a sacola e o pedido chega completo no seu WhatsApp.',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Pedido Integrado ao Estoque',
-    description:
-      'Cada venda do catálogo dá baixa atômica no estoque de medidas e lança no fluxo de caixa automaticamente.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Financeiro & DRE em Tempo Real',
-    description:
-      'Acompanhe faturamento, custos de embalagem, taxas de cartão, lucro líquido e curva ABC de vendas.',
-  },
-  {
-    icon: BarChart3,
-    title: 'CRM de Clientes & LTV',
-    description:
-      'Veja o histórico por cliente, quem mais compra suas peças e reengaje contatos no WhatsApp com 1 clique.',
-  },
-];
-
-const SETUP_BATCHES = [
-  {
-    tier: 'Lote Inicial',
-    title: 'Até 200 produtos',
-    price: 'R$ 149',
-    detail: 'Cadastro e organização assistida da sua planilha ou fotos do fornecedor.',
-  },
-  {
-    tier: 'Lote Intermediário',
-    title: 'Até 300 produtos',
-    price: 'R$ 199',
-    detail: 'Subida completa com fotos tratadas, medidas, categorias e preços prontos para vender.',
-  },
-  {
-    tier: 'Lote Alto Volume',
-    title: 'Até 500 produtos',
-    price: 'R$ 299',
-    detail: 'Implantação dedicada para catálogos extensos com validação antes da publicação.',
-  },
-];
-
-const FAQS = [
-  {
-    q: 'Preciso cadastrar cartão de crédito para testar?',
-    a: 'Não. Você cria sua conta com seu e-mail ou Google e recebe 14 dias grátis de acesso completo sem informar cartão.',
-  },
-  {
-    q: 'O que é o NeonStudio e como ele me ajuda?',
-    a: 'É nosso estúdio fotográfico integrado ao ERP. Você tira ou envia a foto da joia pelo próprio celular e, com 1 clique, enquadra com precisão milimétrica e gera o fundo branco puro #FFFFFF padronizado para e-commerce de joias.',
-  },
-  {
-    q: 'Como funciona a vitrine com pedidos no WhatsApp?',
-    a: 'Sua loja recebe um link exclusivo (ex: sua-loja.hiveerp.com.br). O cliente navega pelos produtos, escolhe medidas e aros, monta o carrinho e o pedido chega detalhado no seu WhatsApp, pronto para fechar a venda sem nenhuma taxa.',
-  },
-  {
-    q: 'E se eu já tiver muitos produtos e não quiser cadastrar na mão?',
-    a: 'Você pode contratar nosso serviço opcional de Implantação VIP: envie sua planilha ou fotos do fornecedor e nossa equipe técnica sobe até 200, 300 ou 500 produtos prontos para vender.',
-  },
-];
-
 export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
+  const whatsappUrl =
+    'https://wa.me/5511999999999?text=' +
+    encodeURIComponent('Olá! Gostaria de conhecer o Hive ERP e agendar uma demonstração.');
+
   return (
-    <div className="min-h-screen bg-off-white text-carvao flex flex-col font-sans">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-dourado text-carvao font-extrabold flex items-center justify-center shadow-sm">
-              H
-            </div>
-            <div>
-              <span className="font-extrabold tracking-wider text-sm uppercase block leading-none">
-                HIVE ERP
-              </span>
-              <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
-                Especialista em Joias
-              </span>
-            </div>
+    <div className="min-h-screen bg-[#f4f6f8] text-[#222226] font-sans">
+      {/* Header Fixo */}
+      <header className="sticky top-0 z-30 bg-[#2b2b2e] text-[#f1f1f3] shadow-md border-b border-[#3a3a40]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 font-black text-xl tracking-tight">
+            <span
+              className="w-7 h-8 bg-[#f2a900] inline-block"
+              style={{
+                clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+              }}
+            />
+            <span>HIVE ERP</span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-gray-600">
-            <a href="#diferenciais" className="hover:text-carvao transition">
-              Diferenciais
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-300">
+            <a href="#modulos" className="hover:text-white transition">
+              Módulos
             </a>
-            <a href="#neonstudio" className="hover:text-carvao transition flex items-center gap-1">
-              <span>NeonStudio™</span>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
-                Exclusivo
-              </span>
+            <a href="#segmentos" className="hover:text-white transition">
+              Segmentos
             </a>
-            <a href="#planos" className="hover:text-carvao transition">
-              Planos & Preços
+            <a href="#precos" className="hover:text-white transition">
+              Preços
             </a>
-            <a href="#faq" className="hover:text-carvao transition">
+            <a href="#faq" className="hover:text-white transition">
               Dúvidas
             </a>
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onStartTrial}
-              className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-carvao hover:bg-gray-100 rounded-lg transition"
+              className="text-sm font-semibold text-gray-300 hover:text-white transition px-2 py-1"
             >
               Entrar no Painel
             </button>
             <button
               type="button"
               onClick={onStartTrial}
-              className="px-4 py-2 text-xs sm:text-sm font-bold bg-carvao text-white hover:bg-gray-800 rounded-xl shadow-sm transition inline-flex items-center gap-1.5"
+              className="inline-flex items-center justify-center min-h-[42px] px-5 rounded-full font-bold text-sm bg-[#f2a900] text-[#1d1d20] hover:bg-amber-400 hover:shadow-md transition-all duration-200"
             >
-              <span>Testar 14 dias grátis</span>
-              <ArrowRight size={15} />
+              Começar 14 dias grátis
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-to-b from-slate-950 via-carvao to-slate-900 text-white py-16 sm:py-24 px-4 sm:px-6">
-          <div className="max-w-5xl mx-auto text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-semibold text-dourado">
+      {/* Hero com Colmeia Hexagonal */}
+      <section className="bg-[#2b2b2e] text-[#f1f1f3] py-16 sm:py-20 border-b border-[#3a3a40]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[#f2a900] text-xs font-bold uppercase tracking-wider">
               <Sparkles size={14} />
-              <span>O 1º ERP Especialista em Joias, Semijoias e Prata 925 • 14 dias grátis</span>
+              <span>O ERP e Catálogo Online Especialista</span>
             </div>
-
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
-              Abandone as planilhas. Tenha ERP e Catálogo Online especialista em Joias e Semijoias
+              Venda, controle o estoque e emita nota fiscal sem trocar de sistema.
             </h1>
-
-            <p className="text-base sm:text-lg text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              Chega de perder tempo calculando medidas à mão ou mandando fotos soltas no privado. O Hive ERP organiza seu estoque em centímetros e aros, trata fotos no <strong>NeonStudio</strong> e entrega pedidos prontos no seu WhatsApp.
+            <p className="text-base sm:text-lg text-gray-300 max-w-xl leading-relaxed">
+              O Hive ERP junta vendas, estoque, financeiro e fiscal em um painel só, na nuvem, para a sua equipe parar de brigar com planilhas.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="button"
                 onClick={onStartTrial}
-                className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-dourado text-carvao font-extrabold text-sm sm:text-base shadow-lg hover:opacity-95 transition inline-flex items-center justify-center gap-2"
+                className="inline-flex items-center justify-center gap-2 min-h-[48px] px-7 rounded-full font-bold text-base bg-[#f2a900] text-[#1d1d20] hover:bg-amber-400 hover:scale-[1.02] shadow-lg transition-all"
               >
-                <span>Começar 14 dias grátis</span>
+                <span>Testar grátis por 14 dias</span>
                 <ArrowRight size={18} />
               </button>
               <a
-                href="https://hive.hiveerp.com.br"
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-white/25 text-white font-semibold text-sm sm:text-base hover:bg-white/10 transition inline-flex items-center justify-center gap-2"
+                className="inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-full font-semibold text-base border-2 border-gray-400 text-gray-100 hover:border-white hover:text-white transition"
               >
-                <span>Ver Vitrine Exemplo (Hive Pratas)</span>
-                <ExternalLink size={16} />
+                <MessageCircle size={18} />
+                <span>Falar no WhatsApp</span>
               </a>
             </div>
-
-            <div className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto text-xs sm:text-sm text-gray-300">
-              <div className="flex items-center justify-center gap-2 bg-white/5 rounded-xl py-2.5 px-3 border border-white/10">
-                <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
-                <span>Sem cartão de crédito</span>
-              </div>
-              <div className="flex items-center justify-center gap-2 bg-white/5 rounded-xl py-2.5 px-3 border border-white/10">
-                <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
-                <span>NeonStudio™ com fundo branco puro</span>
-              </div>
-              <div className="flex items-center justify-center gap-2 bg-white/5 rounded-xl py-2.5 px-3 border border-white/10">
-                <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
-                <span>Implantação VIP de catálogo</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Barra de Nichos Especializados */}
-        <section className="py-10 bg-white border-b border-gray-200/80">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <p className="text-center text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">
-              Desenvolvido sob medida para as necessidades de:
+            <p className="text-xs text-gray-400">
+              Sem cartão de crédito. Sem fidelidade. Cancele quando quiser.
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {NICHES.map((niche) => (
-                <div key={niche.title} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-center space-y-1">
-                  <span className="text-2xl block">{niche.icon}</span>
-                  <h4 className="font-bold text-sm text-carvao">{niche.title}</h4>
-                  <p className="text-xs text-gray-500">{niche.desc}</p>
-                </div>
-              ))}
+          </div>
+
+          {/* Colmeia Hexagonal com 6 Células */}
+          <div className="lg:col-span-5 flex justify-center">
+            <div className="grid grid-cols-3 gap-2.5 max-w-[380px] w-full pb-8">
+              <div
+                className="aspect-[1/1.15] bg-[#f2a900] text-[#1d1d20] flex flex-col items-center justify-center p-3 text-center rounded animate-pulse"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                <b className="text-lg sm:text-xl font-extrabold block">R$ 14,8k</b>
+                <span className="text-[11px] font-semibold leading-tight">vendas hoje</span>
+              </div>
+
+              <div
+                className="aspect-[1/1.15] bg-[#3a3a3f] text-[#c9cbd2] flex flex-col items-center justify-center p-3 text-center translate-y-6"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                <b className="text-lg sm:text-xl font-extrabold text-white block">32</b>
+                <span className="text-[11px] leading-tight">notas emitidas</span>
+              </div>
+
+              <div
+                className="aspect-[1/1.15] bg-[#3a3a3f] text-[#c9cbd2] flex flex-col items-center justify-center p-3 text-center"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                <b className="text-lg sm:text-xl font-extrabold text-white block">R$ 48,2k</b>
+                <span className="text-[11px] leading-tight">a receber</span>
+              </div>
+
+              <div
+                className="aspect-[1/1.15] bg-[#3a3a3f] text-[#c9cbd2] flex flex-col items-center justify-center p-3 text-center"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                <b className="text-lg sm:text-xl font-extrabold text-white block">0</b>
+                <span className="text-[11px] leading-tight">itens em falta</span>
+              </div>
+
+              <div
+                className="aspect-[1/1.15] bg-[#f2a900] text-[#1d1d20] flex flex-col items-center justify-center p-3 text-center translate-y-6 animate-pulse"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                <b className="text-lg sm:text-xl font-extrabold block">+28%</b>
+                <span className="text-[11px] font-semibold leading-tight">lucro do mês</span>
+              </div>
+
+              <div
+                className="aspect-[1/1.15] bg-[#3a3a3f] text-[#c9cbd2] flex flex-col items-center justify-center p-3 text-center"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                <b className="text-lg sm:text-xl font-extrabold text-white block">R$ 12,5k</b>
+                <span className="text-[11px] leading-tight">a pagar</span>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Destaque NeonStudio */}
-        <section id="neonstudio" className="py-16 sm:py-20 px-4 sm:px-6 max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-            <div className="space-y-5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800">
-                <Camera size={14} />
-                <span>Tecnologia Exclusiva de Joalheria</span>
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-carvao tracking-tight">
-                Fotos profissionais com fundo branco direto do seu celular
-              </h2>
-              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
-                Joias exigem nitidez e apresentação impecável. Com o <strong>NeonStudio™</strong>, você não precisa pagar caro por estúdio nem perder horas no Photoshop:
+      {/* Prova de Segmentos */}
+      <div className="border-b border-gray-200 bg-white py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap gap-6 sm:gap-12 justify-center items-center text-sm font-bold text-gray-500">
+          <span>✨ Pratas & Semijoias</span>
+          <span>🛍️ Lojas & Varejo</span>
+          <span>📦 Distribuidoras</span>
+          <span>⚙️ Fabricantes & Oficinas</span>
+          <span>🚀 E-commerces</span>
+        </div>
+      </div>
+
+      {/* Dores */}
+      <section className="py-20 max-w-6xl mx-auto px-4 sm:px-6">
+        <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-10 text-center">
+          Se a sua rotina parece isso, o problema não é a equipe.
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:border-[#f2a900] transition">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Estoque que não bate</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Vende o que não tem e compra o que já sobra, porque cada setor olha para uma planilha diferente.
+            </p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:border-[#f2a900] transition">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Nota fiscal na correria</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Dados digitados duas vezes, erro de cadastro e rejeição da SEFAZ na hora de emitir para o cliente.
+            </p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:border-[#f2a900] transition">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Dinheiro sem visão</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Fim do mês chega e ninguém sabe ao certo quanto entrou, quanto saiu e quanto realmente sobrou de lucro.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Módulos */}
+      <section id="modulos" className="py-20 bg-white border-y border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-10 text-center">
+            Tudo conectado: o que entra em um módulo aparece nos outros.
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-[#f4f6f8] border border-gray-200 rounded-2xl p-6">
+              <div
+                className="w-11 h-12 bg-[#f2a900] flex items-center justify-center text-xl mb-4 font-bold"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                🛒
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Vendas e PDV</h3>
+              <p className="text-sm text-gray-600">
+                Orçamento, pedido e venda no balcão ou online, com o estoque baixando sozinho em tempo real.
               </p>
-              <ul className="space-y-2.5 text-sm text-gray-700">
+            </div>
+
+            <div className="bg-[#f4f6f8] border border-gray-200 rounded-2xl p-6">
+              <div
+                className="w-11 h-12 bg-[#f2a900] flex items-center justify-center text-xl mb-4 font-bold"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                📦
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Estoque Inteligente</h3>
+              <p className="text-sm text-gray-600">
+                Saldo em tempo real, controle por medidas/grades, alertas de estoque mínimo e entradas por XML.
+              </p>
+            </div>
+
+            <div className="bg-[#f4f6f8] border border-gray-200 rounded-2xl p-6">
+              <div
+                className="w-11 h-12 bg-[#f2a900] flex items-center justify-center text-xl mb-4 font-bold"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                💰
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Financeiro Completo</h3>
+              <p className="text-sm text-gray-600">
+                Contas a pagar e receber, fluxo de caixa diário, conciliação Pix e DRE gerencial simplificado.
+              </p>
+            </div>
+
+            <div className="bg-[#f4f6f8] border border-gray-200 rounded-2xl p-6">
+              <div
+                className="w-11 h-12 bg-[#f2a900] flex items-center justify-center text-xl mb-4 font-bold"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                🧾
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Nota Fiscal Eletrônica</h3>
+              <p className="text-sm text-gray-600">
+                Emissão de NF-e e NFC-e direto da venda com cálculo automático de impostos e sem retrabalho.
+              </p>
+            </div>
+
+            <div className="bg-[#f4f6f8] border border-gray-200 rounded-2xl p-6">
+              <div
+                className="w-11 h-12 bg-[#f2a900] flex items-center justify-center text-xl mb-4 font-bold"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                🤝
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Clientes & CRM</h3>
+              <p className="text-sm text-gray-600">
+                Histórico completo de compras por cliente, curva ABC e integração de contato no WhatsApp.
+              </p>
+            </div>
+
+            <div className="bg-[#f4f6f8] border border-gray-200 rounded-2xl p-6">
+              <div
+                className="w-11 h-12 bg-[#f2a900] flex items-center justify-center text-xl mb-4 font-bold"
+                style={{
+                  clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
+                }}
+              >
+                📊
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Relatórios Gerenciais</h3>
+              <p className="text-sm text-gray-600">
+                Painéis claros de faturamento, margem real por produto e desempenho de vendas por período.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Planos com Preços Claros */}
+      <section id="precos" className="py-20 max-w-6xl mx-auto px-4 sm:px-6">
+        <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3 text-center">
+          Planos com preço claro e sem surpresas.
+        </h2>
+        <p className="text-sm sm:text-base text-gray-600 text-center mb-12 max-w-xl mx-auto">
+          Escolha o plano ideal para a sua empresa e comece com 14 dias de teste grátis sem cartão.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          {/* Essencial */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Essencial</h3>
+              <p className="text-xs text-gray-500 mt-1">Para quem está organizando a casa.</p>
+              <div className="my-6">
+                <span className="text-4xl font-black text-gray-900">R$ 59</span>
+                <span className="text-sm text-gray-500 font-medium">/mês</span>
+              </div>
+              <ul className="space-y-3 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-amber-700 flex-shrink-0" />
-                  <span>Enquadramento milimétrico com mira central para anéis, brincos e colares</span>
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>1 usuário administrador</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-amber-700 flex-shrink-0" />
-                  <span>Zoom suave de 0.5x a 5.0x com ajuste fino no mouse wheel ou botões</span>
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Controle de vendas e estoque</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-amber-700 flex-shrink-0" />
-                  <span>Processamento em Canvas gerando JPEG 1080x1080 em fundo branco puro (#FFFFFF)</span>
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Vitrine virtual pública</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-amber-700 flex-shrink-0" />
-                  <span>Geração inteligente de código SKU (ex: ANE-HP-482)</span>
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Suporte via chat e e-mail</span>
                 </li>
               </ul>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onStartTrial}
-                  className="px-6 py-3 bg-carvao hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md transition inline-flex items-center gap-2"
-                >
-                  <Sparkles size={14} className="text-dourado" />
-                  <span>Testar NeonStudio Grátis</span>
-                </button>
-              </div>
             </div>
-
-            <div className="bg-carvao rounded-3xl p-6 text-white border border-gray-800 shadow-xl space-y-4">
-              <div className="aspect-square rounded-2xl bg-white p-6 flex flex-col items-center justify-center text-center text-carvao relative overflow-hidden">
-                <div className="w-40 h-40 rounded-full border border-dashed border-gray-300 absolute flex items-center justify-center pointer-events-none opacity-40">
-                  <div className="w-20 h-20 border border-gray-200 rounded-full"></div>
-                </div>
-                <span className="text-5xl mb-2">💎</span>
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Preview NeonStudio</span>
-                <span className="text-sm font-extrabold text-carvao mt-0.5">Colar Ponto de Luz Prata 925</span>
-                <span className="text-[11px] font-bold text-emerald-600 mt-1">✓ Fundo Branco #FFFFFF Puro</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-gray-400 px-1 font-mono">
-                <span>Pan X/Y Interativo</span>
-                <span>Zoom: 1.8x</span>
-                <span>1080 x 1080 px</span>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={onStartTrial}
+              className="mt-8 w-full py-3 rounded-full border-2 border-gray-300 font-bold text-sm text-gray-800 hover:border-gray-900 transition"
+            >
+              Testar 14 dias grátis
+            </button>
           </div>
-        </section>
 
-        {/* Recursos Gerais */}
-        <section id="diferenciais" className="py-16 sm:py-20 px-4 sm:px-6 bg-white border-y border-gray-200/80">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="text-xs font-bold uppercase tracking-widest text-amber-700">
-                Operação Completa para Joalherias
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-carvao mt-2">
-                Tudo o que sua marca precisa do estoque ao faturamento
-              </h2>
-              <p className="text-sm sm:text-base text-gray-600 mt-2">
-                Pensado para operações que precisam vender rápido pelo WhatsApp mantendo precisão de medidas e controle financeiro total.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {FEATURES.map((feature) => {
-                const Icon = feature.icon;
-                return (
-                  <div
-                    key={feature.title}
-                    className="bg-off-white rounded-2xl p-6 border border-gray-200/80 shadow-sm hover:shadow-md transition space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-700 flex items-center justify-center">
-                        <Icon size={22} />
-                      </div>
-                      {feature.badge && (
-                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
-                          {feature.badge}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-base text-carvao">{feature.title}</h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">{feature.description}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* Planos & Implantação VIP */}
-        <section id="planos" className="py-16 sm:py-24 px-4 sm:px-6 max-w-6xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="text-xs font-extrabold uppercase tracking-widest text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
-              Preço Justo e Transparente
+          {/* Profissional - Mais Escolhido */}
+          <div className="bg-white border-2 border-[#f2a900] rounded-2xl p-8 flex flex-col justify-between shadow-lg relative">
+            <span className="absolute -top-3 left-6 bg-[#f2a900] text-[#1d1d20] text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
+              Mais Escolhido
             </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-carvao mt-3 tracking-tight">
-              Plano Único Completo + Implantação VIP Opcional
-            </h2>
-            <p className="text-sm sm:text-base text-gray-600 mt-2">
-              Teste por 14 dias sem cartão de crédito. Se quiser economizar dias de cadastro, nossa equipe sobe suas peças prontas para vender.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
-            {/* Plano Mensal Pro */}
-            <div className="lg:col-span-2 bg-gradient-to-b from-gray-900 via-carvao to-black text-white rounded-3xl p-7 sm:p-8 flex flex-col justify-between shadow-2xl border border-gray-800 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-full pointer-events-none"></div>
-
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-dourado text-carvao text-xs font-extrabold shadow-sm">
-                    <Sparkles size={13} />
-                    <span>PLANO PRO ILIMITADO</span>
-                  </span>
-                  <span className="text-xs text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
-                    14 Dias Grátis
-                  </span>
-                </div>
-
-                <div className="flex items-baseline gap-2 mt-4">
-                  <span className="text-5xl font-extrabold tracking-tight">R$ 97</span>
-                  <span className="text-sm text-gray-400">/mês no Pix</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Sem fidelidade, sem taxas por venda e sem limite de produtos.</p>
-
-                <ul className="mt-7 space-y-3.5 text-xs sm:text-sm text-gray-200">
-                  {[
-                    'Produtos, fotos e pedidos ilimitados',
-                    'NeonStudio™ com fundo branco em 1 clique',
-                    'Vitrine pública no seu subdomínio',
-                    'Estoque por medidas (cm, mm, aros)',
-                    'Pedidos diretos no seu WhatsApp (0% taxa)',
-                    'Financeiro, DRE e Curva ABC integrados',
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2.5">
-                      <CheckCircle2 size={16} className="text-dourado mt-0.5 flex-shrink-0" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Profissional</h3>
+              <p className="text-xs text-gray-500 mt-1">Para empresas em crescimento acelerado.</p>
+              <div className="my-6">
+                <span className="text-4xl font-black text-gray-900">R$ 97</span>
+                <span className="text-sm text-gray-500 font-medium">/mês</span>
               </div>
-
-              <div className="pt-8">
-                <button
-                  type="button"
-                  onClick={onStartTrial}
-                  className="w-full py-4 px-4 rounded-xl bg-dourado hover:opacity-95 text-carvao font-extrabold text-sm shadow-xl hover:shadow-2xl transition flex items-center justify-center gap-2"
-                >
-                  <Store size={18} />
-                  <span>Criar Minha Loja Grátis</span>
-                </button>
-                <p className="text-center text-[11px] text-gray-400 mt-2">Ativação imediata • Sem necessidade de cartão</p>
-              </div>
+              <ul className="space-y-3 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span><strong>Usuários ilimitados</strong> sem custo</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Financeiro completo e conciliação Pix</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Emissão de Nota Fiscal (NF-e/NFC-e)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>NeonStudio™ fotos de produtos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Suporte prioritário via WhatsApp</span>
+                </li>
+              </ul>
             </div>
+            <button
+              type="button"
+              onClick={onStartTrial}
+              className="mt-8 w-full py-3.5 rounded-full bg-[#f2a900] font-bold text-sm text-[#1d1d20] hover:bg-amber-400 shadow-md transition"
+            >
+              Começar 14 dias grátis
+            </button>
+          </div>
 
-            {/* Implantação VIP por Lote */}
-            <div className="lg:col-span-3 bg-white rounded-3xl p-7 sm:p-8 border border-gray-200/90 flex flex-col justify-between shadow-sm relative">
-              <div>
-                <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
-                    Serviço Opcional • Acelerador de Início
-                  </span>
-                  <span className="text-xs text-gray-500 font-medium">
-                    Disponível no painel
-                  </span>
-                </div>
-
-                <h3 className="text-2xl font-extrabold text-carvao tracking-tight">
-                  Quer começar com seu catálogo 100% pronto?
-                </h3>
-                <p className="text-sm text-gray-600 mt-2 leading-relaxed">
-                  Não perca dias preenchendo tabelas. Envie suas fotos ou planilha e nossa equipe técnica sobe suas joias com imagens padronizadas em fundo branco, medidas e preços:
-                </p>
-
-                {/* 3 Lotes com visual de cards elevados */}
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  {SETUP_BATCHES.map((batch) => {
-                    const isPopular = batch.tier === 'Lote Intermediário';
-                    return (
-                      <div
-                        key={batch.title}
-                        className={`relative p-4 rounded-2xl border text-left transition ${
-                          isPopular
-                            ? 'border-carvao bg-white shadow-md ring-2 ring-dourado/40'
-                            : 'border-gray-200 bg-gray-50/70 hover:bg-white'
-                        }`}
-                      >
-                        {isPopular && (
-                          <span className="absolute -top-2.5 right-3 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-dourado text-carvao shadow-sm">
-                            ⭐ Mais Escolhido
-                          </span>
-                        )}
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                          {batch.tier}
-                        </span>
-                        <h4 className="font-extrabold text-sm text-carvao mt-1">{batch.title}</h4>
-                        <p className="text-2xl font-extrabold text-carvao mt-2">{batch.price}</p>
-                        <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                          {batch.detail}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
+          {/* Implantação VIP */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Implantação VIP</h3>
+              <p className="text-xs text-gray-500 mt-1">Nós cadastramos tudo para você.</p>
+              <div className="my-6">
+                <span className="text-4xl font-black text-gray-900">R$ 97</span>
+                <span className="text-xs text-gray-500 font-medium ml-1">parcela única</span>
               </div>
-
-              <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-emerald-600 flex-shrink-0" />
-                  <span>Você continua livre para cadastrar quantos itens quiser manualmente.</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onStartTrial}
-                  className="font-bold text-amber-800 hover:text-amber-900 transition flex items-center gap-1 self-start sm:self-auto"
-                >
-                  <span>Saiba mais no teste grátis</span>
-                  <span>→</span>
-                </button>
-              </div>
+              <ul className="space-y-3 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Setup de até 200 produtos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Opções de até 300 produtos ou até 500 produtos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Higienização de fotos e títulos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Treinamento prático da equipe</span>
+                </li>
+              </ul>
             </div>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-8 w-full py-3 rounded-full border-2 border-gray-300 font-bold text-sm text-gray-800 hover:border-gray-900 text-center transition"
+            >
+              Falar com Consultor
+            </a>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* FAQ */}
-        <section id="faq" className="py-16 px-4 sm:px-6 max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <span className="text-xs font-bold uppercase tracking-widest text-amber-700">Tire Suas Dúvidas</span>
-            <h2 className="text-2xl font-extrabold text-carvao mt-1">Perguntas Frequentes</h2>
+      {/* Dúvidas Frequentes FAQ */}
+      <section id="faq" className="py-20 bg-white border-t border-gray-200">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-8 text-center">
+            Dúvidas frequentes
+          </h2>
+          <div className="space-y-3 text-sm">
+            <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
+              <summary className="font-bold text-gray-900">Preciso instalar algum programa?</summary>
+              <p className="mt-2 text-gray-600 leading-relaxed">
+                Não. O Hive ERP funciona diretamente no navegador e também como aplicativo PWA no celular e tablet, sem necessidade de instalação complexa ou servidor próprio.
+              </p>
+            </details>
+            <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
+              <summary className="font-bold text-gray-900">O sistema emite nota fiscal?</summary>
+              <p className="mt-2 text-gray-600 leading-relaxed">
+                Sim. Você emite notas fiscais eletrônicas (NF-e e NFC-e) direto da tela de vendas, com transmissão rápida à SEFAZ e envio automático de DANFE e XML para o cliente.
+              </p>
+            </details>
+            <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
+              <summary className="font-bold text-gray-900">Posso importar meus dados de planilhas?</summary>
+              <p className="mt-2 text-gray-600 leading-relaxed">
+                Sim. Você pode importar seus produtos, fornecedores e clientes por planilha Excel/CSV, ou contratar nosso Setup VIP onde nossa equipe realiza todo o trabalho por você.
+              </p>
+            </details>
+            <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
+              <summary className="font-bold text-gray-900">Meus dados estão seguros?</summary>
+              <p className="mt-2 text-gray-600 leading-relaxed">
+                Sim, 100% seguros. Toda a comunicação trafega com criptografia SSL/TLS de ponta a ponta, backups diários automáticos na nuvem e controle rigoroso de permissões de usuário em conformidade com a LGPD.
+              </p>
+            </details>
+            <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
+              <summary className="font-bold text-gray-900">Existe fidelidade ou multa de cancelamento?</summary>
+              <p className="mt-2 text-gray-600 leading-relaxed">
+                Não. Não exigimos nenhum contrato de fidelidade. Você pode cancelar sua assinatura a qualquer momento e exportar todos os seus dados sem nenhuma taxa ou multa.
+              </p>
+            </details>
           </div>
-          <div className="space-y-4">
-            {FAQS.map((faq) => (
-              <div
-                key={faq.q}
-                className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm"
-              >
-                <h3 className="font-bold text-sm sm:text-base text-carvao">{faq.q}</h3>
-                <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">{faq.a}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="bg-carvao text-gray-300 py-8 px-4 sm:px-6 border-t border-gray-800">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-white">HIVE ERP</span>
-            <span>•</span>
-            <span>O ERP especialista em Joias, Semijoias e Prata 925</span>
-          </div>
-
-          <div className="flex items-center gap-5">
+      <footer className="bg-[#2b2b2e] text-[#b5b7bf] py-10 border-t border-[#3a3a40] text-xs">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap justify-between items-center gap-4">
+          <div>© 2026 Hive ERP. Todos os direitos reservados. CNPJ sob consulta.</div>
+          <div className="flex gap-4">
             <button
               type="button"
               onClick={() => onNavigate('/termos')}
-              className="hover:text-white underline-offset-4 hover:underline transition"
+              className="hover:text-white transition underline underline-offset-2"
             >
               Termos de Uso
             </button>
             <button
               type="button"
               onClick={() => onNavigate('/privacidade')}
-              className="hover:text-white underline-offset-4 hover:underline transition"
+              className="hover:text-white transition underline underline-offset-2"
             >
-              Política de Privacidade
+              Política de Privacidade (LGPD)
             </button>
           </div>
         </div>

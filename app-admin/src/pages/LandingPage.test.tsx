@@ -9,10 +9,10 @@ describe('LandingPage', () => {
 
     expect(screen.getAllByText(/HIVE ERP/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      /ERP e Catálogo Online/i,
+      /Venda, controle o estoque e emita nota fiscal/i,
     );
     expect(screen.getAllByText(/14 dias grátis/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/R\$\s*97/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/R\$\s*97/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/até 200 produtos/i)).toBeInTheDocument();
     expect(screen.getByText(/até 300 produtos/i)).toBeInTheDocument();
     expect(screen.getByText(/até 500 produtos/i)).toBeInTheDocument();
@@ -22,7 +22,8 @@ describe('LandingPage', () => {
     const onStartTrial = vi.fn();
     render(<LandingPage onStartTrial={onStartTrial} onNavigate={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Começar 14 dias grátis/i }));
+    const buttons = screen.getAllByRole('button', { name: /Começar 14 dias grátis/i });
+    fireEvent.click(buttons[0]);
     expect(onStartTrial).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: /Entrar no Painel/i }));

@@ -10,6 +10,9 @@ const {
   mockSignInWithPopup,
   mockSignInWithRedirect,
   mockGetRedirectResult,
+  mockSignInWithEmailAndPassword,
+  mockCreateUserWithEmailAndPassword,
+  mockSendPasswordResetEmail,
   mockSignOut,
   mockApiGet,
   mockToastError,
@@ -20,6 +23,9 @@ const {
   mockSignInWithPopup: vi.fn(),
   mockSignInWithRedirect: vi.fn(),
   mockGetRedirectResult: vi.fn(),
+  mockSignInWithEmailAndPassword: vi.fn(),
+  mockCreateUserWithEmailAndPassword: vi.fn(),
+  mockSendPasswordResetEmail: vi.fn(),
   mockSignOut: vi.fn(),
   mockApiGet: vi.fn(),
   mockToastError: vi.fn(),
@@ -32,6 +38,9 @@ vi.mock('firebase/auth', () => ({
   signInWithPopup: mockSignInWithPopup,
   signInWithRedirect: mockSignInWithRedirect,
   getRedirectResult: mockGetRedirectResult,
+  signInWithEmailAndPassword: mockSignInWithEmailAndPassword,
+  createUserWithEmailAndPassword: mockCreateUserWithEmailAndPassword,
+  sendPasswordResetEmail: mockSendPasswordResetEmail,
   GoogleAuthProvider: vi.fn(function MockGoogleAuthProvider() {
     return { providerId: 'google.com' };
   }),
@@ -66,7 +75,7 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 function AuthHarness() {
-  const { signInWithGoogle, user, userData } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, user, userData } = useAuth();
   return (
     <div>
       <span data-testid="user-email">{user?.email ?? 'anon'}</span>
@@ -74,6 +83,30 @@ function AuthHarness() {
       <span data-testid="sub-blocked">{String(Boolean(userData?.subscription?.isBlocked))}</span>
       <button type="button" onClick={signInWithGoogle}>
         Entrar
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          signInWithEmail('teste@pratas.com', '123456').catch(() => {});
+        }}
+      >
+        EntrarEmail
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          signUpWithEmail('novo@pratas.com', '123456').catch(() => {});
+        }}
+      >
+        CadastrarEmail
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          resetPassword('recuperar@pratas.com').catch(() => {});
+        }}
+      >
+        ResetarSenha
       </button>
     </div>
   );
@@ -222,5 +255,71 @@ describe('AuthContext (resiliência de login Google / COOP / popup / assinatura)
     expect(screen.getByTestId('sub-blocked')).toHaveTextContent('true');
     expect(screen.getByTestId('user-email')).toHaveTextContent('lojista@pratas.com');
     expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('permite autenticação via e-mail e senha com tratamento de erro amigável', async () => {
+    mockSignInWithEmailAndPassword.mockRejectedValueOnce({ code: 'auth/wrong-password' });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    const btn = await screen.findByRole('button', { name: 'EntrarEmail' });
+    await act(async () => {
+      try {
+        btn.click();
+      } catch {
+        // expected rethrow
+      }
+    });
+
+    expect(mockSignInWithEmailAndPassword).toHaveBeenCalledWith(
+      expect.anything(),
+      'teste@pratas.com',
+      '123456',
+    );
+    expect(mockToastError).toHaveBeenCalledWith('E-mail ou senha incorretos.');
+  });
+
+  it('permite criação de conta e recuperação de senha com e-mail', async () => {
+    mockCreateUserWithEmailAndPassword.mockResolvedValueOnce({
+      user: { email: 'novo@pratas.com' },
+    });
+    mockSendPasswordResetEmail.mockResolvedValueOnce(undefined);
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    const btnSignup = await screen.findByRole('button', { name: 'CadastrarEmail' });
+    await act(async () => {
+      btnSignup.click();
+    });
+
+    expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledWith(
+      expect.anything(),
+      'novo@pratas.com',
+      '123456',
+    );
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      expect.stringMatching(/Conta criada com sucesso/),
+    );
+
+    const btnReset = await screen.findByRole('button', { name: 'ResetarSenha' });
+    await act(async () => {
+      btnReset.click();
+    });
+
+    expect(mockSendPasswordResetEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      'recuperar@pratas.com',
+    );
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      expect.stringMatching(/Instruções de recuperação enviadas/),
+    );
   });
 });

@@ -71,6 +71,82 @@ export const registerSubscriptionExpiredHandler = (
   };
 };
 
+export function formatApiErrorMessage(
+  error: unknown,
+  fallbackMessage = 'Ocorreu um erro inesperado ao se comunicar com o servidor.'
+): string {
+  if (!error) return fallbackMessage;
+
+  if (typeof error === 'object' && error !== null) {
+    const err = error as Record<string, any>;
+
+    if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+      return 'Sem conexão com a internet ou servidor indisponível. Verifique sua rede e tente novamente.';
+    }
+    if (err.code === 'ECONNABORTED' || (typeof err.message === 'string' && err.message.includes('timeout'))) {
+      return 'O servidor demorou muito para responder. Tente novamente em instantes.';
+    }
+
+    const response = err.response;
+    if (response) {
+      const status = response.status;
+      const data = response.data;
+
+      if (data) {
+        if (typeof data.message === 'string' && data.message.trim().length > 0) {
+          return data.message;
+        }
+        if (Array.isArray(data.message) && data.message.length > 0) {
+          return data.message.filter(Boolean).join(' • ');
+        }
+        if (typeof data.error === 'string' && data.error.trim().length > 0) {
+          return data.error;
+        }
+      }
+
+      switch (status) {
+        case 400:
+          return 'Dados inválidos ou incompletos na requisição. Verifique os campos.';
+        case 401:
+          return 'Sua sessão expirou. Faça login novamente para continuar.';
+        case 402:
+          return 'Assinatura necessária ou expirada para acessar este recurso.';
+        case 403:
+          return 'Acesso não autorizado para esta funcionalidade.';
+        case 404:
+          return 'Item, endereço ou recurso não encontrado no sistema.';
+        case 409:
+          return 'Conflito de dados. Já existe um registro com estas informações.';
+        case 422:
+          return 'Não foi possível processar a operação com os dados fornecidos.';
+        case 429:
+          return 'Muitas requisições em pouco tempo. Aguarde alguns instantes.';
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return 'Servidor temporariamente indisponível. Nossa equipe técnica já foi notificada.';
+        default:
+          break;
+      }
+    }
+
+    if (typeof err.userMessage === 'string' && err.userMessage) {
+      return err.userMessage;
+    }
+
+    if (
+      typeof err.message === 'string' &&
+      err.message &&
+      !err.message.startsWith('Request failed with status')
+    ) {
+      return err.message;
+    }
+  }
+
+  return fallbackMessage;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -79,6 +155,11 @@ apiClient.interceptors.response.use(
     if (status === 402 && data?.code === 'SUBSCRIPTION_EXPIRED') {
       subscriptionExpiredHandler?.(data.subscription);
     }
+
+    if (error && typeof error === 'object') {
+      (error as Record<string, any>).userMessage = formatApiErrorMessage(error);
+    }
+
     return Promise.reject(error);
   }
 );

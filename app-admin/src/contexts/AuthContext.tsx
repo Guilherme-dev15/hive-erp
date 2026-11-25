@@ -5,6 +5,9 @@ import {
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   User,
 } from 'firebase/auth';
@@ -42,6 +45,9 @@ export interface AuthContextType {
   needsOnboarding: boolean;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   completeOnboard: (storeName: string, slug?: string) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
@@ -211,6 +217,91 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    if (!email || !password) {
+      toast.error('Preencha seu e-mail e senha.');
+      return;
+    }
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (error: unknown) {
+      const code = getErrorCode(error);
+      if (
+        code === 'auth/user-not-found' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/invalid-credential'
+      ) {
+        toast.error('E-mail ou senha incorretos.');
+      } else if (code === 'auth/invalid-email') {
+        toast.error('E-mail inválido. Verifique a digitação.');
+      } else if (code === 'auth/user-disabled') {
+        toast.error('Esta conta foi desativada ou suspensa. Contate o suporte.');
+      } else if (code === 'auth/too-many-requests') {
+        toast.error('Muitas tentativas sem sucesso. Aguarde alguns minutos e tente novamente.');
+      } else if (code === 'auth/network-request-failed') {
+        toast.error('Erro de conexão com o servidor. Verifique sua internet.');
+      } else {
+        console.error('Erro login e-mail/senha:', error);
+        toast.error('Não foi possível entrar. Verifique os dados e tente novamente.');
+      }
+      throw error;
+    }
+  };
+
+  const signUpWithEmail = async (email: string, password: string) => {
+    if (!email || !password) {
+      toast.error('Preencha seu e-mail e uma senha com pelo menos 6 dígitos.');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    try {
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      toast.success('Conta criada com sucesso! Seja bem-vindo(a).');
+    } catch (error: unknown) {
+      const code = getErrorCode(error);
+      if (code === 'auth/email-already-in-use') {
+        toast.error('Este e-mail já está em uso. Tente entrar ou recuperar sua senha.');
+      } else if (code === 'auth/invalid-email') {
+        toast.error('E-mail inválido. Verifique o formato digitado.');
+      } else if (code === 'auth/weak-password') {
+        toast.error('Senha fraca. Escolha uma senha com no mínimo 6 caracteres.');
+      } else if (code === 'auth/network-request-failed') {
+        toast.error('Erro de conexão com o servidor. Verifique sua internet.');
+      } else {
+        console.error('Erro cadastro e-mail/senha:', error);
+        toast.error('Não foi possível criar sua conta. Tente novamente.');
+      }
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    if (!email) {
+      toast.error('Informe o e-mail da sua conta.');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      toast.success('Instruções de recuperação enviadas para seu e-mail! Verifique a caixa de entrada e spam.');
+    } catch (error: unknown) {
+      const code = getErrorCode(error);
+      if (code === 'auth/user-not-found') {
+        toast.error('Nenhuma conta encontrada com este e-mail.');
+      } else if (code === 'auth/invalid-email') {
+        toast.error('E-mail inválido.');
+      } else if (code === 'auth/too-many-requests') {
+        toast.error('Muitas solicitações seguidas. Aguarde alguns minutos.');
+      } else {
+        console.error('Erro reset password:', error);
+        toast.error('Falha ao enviar e-mail de recuperação. Tente novamente.');
+      }
+      throw error;
+    }
+  };
+
   const completeOnboard = async (storeName: string, slug?: string) => {
     if (!user) throw new Error('Usuário não autenticado');
     const result = await onboardMerchant({
@@ -253,6 +344,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     needsOnboarding,
     loading,
     signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    resetPassword,
     completeOnboard,
     refreshAuth,
     logout,
