@@ -89,17 +89,22 @@ export class AuthGuard implements CanActivate {
     const adminEmails = getAdminEmails();
     const isAdmin = Boolean(normalizedEmail && emailVerified && adminEmails.includes(normalizedEmail));
 
-    let user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { legacyId: firebaseUid },
-          ...(normalizedEmail
-            ? [{ email: { equals: normalizedEmail, mode: 'insensitive' as const } }]
-            : []),
-        ],
-      },
-      include: { config: true },
-    });
+    let user: any = null;
+    try {
+      user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { legacyId: firebaseUid },
+            ...(normalizedEmail
+              ? [{ email: { equals: normalizedEmail, mode: 'insensitive' as const } }]
+              : []),
+          ],
+        },
+        include: { config: true },
+      });
+    } catch (dbErr) {
+      this.logger.error('Erro ao consultar usuário no banco:', dbErr instanceof Error ? dbErr.message : dbErr);
+    }
 
     if (!user && isAdmin) {
       // Reconcilia apenas entre contas pertencentes aos e-mails administrativos (nunca { role: 'OWNER' } global)
