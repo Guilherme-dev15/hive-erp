@@ -8,6 +8,8 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  HttpException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard, getAdminEmails } from './auth.guard';
@@ -18,6 +20,8 @@ import { SubscriptionService, evaluateSubscriptionAccess } from '../billing/subs
 
 @Controller('api/v2/auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly subscriptionService: SubscriptionService,
@@ -104,82 +108,119 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('me')
   async getMe(@Request() req: any) {
-    if (!req.user || (!req.user.id && !req.user.legacyId)) {
-      throw new UnauthorizedException('Usuário inválido no contexto');
-    }
-
-    let dbUser: any = null;
     try {
-      dbUser = req.user.id
-        ? await this.prisma.user.findUnique({
+      if (!req.user || (!req.user.id && !req.user.legacyId && !req.user.email)) {
+        throw new UnauthorizedException('Usuário inválido no contexto');
+      }
+
+      let dbUser: any = null;
+      try {
+        if (req.user.id) {
+          dbUser = await this.prisma.user.findUnique({
             where: { id: req.user.id },
             include: { config: true, subscription: true },
-          })
-        : await this.prisma.user.findUnique({
+          });
+        } else if (req.user.legacyId) {
+          dbUser = await this.prisma.user.findUnique({
             where: { legacyId: req.user.legacyId },
             include: { config: true, subscription: true },
           });
-    } catch {
-      try {
-        dbUser = req.user.id
-          ? await this.prisma.user.findUnique({
+        }
+      } catch (findErr) {
+        this.logger.warn('Falha na busca com include de subscription, tentando fallback sem subscription:', findErr);
+        try {
+          if (req.user.id) {
+            dbUser = await this.prisma.user.findUnique({
               where: { id: req.user.id },
               include: { config: true },
-            })
-          : await this.prisma.user.findUnique({
+            });
+          } else if (req.user.legacyId) {
+            dbUser = await this.prisma.user.findUnique({
               where: { legacyId: req.user.legacyId },
               include: { config: true },
             });
-      } catch {
+          }
+        } catch (findErrWithoutSub) {
+          this.logger.error('Erro ao buscar dbUser sem subscription:', findErrWithoutSub);
+        }
+      }
+
+      // Se ainda não encontrou por id ou legacyId, tenta localizar pelo e-mail
+      if (!dbUser && req.user.email) {
+        try {
+          dbUser = await this.prisma.user.findFirst({
+            where: {
+              email: { equals: req.user.email.trim().toLowerCase(), mode: 'insensitive' as const },
+            },
+            include: { config: true, subscription: true },
+          });
+        } catch {
+          try {
+            dbUser = await this.prisma.user.findFirst({
+              where: {
+                email: { equals: req.user.email.trim().toLowerCase(), mode: 'insensitive' as const },
+              },
+              include: { config: true },
+            });
+          } catch (findEmailErr) {
+            this.logger.warn('Falha ao buscar dbUser por email:', findEmailErr);
+          }
+        }
+      }
+
+      if (!dbUser) {
         throw new UnauthorizedException('Registro do usuário não encontrado no banco de dados da plataforma.');
       }
-    }
 
-    if (!dbUser) {
-      throw new UnauthorizedException('Registro do usuário não encontrado no banco de dados da plataforma.');
-    }
+      const isSuperAdmin = this.resolveIsSuperAdmin(dbUser.email, req.user?.isSuperAdmin);
+      let subscription: any = null;
+      try {
+        subscription =
+          dbUser.subscription && (!isSuperAdmin || dbUser.subscription.isExempt)
+            ? evaluateSubscriptionAccess(dbUser.subscription)
+            : await this.subscriptionService.getAccessStatus(dbUser.id, isSuperAdmin);
+      } catch (subErr) {
+        this.logger.warn('Falha ao carregar status de assinatura em getMe, aplicando fallback seguro:', subErr);
+        subscription = {
+          status: isSuperAdmin ? SubscriptionStatus.ACTIVE : SubscriptionStatus.TRIAL,
+          effectiveStatus: isSuperAdmin ? SubscriptionStatus.ACTIVE : SubscriptionStatus.TRIAL,
+          isBlocked: false,
+          isExempt: isSuperAdmin,
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: new Date(),
+          trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          daysRemaining: 14,
+        };
+      }
 
-    const isSuperAdmin = this.resolveIsSuperAdmin(dbUser.email, req.user?.isSuperAdmin);
-    let subscription: any = null;
-    try {
-      subscription =
-        dbUser.subscription && (!isSuperAdmin || dbUser.subscription.isExempt)
-          ? evaluateSubscriptionAccess(dbUser.subscription)
-          : await this.subscriptionService.getAccessStatus(dbUser.id, isSuperAdmin);
-    } catch {
-      subscription = {
-        status: isSuperAdmin ? SubscriptionStatus.ACTIVE : SubscriptionStatus.TRIAL,
-        effectiveStatus: isSuperAdmin ? SubscriptionStatus.ACTIVE : SubscriptionStatus.TRIAL,
-        isBlocked: false,
-        isExempt: isSuperAdmin,
-        planCode: 'PRO_MONTHLY',
-        monthlyPriceCents: 9700,
-        trialStartsAt: new Date(),
-        trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
-        currentPeriodStart: null,
-        currentPeriodEnd: null,
-        daysRemaining: 14,
+      return {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: this.mapRole(dbUser.role),
+        active: dbUser.active,
+        isSuperAdmin,
+        store: dbUser.config
+          ? {
+              id: dbUser.config.id,
+              storeName: dbUser.config.storeName,
+              slug: dbUser.config.publicSlug,
+              primaryColor: dbUser.config.primaryColor,
+              secondaryColor: dbUser.config.secondaryColor,
+            }
+          : null,
+        subscription,
       };
+    } catch (err) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      this.logger.error('Erro inesperado em getMe:', err instanceof Error ? err.stack : err);
+      throw new UnauthorizedException('Não foi possível carregar os dados da sessão do usuário.');
     }
-
-    return {
-      id: dbUser.id,
-      name: dbUser.name,
-      email: dbUser.email,
-      role: this.mapRole(dbUser.role),
-      active: dbUser.active,
-      isSuperAdmin,
-      store: dbUser.config
-        ? {
-            id: dbUser.config.id,
-            storeName: dbUser.config.storeName,
-            slug: dbUser.config.publicSlug,
-            primaryColor: dbUser.config.primaryColor,
-            secondaryColor: dbUser.config.secondaryColor,
-          }
-        : null,
-      subscription,
-    };
   }
 
   @UseGuards(AuthGuard)

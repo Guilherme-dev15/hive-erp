@@ -91,170 +91,195 @@ export class AuthGuard implements CanActivate {
 
     let user: any = null;
     try {
-      user = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            { legacyId: firebaseUid },
-            ...(normalizedEmail
-              ? [{ email: { equals: normalizedEmail, mode: 'insensitive' as const } }]
-              : []),
-          ],
-        },
-        include: { config: true },
-      });
-    } catch (dbErr) {
-      this.logger.error('Erro ao consultar usuário no banco:', dbErr instanceof Error ? dbErr.message : dbErr);
-    }
-
-    if (!user && isAdmin) {
-      // Reconcilia apenas entre contas pertencentes aos e-mails administrativos (nunca { role: 'OWNER' } global)
-      const existingOwner = await this.prisma.user.findFirst({
-        where: {
-          email: { in: adminEmails, mode: 'insensitive' as const },
-        },
-        include: { config: true },
-      });
-
-      if (existingOwner) {
-        try {
-          user = await this.prisma.user.update({
-            where: { id: existingOwner.id },
-            data: {
-              legacyId: firebaseUid,
-              email: normalizedEmail!,
-              role: 'OWNER',
-              active: true,
-            },
-            include: { config: true },
-          });
-          this.logger.log(`Linked existing owner ${existingOwner.id} to admin ${normalizedEmail} (UID: ${firebaseUid})`);
-        } catch {
-          user = await this.prisma.user.update({
-            where: { id: existingOwner.id },
-            data: {
-              legacyId: firebaseUid,
-              role: 'OWNER',
-              active: true,
-            },
-            include: { config: true },
-          });
-          this.logger.log(`Linked existing owner ${existingOwner.id} legacyId only to UID ${firebaseUid}`);
-        }
-      } else {
-        // Cold start - auto-provisionar conta admin com loja 'hive'
-        try {
-          user = await this.prisma.user.create({
-            data: {
-              email: normalizedEmail!,
-              name: 'Guilherme Macedo',
-              role: 'OWNER',
-              active: true,
-              legacyId: firebaseUid,
-              config: {
-                create: {
-                  storeName: 'Hive Pratas',
-                  publicSlug: 'hive',
-                  primaryColor: '#D4AF37',
-                  secondaryColor: '#343434',
-                },
-              },
-            },
-            include: { config: true },
-          });
-          this.logger.log(`Auto-provisioned cold-start admin user ${user.id} (${normalizedEmail}) with store 'hive'`);
-        } catch {
-          user = await this.prisma.user.create({
-            data: {
-              email: normalizedEmail!,
-              name: 'Guilherme Macedo',
-              role: 'OWNER',
-              active: true,
-              legacyId: firebaseUid,
-              config: {
-                create: {
-                  storeName: 'Hive Pratas',
-                },
-              },
-            },
-            include: { config: true },
-          });
-          this.logger.log(`Auto-provisioned cold-start admin user ${user.id} (${normalizedEmail}) without slug`);
-        }
-      }
-    }
-
-    if (user) {
-      // Se legacyId estiver desatualizado, curar no PostgreSQL
-      const userEmailNormalized = user.email?.trim().toLowerCase();
-      if (user.legacyId !== firebaseUid && normalizedEmail && userEmailNormalized === normalizedEmail) {
-        try {
-          user = await this.prisma.user.update({
-            where: { id: user.id },
-            data: { legacyId: firebaseUid },
-            include: { config: true },
-          });
-          this.logger.log(`Healed legacyId for user ${user.id} (${normalizedEmail})`);
-        } catch (e) {
-          this.logger.error(`Failed to heal legacyId for user ${user.id}:`, e instanceof Error ? e.stack : e);
-        }
+      try {
+        user = await this.prisma.user.findFirst({
+          where: {
+            OR: [
+              { legacyId: firebaseUid },
+              ...(normalizedEmail
+                ? [{ email: { equals: normalizedEmail, mode: 'insensitive' as const } }]
+                : []),
+            ],
+          },
+          include: { config: true },
+        });
+      } catch (dbErr) {
+        this.logger.error('Erro ao consultar usuário no banco:', dbErr instanceof Error ? dbErr.message : dbErr);
       }
 
-      // Se for admin, garantir role OWNER e active true
-      if (isAdmin && (!user.active || user.role !== 'OWNER')) {
+      if (!user && isAdmin) {
+        // Reconcilia apenas entre contas pertencentes aos e-mails administrativos (nunca { role: 'OWNER' } global)
+        let existingOwner: any = null;
         try {
-          user = await this.prisma.user.update({
-            where: { id: user.id },
-            data: { active: true, role: 'OWNER' },
+          existingOwner = await this.prisma.user.findFirst({
+            where: {
+              email: { in: adminEmails, mode: 'insensitive' as const },
+            },
             include: { config: true },
           });
-          this.logger.log(`Ensured OWNER/active status for admin user ${user.id}`);
-        } catch (e) {
-          this.logger.warn(`Failed to update admin role/active for ${user.id}:`, e);
+        } catch (findOwnerErr) {
+          this.logger.warn('Erro ao consultar existingOwner no banco:', findOwnerErr);
         }
-      }
 
-      // Se usuário não possuir registro de Config, auto-criar
-      if (!user.config) {
-        try {
+        if (existingOwner) {
           try {
-            await this.prisma.config.create({
+            user = await this.prisma.user.update({
+              where: { id: existingOwner.id },
               data: {
-                userId: user.id,
-                storeName: isAdmin ? 'Hive Pratas' : user.name || 'Minha Loja',
-                publicSlug: isAdmin ? 'hive' : undefined,
+                legacyId: firebaseUid,
+                email: normalizedEmail!,
+                role: 'OWNER',
+                active: true,
               },
+              include: { config: true },
             });
+            this.logger.log(`Linked existing owner ${existingOwner.id} to admin ${normalizedEmail} (UID: ${firebaseUid})`);
           } catch {
-            await this.prisma.config.create({
-              data: {
-                userId: user.id,
-                storeName: isAdmin ? 'Hive Pratas' : user.name || 'Minha Loja',
-              },
-            });
+            try {
+              user = await this.prisma.user.update({
+                where: { id: existingOwner.id },
+                data: {
+                  legacyId: firebaseUid,
+                  role: 'OWNER',
+                  active: true,
+                },
+                include: { config: true },
+              });
+              this.logger.log(`Linked existing owner ${existingOwner.id} legacyId only to UID ${firebaseUid}`);
+            } catch (fallbackUpdateErr) {
+              this.logger.warn(`Failed to link existing owner legacyId to UID ${firebaseUid}:`, fallbackUpdateErr);
+              user = existingOwner;
+            }
           }
-          this.logger.log(`Auto-created missing config for user ${user.id}`);
-        } catch (cfgErr) {
-          this.logger.warn(`Failed to auto-create config for user ${user.id}:`, cfgErr);
+        } else {
+          // Cold start - auto-provisionar conta admin com loja 'hive'
+          try {
+            user = await this.prisma.user.create({
+              data: {
+                email: normalizedEmail!,
+                name: 'Guilherme Macedo',
+                role: 'OWNER',
+                active: true,
+                legacyId: firebaseUid,
+                config: {
+                  create: {
+                    storeName: 'Hive Pratas',
+                    publicSlug: 'hive',
+                    primaryColor: '#D4AF37',
+                    secondaryColor: '#343434',
+                  },
+                },
+              },
+              include: { config: true },
+            });
+            this.logger.log(`Auto-provisioned cold-start admin user ${user.id} (${normalizedEmail}) with store 'hive'`);
+          } catch {
+            try {
+              user = await this.prisma.user.create({
+                data: {
+                  email: normalizedEmail!,
+                  name: 'Guilherme Macedo',
+                  role: 'OWNER',
+                  active: true,
+                  legacyId: firebaseUid,
+                  config: {
+                    create: {
+                      storeName: 'Hive Pratas',
+                    },
+                  },
+                },
+                include: { config: true },
+              });
+              this.logger.log(`Auto-provisioned cold-start admin user ${user.id} (${normalizedEmail}) without slug`);
+            } catch (fallbackCreateErr) {
+              this.logger.error(`Failed to auto-provision cold-start admin user (${normalizedEmail}):`, fallbackCreateErr);
+            }
+          }
         }
       }
 
-      const authenticatedUser: AuthenticatedRequestUser = {
-        id: user.id,
-        legacyId: firebaseUid,
-        email: user.email ?? normalizedEmail ?? null,
-        role: user.role ?? null,
-        isSuperAdmin: isAdmin,
-      };
-      request.user = authenticatedUser;
-    } else {
-      const unprovisionedUser: AuthenticatedRequestUser = {
-        id: null,
+      if (user) {
+        // Se legacyId estiver desatualizado, curar no PostgreSQL
+        const userEmailNormalized = user.email?.trim().toLowerCase();
+        if (user.legacyId !== firebaseUid && normalizedEmail && userEmailNormalized === normalizedEmail) {
+          try {
+            user = await this.prisma.user.update({
+              where: { id: user.id },
+              data: { legacyId: firebaseUid },
+              include: { config: true },
+            });
+            this.logger.log(`Healed legacyId for user ${user.id} (${normalizedEmail})`);
+          } catch (e) {
+            this.logger.error(`Failed to heal legacyId for user ${user.id}:`, e instanceof Error ? e.stack : e);
+          }
+        }
+
+        // Se for admin, garantir role OWNER e active true
+        if (isAdmin && (!user.active || user.role !== 'OWNER')) {
+          try {
+            user = await this.prisma.user.update({
+              where: { id: user.id },
+              data: { active: true, role: 'OWNER' },
+              include: { config: true },
+            });
+            this.logger.log(`Ensured OWNER/active status for admin user ${user.id}`);
+          } catch (e) {
+            this.logger.warn(`Failed to update admin role/active for ${user.id}:`, e);
+          }
+        }
+
+        // Se usuário não possuir registro de Config, auto-criar
+        if (!user.config) {
+          try {
+            try {
+              await this.prisma.config.create({
+                data: {
+                  userId: user.id,
+                  storeName: isAdmin ? 'Hive Pratas' : user.name || 'Minha Loja',
+                  publicSlug: isAdmin ? 'hive' : undefined,
+                },
+              });
+            } catch {
+              await this.prisma.config.create({
+                data: {
+                  userId: user.id,
+                  storeName: isAdmin ? 'Hive Pratas' : user.name || 'Minha Loja',
+                },
+              });
+            }
+            this.logger.log(`Auto-created missing config for user ${user.id}`);
+          } catch (cfgErr) {
+            this.logger.warn(`Failed to auto-create config for user ${user.id}:`, cfgErr);
+          }
+        }
+
+        const authenticatedUser: AuthenticatedRequestUser = {
+          id: user.id,
+          legacyId: firebaseUid,
+          email: user.email ?? normalizedEmail ?? null,
+          role: user.role ?? null,
+          isSuperAdmin: isAdmin,
+        };
+        request.user = authenticatedUser;
+      } else {
+        const unprovisionedUser: AuthenticatedRequestUser = {
+          id: null,
+          legacyId: firebaseUid,
+          email: normalizedEmail ?? null,
+          role: null,
+          isSuperAdmin: isAdmin,
+        };
+        request.user = unprovisionedUser;
+      }
+    } catch (topLevelErr) {
+      this.logger.error('Erro na validação do AuthGuard:', topLevelErr instanceof Error ? topLevelErr.message : topLevelErr);
+      request.user = {
+        id: user?.id ?? null,
         legacyId: firebaseUid,
         email: normalizedEmail ?? null,
-        role: null,
-        isSuperAdmin: false,
+        role: user?.role ?? null,
+        isSuperAdmin: isAdmin,
       };
-      request.user = unprovisionedUser;
     }
 
     return true;

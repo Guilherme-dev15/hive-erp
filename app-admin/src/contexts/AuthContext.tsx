@@ -161,13 +161,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setUserData(null);
             setNeedsOnboarding(true);
           } else {
-            console.error('Erro ao validar usuário:', error);
-            toast.error('Erro de conexão ao validar permissões.');
-            await signOut(auth);
-            setUser(null);
-            setUserData(null);
-            setNeedsOnboarding(false);
-            delete apiClient.defaults.headers.common['Authorization'];
+            console.error('Erro ao validar usuário no backend:', error);
+            // Em caso de erro 500 ou de conexão, tenta uma segunda vez após breve intervalo antes de desistir
+            try {
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+              await fetchAndApplyMe(currentUser);
+            } catch (retryError: unknown) {
+              const retryStatus = getHttpErrorStatus(retryError);
+              if (retryStatus === 401 || retryStatus === 404) {
+                setUser(currentUser);
+                setUserData(null);
+                setNeedsOnboarding(true);
+              } else {
+                console.error('Falha na tentativa de reconexão:', retryError);
+                toast.error('Instabilidade temporária na conexão com o servidor. Tente recarregar a página.');
+                // Mantém o usuário autenticado no Firebase para não provocar logout agressivo
+                setUser(currentUser);
+                setUserData(null);
+                setNeedsOnboarding(false);
+              }
+            }
           }
         }
       } else {
