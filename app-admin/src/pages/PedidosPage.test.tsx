@@ -215,3 +215,33 @@ describe('PedidosPage', () => {
     expect(screen.getByText('Em Aberto').parentElement?.textContent).toContain('1');
     expect(screen.getByText('Concluídos').parentElement?.textContent).toContain('1');
   });
+
+  it('deve renderizar botao Ver / Imprimir e comprovante quando pedido tem comprovante emitido', async () => {
+    vi.mocked(getAdminOrders).mockResolvedValueOnce([
+      {
+        id: 'ord-comprovante-1',
+        customerName: 'Carlos Oliveira',
+        total: 350,
+        status: 'Pago',
+        nfeStatus: 'EMITIDA',
+        nfeNumber: 42,
+        nfeKey: 'REC-000042',
+        items: [{ id: 'item-1', name: 'Corrente de Ouro', price: 350, quantity: 1, type: 'simple' }],
+        paymentMethod: 'PIX',
+        history: [],
+        createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 }
+      }
+    ] as unknown as Order[]);
+
+    render(<PedidosPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Comprovante Nº 42/i)).toBeInTheDocument();
+    });
+
+    const verBtn = screen.getByText(/Ver \/ Imprimir/i);
+    expect(verBtn).toBeInTheDocument();
+
+    fireEvent.click(verBtn);
+    expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+  });

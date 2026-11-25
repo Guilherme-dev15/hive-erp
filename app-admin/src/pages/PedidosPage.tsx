@@ -26,6 +26,7 @@ import {
   FileText,
   FileCheck,
   Plus,
+  Eye,
 } from 'lucide-react';
 import {
   TooltipProps,

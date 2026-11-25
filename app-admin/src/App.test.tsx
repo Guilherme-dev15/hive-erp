@@ -139,6 +139,7 @@ vi.mock('lucide-react', () => {
     CreditCard: Icon,
     DollarSign: Icon,
     ExternalLink: Icon,
+    Eye: Icon,
     FileText: Icon,
     Globe: Icon,
     LayoutDashboard: Icon,
