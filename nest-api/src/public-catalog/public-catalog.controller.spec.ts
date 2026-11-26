@@ -31,19 +31,19 @@ describe('PublicCatalogController', () => {
     expect(service.getCatalog).toHaveBeenCalledWith({ slug: 'hive' });
   });
 
-  it('delegates createOrder to service', async () => {
+  it('delegates createOrder to service with optional origin', async () => {
     const dto = {
       slug: 'hive',
       customerName: 'Cliente',
       customerPhone: '11999998888',
       subtotal: 50,
       total: 50,
-      items: [{ name: 'Item', salePrice: 50, quantity: 1 }],
+      items: [{ productId: '11111111-1111-1111-1111-111111111111', name: 'Item', salePrice: 50, quantity: 1 }],
     };
     const expected = { success: true, orderId: 'ord-1' } as any;
     service.createOrder.mockResolvedValue(expected);
 
-    await expect(controller.createOrder(dto as any)).resolves.toBe(expected);
-    expect(service.createOrder).toHaveBeenCalledWith(dto);
+    await expect(controller.createOrder(dto as any, 'https://hive.hiveerp.com.br')).resolves.toBe(expected);
+    expect(service.createOrder).toHaveBeenCalledWith(dto, 'https://hive.hiveerp.com.br');
   });
 });

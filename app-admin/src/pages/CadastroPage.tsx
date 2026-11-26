@@ -71,7 +71,7 @@ export function CadastroPage({ onGoToLogin }: CadastroPageProps) {
                 14 DIAS GRÁTIS
               </span>
             </h1>
-            <p className="text-xs text-gray-400">Venda, estoque, financeiro e notas fiscais sem trocar de sistema</p>
+            <p className="text-xs text-gray-400">Catálogo no WhatsApp, estoque com grade e financeiro em um painel só</p>
           </div>
         </div>
 

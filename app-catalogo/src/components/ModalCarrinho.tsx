@@ -130,6 +130,7 @@ export function ModalCarrinho({
           notes: obs.trim() || undefined,
           items: itens.map((item) => ({
             productId: item.produto.id,
+            variantId: item.produto.selectedVariant?.id,
             name: item.produto.name,
             code: item.produto.code || undefined,
             salePrice: item.produto.salePrice,
@@ -193,6 +194,7 @@ export function ModalCarrinho({
 
     setSubmitting(true);
     let orderNumber: string | undefined;
+    let paymentUrl: string | undefined;
 
     if (config.slug) {
       try {
@@ -202,9 +204,11 @@ export function ModalCarrinho({
           customerPhone: tel.trim(),
           subtotal,
           total,
+          paymentMethod: 'GATEWAY',
           notes: obs.trim() ? `${obs.trim()} | [Pagamento Online Gateway]` : '[Pagamento Online Gateway]',
           items: itens.map((item) => ({
             productId: item.produto.id,
+            variantId: item.produto.selectedVariant?.id,
             name: item.produto.name,
             code: item.produto.code || undefined,
             salePrice: item.produto.salePrice,
@@ -216,6 +220,7 @@ export function ModalCarrinho({
         if (orderRes?.orderId) {
           orderNumber = orderRes.orderId.slice(0, 8).toUpperCase();
         }
+        paymentUrl = orderRes?.paymentUrl;
       } catch (err: any) {
         console.error('Erro ao registrar pedido:', err);
         const errorMsg =
@@ -238,6 +243,9 @@ export function ModalCarrinho({
         ? `Pedido #${orderNumber} registrado! Redirecionando para pagamento seguro...`
         : 'Pedido registrado! Redirecionando para pagamento seguro...'
     );
+    if (paymentUrl) {
+      window.location.assign(paymentUrl);
+    }
   };
 
   return (

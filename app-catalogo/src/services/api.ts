@@ -46,8 +46,10 @@ export interface CreatePublicOrderPayload {
   discount?: number;
   total: number;
   notes?: string;
+  paymentMethod?: 'WHATSAPP' | 'GATEWAY';
   items: Array<{
-    productId?: string;
+    productId: string;
+    variantId?: string;
     name: string;
     code?: string;
     salePrice: number;
@@ -62,6 +64,8 @@ export interface PublicOrderResponse {
   status: string;
   total: number;
   createdAt: string;
+  paymentUrl?: string;
+  preferenceId?: string;
 }
 
 export const createPublicOrder = async (

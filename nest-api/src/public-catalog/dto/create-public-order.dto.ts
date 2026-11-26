@@ -1,9 +1,14 @@
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
+  IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -11,11 +16,15 @@ import { Type } from 'class-transformer';
 
 export class CreatePublicOrderItemDto {
   @IsUUID()
+  productId: string;
+
+  @IsUUID()
   @IsOptional()
-  productId?: string;
+  variantId?: string;
 
   @IsString()
-  name: string;
+  @IsOptional()
+  name?: string;
 
   @IsString()
   @IsOptional()
@@ -24,11 +33,13 @@ export class CreatePublicOrderItemDto {
   @IsNumber()
   @Type(() => Number)
   @Min(0)
-  salePrice: number;
+  @IsOptional()
+  salePrice?: number;
 
-  @IsNumber()
+  @IsInt()
   @Type(() => Number)
   @Min(1)
+  @Max(50)
   quantity: number;
 
   @IsString()
@@ -49,7 +60,8 @@ export class CreatePublicOrderDto {
   @IsNumber()
   @Type(() => Number)
   @Min(0)
-  subtotal: number;
+  @IsOptional()
+  subtotal?: number;
 
   @IsNumber()
   @Type(() => Number)
@@ -60,13 +72,20 @@ export class CreatePublicOrderDto {
   @IsNumber()
   @Type(() => Number)
   @Min(0)
-  total: number;
+  @IsOptional()
+  total?: number;
 
   @IsString()
   @IsOptional()
   notes?: string;
 
+  @IsOptional()
+  @IsIn(['WHATSAPP', 'GATEWAY'])
+  paymentMethod?: 'WHATSAPP' | 'GATEWAY';
+
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => CreatePublicOrderItemDto)
   items: CreatePublicOrderItemDto[];
@@ -78,4 +97,6 @@ export interface PublicOrderResponse {
   status: string;
   total: number;
   createdAt: Date;
+  paymentUrl?: string;
+  preferenceId?: string;
 }

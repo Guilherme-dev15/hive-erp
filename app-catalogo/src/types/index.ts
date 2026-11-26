@@ -21,6 +21,7 @@ export interface ProdutoCatalogo {
   subcategory?: string | null;
   promotionalPrice?: number;
   isOnSale?: boolean;
+  selectedVariant?: ProdutoVariante | null;
 }
 
 export interface ConfigPublica {

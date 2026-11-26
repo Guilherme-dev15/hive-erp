@@ -128,10 +128,12 @@ model Config {
   packagingCost     Decimal  @default(0) @map("packaging_cost") @db.Decimal(10, 2)
   lowStockThreshold Int      @default(5) @map("low_stock_threshold")
   warrantyText      String?  @map("warranty_text") @db.Text
-  checkoutMode      String   @default("WHATSAPP") @map("checkout_mode")
-  hasGatewayAddon   Boolean  @default(false) @map("has_gateway_addon")
-  gatewayProvider   String?  @map("gateway_provider")
-  gatewayPublicKey  String?  @map("gateway_public_key")
+  checkoutMode         String   @default("WHATSAPP") @map("checkout_mode")
+  hasGatewayAddon      Boolean  @default(false) @map("has_gateway_addon")
+  gatewayProvider      String?  @map("gateway_provider")
+  gatewayPublicKey     String?  @map("gateway_public_key")
+  gatewayAccessToken   String?  @map("gateway_access_token") @db.Text
+  gatewayWebhookSecret String?  @map("gateway_webhook_secret") @db.Text
 
   // Configurações Fiscais (NF-e / NFC-e)
   cnpjEmitente      String?  @map("cnpj_emitente")
@@ -160,6 +162,7 @@ model Category {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([userId])
   @@map("categories")
 }
 
@@ -182,6 +185,7 @@ model Supplier {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([userId])
   @@map("suppliers")
 }
 
@@ -221,6 +225,7 @@ model Product {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([userId])
   @@map("products")
 }
 
@@ -239,6 +244,7 @@ model ProductVariant {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([productId])
   @@map("product_variants")
 }
 
@@ -256,6 +262,7 @@ model Coupon {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([userId])
   @@map("coupons")
 }
 
@@ -322,6 +329,7 @@ model Order {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([userId])
   @@map("orders")
 }
 
@@ -339,6 +347,7 @@ model OrderItem {
   quantity  Int
   imageUrl  String? @map("image_url") @db.Text
 
+  @@index([orderId])
   @@map("order_items")
 }
 
@@ -369,6 +378,7 @@ model Transaction {
   // Campo transiente para a migração do Firebase
   legacyId String? @unique @map("legacy_id")
 
+  @@index([userId])
   @@map("transactions")
 }
 
@@ -404,6 +414,7 @@ model InventoryLog {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([userId])
   @@map("inventory_logs")
 }
 

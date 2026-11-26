@@ -37,13 +37,24 @@ export class AuthController {
     return role === Role.OWNER ? 'admin' : role === Role.SELLER ? 'editor' : 'viewer';
   }
 
+  @UseGuards(AuthGuard)
   @Post('register')
-  async register(@Body() body: RegisterDto) {
+  async register(@Request() req: any, @Body() body: RegisterDto) {
+    const legacyId = req.user?.legacyId;
+    if (!legacyId) {
+      throw new UnauthorizedException('Usuário inválido no contexto de autenticação');
+    }
+
+    const normalizedEmail = (req.user?.email || body.email)?.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new BadRequestException('E-mail é obrigatório para cadastrar uma nova loja');
+    }
+
     const existing = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { email: body.email },
-          ...(body.legacyId ? [{ legacyId: body.legacyId }] : []),
+          { legacyId },
+          { email: { equals: normalizedEmail, mode: 'insensitive' as const } },
         ],
       },
     });
@@ -60,19 +71,25 @@ export class AuthController {
       };
     }
 
-    const trialDays = 14;
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+    const now = new Date();
+    const { trialStartsAt, trialEndsAt } = this.subscriptionService.buildTrialDates(now);
+    const { planCode, monthlyPriceCents, trialDays } =
+      this.subscriptionService.getOnboardingDefaults?.() ?? {
+        planCode: 'PRO_MONTHLY',
+        monthlyPriceCents: 9700,
+        trialDays: 14,
+      };
+    const isSuperAdmin = this.resolveIsSuperAdmin(normalizedEmail, req.user?.isSuperAdmin);
 
     const user = await this.prisma.user.create({
       data: {
         name: body.name,
-        email: body.email,
+        email: normalizedEmail,
         phone: body.phone,
         role: Role.OWNER,
         active: true,
         trialEndsAt,
-        legacyId: body.legacyId || null,
+        legacyId,
         config: {
           create: {
             storeName: body.storeName || 'Minha Loja Hive',
@@ -81,6 +98,28 @@ export class AuthController {
             whatsappNumber: body.phone || null,
           },
         },
+        subscription: {
+          create: {
+            status: isSuperAdmin ? SubscriptionStatus.ACTIVE : SubscriptionStatus.TRIAL,
+            planCode,
+            monthlyPriceCents,
+            trialStartsAt,
+            trialEndsAt,
+            activatedAt: isSuperAdmin ? now : null,
+            isExempt: isSuperAdmin,
+          },
+        },
+        ...(!isSuperAdmin
+          ? {
+              billingEvents: {
+                create: {
+                  action: BillingActionType.TRIAL_STARTED,
+                  daysGranted: trialDays,
+                  note: `Trial automático de ${trialDays} dias iniciado no cadastro.`,
+                },
+              },
+            }
+          : {}),
         dashboardStats: {
           create: {
             revenue: 0,

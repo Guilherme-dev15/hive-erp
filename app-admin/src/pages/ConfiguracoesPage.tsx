@@ -108,6 +108,10 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
     hasGatewayAddon: false,
     gatewayProvider: 'MERCADO_PAGO',
     gatewayPublicKey: '',
+    gatewayAccessToken: '',
+    gatewayWebhookSecret: '',
+    hasGatewayAccessToken: false,
+    hasGatewayWebhookSecret: false,
   });
 
   const [loading, setLoading] = useState(true);
@@ -146,6 +150,10 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
             hasGatewayAddon: Boolean((data as any).hasGatewayAddon),
             gatewayProvider: (data as any).gatewayProvider || 'MERCADO_PAGO',
             gatewayPublicKey: (data as any).gatewayPublicKey || '',
+            gatewayAccessToken: '',
+            gatewayWebhookSecret: '',
+            hasGatewayAccessToken: Boolean((data as any).hasGatewayAccessToken),
+            hasGatewayWebhookSecret: Boolean((data as any).hasGatewayWebhookSecret),
           });
         }
       } catch (error) {
@@ -202,12 +210,24 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
         lowStockThreshold: Number(formData.lowStockThreshold) || 0,
         warrantyText: formData.warrantyText || '',
         checkoutMode: formData.checkoutMode || 'WHATSAPP',
-        hasGatewayAddon: formData.hasGatewayAddon ?? false,
         gatewayProvider: formData.gatewayProvider || undefined,
         gatewayPublicKey: formData.gatewayPublicKey?.trim() || undefined,
+        ...(formData.gatewayAccessToken?.trim()
+          ? { gatewayAccessToken: formData.gatewayAccessToken.trim() }
+          : {}),
+        ...(formData.gatewayWebhookSecret?.trim()
+          ? { gatewayWebhookSecret: formData.gatewayWebhookSecret.trim() }
+          : {}),
       };
 
-      await saveConfig(payload);
+      const saved = await saveConfig(payload);
+      setFormData((prev) => ({
+        ...prev,
+        gatewayAccessToken: '',
+        gatewayWebhookSecret: '',
+        hasGatewayAccessToken: Boolean((saved as any)?.hasGatewayAccessToken ?? prev.hasGatewayAccessToken),
+        hasGatewayWebhookSecret: Boolean((saved as any)?.hasGatewayWebhookSecret ?? prev.hasGatewayWebhookSecret),
+      }));
       setTheme({
         primaryColor: formData.primaryColor,
         secondaryColor: formData.secondaryColor,
@@ -652,16 +672,86 @@ export function ConfiguracoesPage({ onNavigate }: ConfiguracoesPageProps = {}) {
                   </div>
                 ) : (
                   <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
-                    <label className="block text-xs font-bold text-gray-700">
-                      Chave Pública Mercado Pago (Public Key)
-                    </label>
-                    <input
-                      name="gatewayPublicKey"
-                      value={formData.gatewayPublicKey || ''}
-                      onChange={handleChange}
-                      placeholder="APP_USR-xxxx..."
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Chave Pública Mercado Pago (Public Key)
+                      </label>
+                      <input
+                        name="gatewayPublicKey"
+                        value={formData.gatewayPublicKey || ''}
+                        onChange={handleChange}
+                        placeholder="APP_USR-xxxx..."
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-gray-700">
+                          Access Token de Produção (Mercado Pago)
+                        </label>
+                        {formData.hasGatewayAccessToken && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            Token salvo e criptografado
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="password"
+                        name="gatewayAccessToken"
+                        value={formData.gatewayAccessToken || ''}
+                        onChange={handleChange}
+                        placeholder={
+                          formData.hasGatewayAccessToken
+                            ? '•••••••••••• (deixe em branco para manter)'
+                            : 'APP_USR-xxxx...'
+                        }
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-gray-700">
+                          Webhook Secret Mercado Pago (opcional)
+                        </label>
+                        {formData.hasGatewayWebhookSecret && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            Secret salvo
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="password"
+                        name="gatewayWebhookSecret"
+                        value={formData.gatewayWebhookSecret || ''}
+                        onChange={handleChange}
+                        placeholder="Assinatura secreta de Webhooks no painel MP"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-1">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+                        URL do Webhook para cadastrar no Mercado Pago
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <code className="text-[11px] font-mono text-indigo-950 break-all flex-1">
+                          {`https://app.hiveerp.com.br/api/v2/payments/mercadopago/webhook/${formData.slug || 'sua-loja'}`}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = `https://app.hiveerp.com.br/api/v2/payments/mercadopago/webhook/${formData.slug || 'sua-loja'}`;
+                            navigator.clipboard?.writeText(url);
+                            toast.success('URL do webhook copiada!');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-700 transition flex-shrink-0"
+                        >
+                          Copiar
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

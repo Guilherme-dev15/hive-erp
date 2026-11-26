@@ -7,6 +7,8 @@ import { createCorsOptions, parseAllowedOrigins } from './config/cors';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+
   app.useLogger(app.get(Logger));
 
   app.useGlobalPipes(new ValidationPipe({

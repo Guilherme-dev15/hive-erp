@@ -20,7 +20,10 @@
       "src": "/((?!api/).*)",
       "headers": {
         "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-        "Cross-Origin-Embedder-Policy": "unsafe-none"
+        "Cross-Origin-Embedder-Policy": "unsafe-none",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
       },
       "continue": true
     },

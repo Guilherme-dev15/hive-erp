@@ -103,6 +103,10 @@ export const configSchema = z.object({
   hasGatewayAddon: z.boolean().default(false),
   gatewayProvider: z.string().optional(),
   gatewayPublicKey: z.string().optional(),
+  gatewayAccessToken: z.string().optional(),
+  gatewayWebhookSecret: z.string().optional(),
+  hasGatewayAccessToken: z.boolean().optional(),
+  hasGatewayWebhookSecret: z.boolean().optional(),
 
   // Configurações Fiscais (NF-e)
   cnpjEmitente: z.string().optional(),

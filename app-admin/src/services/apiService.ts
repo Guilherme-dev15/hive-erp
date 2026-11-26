@@ -172,7 +172,10 @@ export const uploadImage = async (file: File): Promise<string> => {
   if (!file) return '';
   try {
     const cleanName = file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
-    const fileName = `products/${Date.now()}_${cleanName}`;
+    const uid = auth.currentUser?.uid;
+    const fileName = uid
+      ? `products/${uid}/${Date.now()}_${cleanName}`
+      : `products/${Date.now()}_${cleanName}`;
     const storageRef = ref(storage, fileName);
     const snapshot = await uploadBytes(storageRef, file);
     return await getDownloadURL(snapshot.ref);

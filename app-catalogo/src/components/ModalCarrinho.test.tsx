@@ -350,4 +350,56 @@ describe('ModalCarrinho', () => {
       );
     });
   });
+
+  it('redireciona para paymentUrl do Mercado Pago quando a API retorna checkout online', async () => {
+    const gatewayConfig: ConfigPublica = {
+      ...mockConfig,
+      checkoutMode: 'GATEWAY',
+      hasGatewayAddon: true,
+      gatewayProvider: 'MERCADO_PAGO',
+      gatewayPublicKey: 'TEST-APP-KEY',
+    };
+    const assignMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, assign: assignMock },
+    });
+
+    vi.mocked(createPublicOrder).mockResolvedValueOnce({
+      success: true,
+      orderId: 'ord-mp-9999',
+      status: 'AGUARDANDO_PAGAMENTO',
+      total: 280,
+      createdAt: new Date().toISOString(),
+      preferenceId: 'pref-mp-1',
+      paymentUrl: 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-mp-1',
+    });
+
+    render(
+      <ModalCarrinho
+        isOpen={true}
+        onClose={vi.fn()}
+        itens={mockItens}
+        setCarrinho={vi.fn()}
+        whatsappNumber={gatewayConfig.whatsappNumber}
+        config={gatewayConfig}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Nome Completo/i), { target: { value: 'Maria' } });
+    fireEvent.change(screen.getByLabelText(/WhatsApp \(com DDD\)/i), { target: { value: '11977776666' } });
+    fireEvent.click(screen.getByText('Pix / Cartão'));
+    fireEvent.click(screen.getByRole('button', { name: /Pagar Online/i }));
+
+    await waitFor(() => {
+      expect(createPublicOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethod: 'GATEWAY',
+        })
+      );
+      expect(assignMock).toHaveBeenCalledWith(
+        'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-mp-1'
+      );
+    });
+  });
 });

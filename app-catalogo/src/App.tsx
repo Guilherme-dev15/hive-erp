@@ -215,6 +215,48 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] =
     useState<ProdutoCatalogo | null>(null);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const pagamentoStatus = searchParams.get('pagamento');
+    if (!pagamentoStatus) return;
+
+    const pedidoId = searchParams.get('pedido');
+    const shortOrder = pedidoId ? ` #${pedidoId.slice(0, 8).toUpperCase()}` : '';
+
+    if (pagamentoStatus === 'aprovado') {
+      toast.success(`Pagamento confirmado para o pedido${shortOrder}! Obrigado pela compra.`, {
+        duration: 6000,
+      });
+    } else if (pagamentoStatus === 'pendente') {
+      toast(`Pagamento em análise para o pedido${shortOrder}. Assim que compensar, a loja confirmará seu envio.`, {
+        duration: 6000,
+      });
+    } else if (pagamentoStatus === 'falhou') {
+      toast.error(`Não foi possível concluir o pagamento do pedido${shortOrder}. Tente novamente ou fale pelo WhatsApp.`, {
+        duration: 6000,
+      });
+    }
+
+    searchParams.delete('pagamento');
+    searchParams.delete('pedido');
+    searchParams.delete('collection_id');
+    searchParams.delete('collection_status');
+    searchParams.delete('payment_id');
+    searchParams.delete('status');
+    searchParams.delete('external_reference');
+    searchParams.delete('payment_type');
+    searchParams.delete('merchant_order_id');
+    searchParams.delete('preference_id');
+    searchParams.delete('site_id');
+    searchParams.delete('processing_mode');
+    searchParams.delete('merchant_account_id');
+
+    const remainingQuery = searchParams.toString();
+    const cleanUrl =
+      window.location.pathname + (remainingQuery ? `?${remainingQuery}` : '') + window.location.hash;
+    window.history.replaceState({}, '', cleanUrl);
+  }, []);
+
   if (loading && !config.storeName)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">

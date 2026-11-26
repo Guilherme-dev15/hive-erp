@@ -1,5 +1,5 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './firebase/firebaseConfig';
+import { auth, storage } from './firebase/firebaseConfig';
 
 export const uploadImageToFirebase = async (
   file: File,
@@ -10,10 +10,12 @@ export const uploadImageToFirebase = async (
   // 1. Cria um nome único para o ficheiro (timestamp + nome original limpo)
   // Ex: 1715000000000_anel-prata.jpg
   const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+  const uid = auth.currentUser?.uid;
   const fileName = `${Date.now()}_${cleanName}`;
+  const path = uid ? `${folder}/${uid}/${fileName}` : `${folder}/${fileName}`;
 
   // 2. Cria a referência (o caminho onde vai ficar salvo no Google)
-  const storageRef = ref(storage, `${folder}/${fileName}`);
+  const storageRef = ref(storage, path);
 
   try {
     // 3. Faz o upload dos bytes

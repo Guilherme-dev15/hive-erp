@@ -1,4 +1,4 @@
-import { IsArray, IsNumber, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator';
 
 export class UpdateConfigDto {
   @IsOptional()
@@ -69,6 +69,22 @@ export class UpdateConfigDto {
   @IsOptional()
   @IsString()
   gatewayPublicKey?: string;
+
+  @IsOptional()
+  @IsString()
+  gatewayAccessToken?: string;
+
+  @IsOptional()
+  @IsString()
+  gatewayWebhookSecret?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  clearGatewayAccessToken?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  clearGatewayWebhookSecret?: boolean;
 
   @IsOptional()
   @IsString()

@@ -304,4 +304,49 @@ describe('AuthController', () => {
       ).rejects.toThrow('E-mail é obrigatório para cadastrar uma nova loja');
     });
   });
+
+  describe('register', () => {
+    it('rejects register when req.user.legacyId is absent', async () => {
+      await expect(
+        controller.register(
+          { user: {} },
+          { name: 'Atacante', email: 'atacante@teste.com', legacyId: 'uid-forjado' },
+        ),
+      ).rejects.toThrow(new UnauthorizedException('Usuário inválido no contexto de autenticação'));
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('uses req.user.legacyId and req.user.email instead of spoofed body fields', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'uuid-reg-1',
+        name: 'Lojista Novo',
+        email: 'verificado@loja.com',
+        trialEndsAt: mockTrialAccess.trialEndsAt,
+      });
+
+      const result = await controller.register(
+        { user: { legacyId: 'uid-real-jwt', email: 'verificado@loja.com' } },
+        {
+          name: 'Lojista Novo',
+          email: 'spoof@atacante.com',
+          legacyId: 'uid-spoof',
+          storeName: 'Loja Real',
+        },
+      );
+
+      expect(result.user.email).toBe('verificado@loja.com');
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'verificado@loja.com',
+            legacyId: 'uid-real-jwt',
+            subscription: expect.objectContaining({
+              create: expect.objectContaining({ status: 'TRIAL' }),
+            }),
+          }),
+        }),
+      );
+    });
+  });
 });
