@@ -9,7 +9,7 @@ describe('LandingPage', () => {
 
     expect(screen.getAllByText(/HIVE ERP/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      /Venda, controle o estoque e emita nota fiscal/i,
+      /Venda, controle o estoque e organize seu financeiro/i,
     );
     expect(screen.getAllByText(/14 dias grátis/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/R\$\s*97/i).length).toBeGreaterThan(0);

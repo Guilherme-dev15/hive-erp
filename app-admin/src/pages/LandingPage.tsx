@@ -20,7 +20,7 @@ interface LandingPageProps {
 
 export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
   const whatsappUrl =
-    'https://wa.me/5511999999999?text=' +
+    'https://wa.me/5511978399326?text=' +
     encodeURIComponent('Olá! Gostaria de conhecer o Hive ERP e agendar uma demonstração.');
 
   return (
@@ -81,10 +81,10 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
               <span>O ERP e Catálogo Online Especialista</span>
             </div>
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
-              Venda, controle o estoque e emita nota fiscal sem trocar de sistema.
+              Venda, controle o estoque e organize seu financeiro em um só lugar.
             </h1>
             <p className="text-base sm:text-lg text-gray-300 max-w-xl leading-relaxed">
-              O Hive ERP junta vendas, estoque, financeiro e fiscal em um painel só, na nuvem, para a sua equipe parar de brigar com planilhas.
+              O Hive ERP junta catálogo online no WhatsApp, controle de estoque com grade e financeiro em um painel só, na nuvem, para a sua equipe parar de brigar com planilhas.
             </p>
 
             <div className="flex flex-wrap gap-3 pt-2">
@@ -131,7 +131,7 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
                 }}
               >
                 <b className="text-lg sm:text-xl font-extrabold text-white block">32</b>
-                <span className="text-[11px] leading-tight">notas emitidas</span>
+                <span className="text-[11px] leading-tight">pedidos hoje</span>
               </div>
 
               <div
@@ -181,11 +181,11 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
       {/* Prova de Segmentos */}
       <div className="border-b border-gray-200 bg-white py-6">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap gap-6 sm:gap-12 justify-center items-center text-sm font-bold text-gray-500">
-          <span>✨ Pratas & Semijoias</span>
+          <span>✨ Joias & Semijoias</span>
           <span>🛍️ Lojas & Varejo</span>
-          <span>📦 Distribuidoras</span>
-          <span>⚙️ Fabricantes & Oficinas</span>
-          <span>🚀 E-commerces</span>
+          <span>📦 Atacado & Revenda</span>
+          <span>💍 Pratas & Acessórios</span>
+          <span>🚀 E-commerces & WhatsApp</span>
         </div>
       </div>
 
@@ -202,9 +202,9 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
             </p>
           </div>
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:border-[#f2a900] transition">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Nota fiscal na correria</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Catálogo confuso no WhatsApp</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Dados digitados duas vezes, erro de cadastro e rejeição da SEFAZ na hora de emitir para o cliente.
+              Fotos soltas espalhadas, pedidos perdidos na conversa, dúvida se ainda há o aro ou peça e demora para responder.
             </p>
           </div>
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:border-[#f2a900] transition">
@@ -249,7 +249,7 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Estoque Inteligente</h3>
               <p className="text-sm text-gray-600">
-                Saldo em tempo real, controle por medidas/grades, alertas de estoque mínimo e entradas por XML.
+                Saldo em tempo real, controle por medidas e grades (aros, banhos), alertas de estoque mínimo e baixa automática.
               </p>
             </div>
 
@@ -275,11 +275,11 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
                   clipPath: 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)',
                 }}
               >
-                🧾
+                ✨
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Nota Fiscal Eletrônica</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">NeonStudio™ & Fotos</h3>
               <p className="text-sm text-gray-600">
-                Emissão de NF-e e NFC-e direto da venda com cálculo automático de impostos e sem retrabalho.
+                Estúdio fotográfico com fundo branco puro 1080x1080, zoom livre e enquadramento perfeito para joias e produtos.
               </p>
             </div>
 
@@ -326,51 +326,14 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {/* Essencial */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col justify-between shadow-sm">
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Essencial</h3>
-              <p className="text-xs text-gray-500 mt-1">Para quem está organizando a casa.</p>
-              <div className="my-6">
-                <span className="text-4xl font-black text-gray-900">R$ 59</span>
-                <span className="text-sm text-gray-500 font-medium">/mês</span>
-              </div>
-              <ul className="space-y-3 text-sm text-gray-600">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>1 usuário administrador</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Controle de vendas e estoque</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Vitrine virtual pública</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Suporte via chat e e-mail</span>
-                </li>
-              </ul>
-            </div>
-            <button
-              type="button"
-              onClick={onStartTrial}
-              className="mt-8 w-full py-3 rounded-full border-2 border-gray-300 font-bold text-sm text-gray-800 hover:border-gray-900 transition"
-            >
-              Testar 14 dias grátis
-            </button>
-          </div>
-
-          {/* Profissional - Mais Escolhido */}
+          {/* Plano Pro Principal */}
           <div className="bg-white border-2 border-[#f2a900] rounded-2xl p-8 flex flex-col justify-between shadow-lg relative">
             <span className="absolute -top-3 left-6 bg-[#f2a900] text-[#1d1d20] text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
               Mais Escolhido
             </span>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">Profissional</h3>
-              <p className="text-xs text-gray-500 mt-1">Para empresas em crescimento acelerado.</p>
+              <h3 className="text-xl font-bold text-gray-900">Plano Pro</h3>
+              <p className="text-xs text-gray-500 mt-1">Acesso completo para gerir e vender.</p>
               <div className="my-6">
                 <span className="text-4xl font-black text-gray-900">R$ 97</span>
                 <span className="text-sm text-gray-500 font-medium">/mês</span>
@@ -378,19 +341,23 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
               <ul className="space-y-3 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span><strong>Usuários ilimitados</strong> sem custo</span>
+                  <span>Catálogo online no seu subdomínio</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Financeiro completo e conciliação Pix</span>
+                  <span>Vendas no WhatsApp com 0% de taxas</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Emissão de Nota Fiscal (NF-e/NFC-e)</span>
+                  <span>Estoque com medidas (aros, cm, mm)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
                   <span>NeonStudio™ fotos de produtos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Financeiro, fluxo de caixa e DRE</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
@@ -404,6 +371,47 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
               className="mt-8 w-full py-3.5 rounded-full bg-[#f2a900] font-bold text-sm text-[#1d1d20] hover:bg-amber-400 shadow-md transition"
             >
               Começar 14 dias grátis
+            </button>
+          </div>
+
+          {/* Add-on de Checkout Online */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Checkout Online</h3>
+              <p className="text-xs text-gray-500 mt-1">Recebimento automático na vitrine.</p>
+              <div className="my-6">
+                <span className="text-4xl font-black text-gray-900">+ R$ 49</span>
+                <span className="text-sm text-gray-500 font-medium">/mês</span>
+              </div>
+              <ul className="space-y-3 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Pix automático com QR Code no carrinho</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Cartão de crédito parcelado integrado</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Baixa imediata e automática de estoque</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Conexão direta com Mercado Pago</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
+                  <span>Módulo opcional somado ao Plano Pro</span>
+                </li>
+              </ul>
+            </div>
+            <button
+              type="button"
+              onClick={onStartTrial}
+              className="mt-8 w-full py-3 rounded-full border-2 border-gray-300 font-bold text-sm text-gray-800 hover:border-gray-900 transition"
+            >
+              Testar 14 dias grátis
             </button>
           </div>
 
@@ -463,7 +471,7 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
             <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
               <summary className="font-bold text-gray-900">O sistema emite nota fiscal?</summary>
               <p className="mt-2 text-gray-600 leading-relaxed">
-                Sim. Você emite notas fiscais eletrônicas (NF-e e NFC-e) direto da tela de vendas, com transmissão rápida à SEFAZ e envio automático de DANFE e XML para o cliente.
+                Não. O Hive ERP é 100% focado na gestão operacional, comercial e financeira (vendas, catálogo online no WhatsApp, controle de estoque com grade, CRM e DRE). Não realizamos emissão fiscal (NF-e/NFC-e), permitindo que você mantenha sua rotina fiscal com seu emissor ou contador habitual com total liberdade.
               </p>
             </details>
             <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
