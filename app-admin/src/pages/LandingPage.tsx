@@ -264,7 +264,7 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Financeiro Completo</h3>
               <p className="text-sm text-gray-600">
-                Contas a pagar e receber, fluxo de caixa diário, conciliação Pix e DRE gerencial simplificado.
+                Contas a pagar e receber, fluxo de caixa diário, margem real por peça e DRE gerencial simplificado.
               </p>
             </div>
 
@@ -421,17 +421,18 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
               <h3 className="text-xl font-bold text-gray-900">Implantação VIP</h3>
               <p className="text-xs text-gray-500 mt-1">Nós cadastramos tudo para você.</p>
               <div className="my-6">
-                <span className="text-4xl font-black text-gray-900">R$ 97</span>
+                <span className="text-xs text-gray-500 font-medium block">A partir de</span>
+                <span className="text-4xl font-black text-gray-900">R$ 149</span>
                 <span className="text-xs text-gray-500 font-medium ml-1">parcela única</span>
               </div>
               <ul className="space-y-3 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Setup de até 200 produtos</span>
+                  <span>Setup de até 200 produtos (R$ 149)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
-                  <span>Opções de até 300 produtos ou até 500 produtos</span>
+                  <span>Opções de até 300 produtos (R$ 199) ou até 500 produtos (R$ 299)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-[#1f8a5b] flex-shrink-0" />
@@ -471,7 +472,7 @@ export function LandingPage({ onStartTrial, onNavigate }: LandingPageProps) {
             <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">
               <summary className="font-bold text-gray-900">O sistema emite nota fiscal?</summary>
               <p className="mt-2 text-gray-600 leading-relaxed">
-                Não. O Hive ERP é 100% focado na gestão operacional, comercial e financeira (vendas, catálogo online no WhatsApp, controle de estoque com grade, CRM e DRE). Não realizamos emissão fiscal (NF-e/NFC-e), permitindo que você mantenha sua rotina fiscal com seu emissor ou contador habitual com total liberdade.
+                Não. O Hive ERP é 100% focado na gestão operacional, comercial e financeira (vendas, catálogo online no WhatsApp, controle de estoque com grade, CRM e DRE). Em vez de emissão fiscal na SEFAZ (NF-e/NFC-e), o sistema gera Comprovante de Venda com QR Code e Certificado de Garantia, além de Declaração de Conteúdo padrão Correios — mantendo sua rotina fiscal livre com seu emissor ou contador habitual.
               </p>
             </details>
             <details className="bg-[#f4f6f8] border border-gray-200 rounded-xl p-4 cursor-pointer">

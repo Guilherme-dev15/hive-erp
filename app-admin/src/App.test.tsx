@@ -78,6 +78,12 @@ vi.mock('./hooks/useAuth', () => ({
   useAuth: () => authState,
 }));
 
+vi.mock('./services/apiService', () => ({
+  getAdminProdutos: vi.fn().mockResolvedValue([]),
+  getCustomers: vi.fn().mockResolvedValue([]),
+  getAdminOrders: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('react-hot-toast', () => ({
   Toaster: () => null,
 }));

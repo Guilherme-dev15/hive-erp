@@ -22,6 +22,12 @@ vi.mock('../hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('../services/apiService', () => ({
+  getAdminProdutos: vi.fn().mockResolvedValue([]),
+  getCustomers: vi.fn().mockResolvedValue([]),
+  getAdminOrders: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('../contexts/ThemeContext', () => ({
   useTheme: () => ({
     theme: {
