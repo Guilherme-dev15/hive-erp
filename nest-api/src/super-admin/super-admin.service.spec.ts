@@ -206,4 +206,52 @@ describe('SuperAdminService', () => {
       }),
     );
   });
+
+  it('filtra lojas com trials expirando em até 3 dias usando status EXPIRING_SOON', async () => {
+    const now = new Date();
+    const subExpiring = {
+      status: SubscriptionStatus.TRIAL,
+      planCode: 'PRO_MONTHLY',
+      monthlyPriceCents: 9700,
+      trialStartsAt: new Date(now.getTime() - 12 * 86_400_000),
+      trialEndsAt: new Date(now.getTime() + 2 * 86_400_000), // 2 dias restantes
+      isExempt: false,
+    };
+    const subFarTrial = {
+      status: SubscriptionStatus.TRIAL,
+      planCode: 'PRO_MONTHLY',
+      monthlyPriceCents: 9700,
+      trialStartsAt: now,
+      trialEndsAt: new Date(now.getTime() + 10 * 86_400_000), // 10 dias restantes
+      isExempt: false,
+    };
+
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: 'user-expiring',
+        name: 'Loja Quase Expirando',
+        email: 'quase@loja.com',
+        active: true,
+        createdAt: now,
+        config: { storeName: 'Quase Loja', publicSlug: 'quase-loja', whatsappNumber: '11999999999' },
+        subscription: subExpiring,
+        _count: { products: 10, orders: 2 },
+      },
+      {
+        id: 'user-far',
+        name: 'Loja Longe',
+        email: 'longe@loja.com',
+        active: true,
+        createdAt: now,
+        config: { storeName: 'Longe Loja', publicSlug: 'longe-loja', whatsappNumber: '11888888888' },
+        subscription: subFarTrial,
+        _count: { products: 5, orders: 0 },
+      },
+    ]);
+    mockPrisma.productSetupRequest.findMany.mockResolvedValue([]);
+
+    const tenants = await service.listTenants({ status: 'EXPIRING_SOON' });
+    expect(tenants.length).toBe(1);
+    expect(tenants[0].id).toBe('user-expiring');
+  });
 });

@@ -12,6 +12,9 @@ import {
   Store,
   Upload,
   X,
+  Copy,
+  ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -62,6 +65,62 @@ function parseSheetNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+interface RemarketingTemplate {
+  id: string;
+  title: string;
+  badge: string;
+  badgeColor: string;
+  getText: (tenant: SuperAdminTenantItem) => string;
+}
+
+const REMARKETING_TEMPLATES: RemarketingTemplate[] = [
+  {
+    id: 'trial_welcome',
+    title: 'Boas-Vindas & Onboarding (Trial Ativo)',
+    badge: 'Onboarding',
+    badgeColor: 'bg-blue-50 text-blue-800 border-blue-200',
+    getText: (t) =>
+      `Olá, ${t.name}! Tudo bem?\n\nSou do time do Hive ERP. Parabéns por iniciar o teste da sua loja *${t.storeName}*!\n\nVi que você já possui ${t.productsCount} produto(s) no sistema. Como está sendo sua experiência? Precisa de algum apoio para configurar sua vitrine online ou tirar dúvidas sobre o fluxo de vendas?`,
+  },
+  {
+    id: 'trial_expiring',
+    title: 'Alerta de Expiração de Trial (Urgência & Desconto)',
+    badge: 'Urgência',
+    badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
+    getText: (t) => {
+      const days = t.subscription.daysRemaining ?? 1;
+      const daysText = days <= 1 ? 'encerra hoje' : `encerra em ${days} dia(s)`;
+      return `Olá, ${t.name}! Tudo bem?\n\nPassando para avisar que o período de avaliação da sua loja *${t.storeName}* no Hive ERP ${daysText}.\n\nPara garantir que suas operações no painel continuem sem pausa, liberamos uma condição especial para ativação do seu *Plano Pro por apenas R$ 97/mês* com suporte prioritário via WhatsApp.\n\nPodemos confirmar sua ativação agora via Pix?`;
+    },
+  },
+  {
+    id: 'expired_recovery',
+    title: 'Resgate de Loja Expirada (Vitrine Online & Churn)',
+    badge: 'Recuperação',
+    badgeColor: 'bg-red-50 text-red-800 border-red-200',
+    getText: (t) => {
+      const publicLink = t.slug ? `https://hive-erp.vercel.app/c/${t.slug}` : 'seu catálogo';
+      return `Olá, ${t.name}! Tudo bem?\n\nNotamos que o período de teste do painel da sua loja *${t.storeName}* encerrou, mas sua *Vitrine Pública continua 100% online* no ar (${publicLink}) recebendo clientes!\n\nPara que você volte a gerenciar seus pedidos, estoque e cadastros sem perder nenhuma venda, preparamos uma liberação imediata via Pix.\n\nVamos reativar seu acesso completo hoje?`;
+    },
+  },
+  {
+    id: 'upsell_setup',
+    title: 'Oferta de Implantação VIP / Setup por Lote',
+    badge: 'Serviço VIP',
+    badgeColor: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+    getText: (t) =>
+      `Olá, ${t.name}! Tudo bem?\n\nVi que você está estruturando sua loja *${t.storeName}* no Hive ERP. Sabia que temos um serviço de *Implantação VIP por Lote*?\n\nNossa equipe especializada cadastra, formata e organiza até 200, 300 ou 500 produtos a partir da sua planilha ou fotos, para você não perder tempo e já começar vendendo com o catálogo impecável.\n\nQuer que eu te envie os detalhes e valores de implantação?`,
+  },
+  {
+    id: 'upsell_gateway',
+    title: 'Oferta do Módulo Checkout Online / Gateway',
+    badge: 'Checkout Pix',
+    badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    getText: (t) =>
+      `Olá, ${t.name}! Tudo bem?\n\nAtualmente sua vitrine *${t.storeName}* fecha pedidos pelo WhatsApp. Sabia que você pode ativar o *Módulo Checkout Online Integrado*?\n\nCom ele, seus clientes pagam via Pix Automático e Cartão de Crédito parcelado diretamente na sua loja, com confirmação imediata. Lojas com checkout automático aumentam em até 40% a taxa de conversão!\n\nQuer testar esse módulo na sua loja?`,
+  },
+];
+
 export function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<'tenants' | 'setups'>('tenants');
   const [overview, setOverview] = useState<SuperAdminOverview | null>(null);
@@ -83,6 +142,63 @@ export function SuperAdminPage() {
   } | null>(null);
   const [parsedProducts, setParsedProducts] = useState<Partial<ProdutoAdmin>[]>([]);
   const [importing, setImporting] = useState(false);
+
+  // Modal de Remarketing de Vendas do ERP
+  const [selectedRemarketingTenant, setSelectedRemarketingTenant] = useState<SuperAdminTenantItem | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('trial_welcome');
+  const [customMessage, setCustomMessage] = useState<string>('');
+  const [targetPhone, setTargetPhone] = useState<string>('');
+
+  const handleOpenRemarketing = (tenant: SuperAdminTenantItem) => {
+    setSelectedRemarketingTenant(tenant);
+    setTargetPhone(tenant.whatsappNumber || '');
+
+    let initialTemplateId = 'trial_welcome';
+    if (tenant.subscription.effectiveStatus === 'EXPIRED' || tenant.subscription.effectiveStatus === 'CANCELED') {
+      initialTemplateId = 'expired_recovery';
+    } else if (
+      tenant.subscription.effectiveStatus === 'TRIAL' &&
+      (tenant.subscription.daysRemaining ?? 0) <= 3
+    ) {
+      initialTemplateId = 'trial_expiring';
+    } else if (tenant.productsCount <= 5 && tenant.openSetupRequestsCount > 0) {
+      initialTemplateId = 'upsell_setup';
+    }
+
+    setActiveTemplateId(initialTemplateId);
+    const tmpl = REMARKETING_TEMPLATES.find((t) => t.id === initialTemplateId);
+    setCustomMessage(tmpl ? tmpl.getText(tenant) : '');
+  };
+
+  const handleSelectTemplate = (templateId: string) => {
+    if (!selectedRemarketingTenant) return;
+    setActiveTemplateId(templateId);
+    const tmpl = REMARKETING_TEMPLATES.find((t) => t.id === templateId);
+    if (tmpl) {
+      setCustomMessage(tmpl.getText(selectedRemarketingTenant));
+    }
+  };
+
+  const handleCopyMessage = async () => {
+    if (!customMessage) return;
+    try {
+      await navigator.clipboard.writeText(customMessage);
+      toast.success('Mensagem copiada para a área de transferência!');
+    } catch {
+      toast.error('Não foi possível copiar a mensagem.');
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    const rawDigits = targetPhone.replace(/\D/g, '');
+    const cleanPhone = rawDigits.startsWith('55') ? rawDigits : `55${rawDigits}`;
+    if (!rawDigits || rawDigits.length < 10) {
+      toast.error('Informe um número de WhatsApp válido com DDD.');
+      return;
+    }
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(customMessage)}`;
+    window.open(url, '_blank');
+  };
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -308,6 +424,7 @@ export function SuperAdminPage() {
             >
               <option value="ALL">Todos os status</option>
               <option value="TRIAL">Em Trial</option>
+              <option value="EXPIRING_SOON">Trials Expirando (≤ 3 dias)</option>
               <option value="ACTIVE">Ativas</option>
               <option value="EXPIRED">Expiradas</option>
               <option value="CANCELED">Canceladas</option>
@@ -402,6 +519,15 @@ export function SuperAdminPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRemarketing(tenant)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition shadow-sm"
+                    title="Abrir estratégia de remarketing e copy pronta de WhatsApp"
+                  >
+                    <MessageCircle size={13} className="text-emerald-600" />
+                    <span>Remarketing</span>
+                  </button>
                   <button
                     type="button"
                     disabled={busyId === tenant.id}
@@ -633,6 +759,134 @@ export function SuperAdminPage() {
                 {importing && <Loader2 size={14} className="animate-spin" />}
                 <span>Importar para Loja</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Remarketing de Vendas do ERP */}
+      {selectedRemarketingTenant && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 mb-1">
+                  <Sparkles size={12} /> Remarketing de Vendas ERP
+                </span>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {selectedRemarketingTenant.storeName}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {selectedRemarketingTenant.name} • {selectedRemarketingTenant.email} • Status:{' '}
+                  <strong>{selectedRemarketingTenant.subscription.effectiveStatus}</strong>
+                  {selectedRemarketingTenant.subscription.effectiveStatus === 'TRIAL' && (
+                    <span> ({selectedRemarketingTenant.subscription.daysRemaining ?? 0} dias restantes)</span>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRemarketingTenant(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Seleção do Template */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 block">
+                Escolha o Objetivo / Script de Remarketing:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {REMARKETING_TEMPLATES.map((tmpl) => {
+                  const isSelected = activeTemplateId === tmpl.id;
+                  return (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => handleSelectTemplate(tmpl.id)}
+                      className={`text-left p-2.5 rounded-xl border text-xs transition flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-emerald-600 bg-emerald-50/50 shadow-sm'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <div className="font-bold text-gray-900 mb-1">{tmpl.title}</div>
+                      <span
+                        className={`self-start text-[10px] font-bold px-2 py-0.5 rounded-full border ${tmpl.badgeColor}`}
+                      >
+                        {tmpl.badge}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Telefone WhatsApp */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-700 block">
+                WhatsApp do Lojista (com DDD):
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={targetPhone}
+                  onChange={(e) => setTargetPhone(e.target.value)}
+                  placeholder="Ex: 11988887777 ou 5511988887777"
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Texto da Mensagem (Editável) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700">
+                  Mensagem WhatsApp (Personalizável):
+                </label>
+                <span className="text-[11px] text-gray-400">Suporta formatação *negrito* do WhatsApp</span>
+              </div>
+              <textarea
+                rows={7}
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="w-full p-3 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans leading-relaxed text-gray-800"
+              />
+            </div>
+
+            {/* Ações */}
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setSelectedRemarketingTenant(null)}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+              >
+                Fechar
+              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-700 transition"
+                  title="Copiar texto da mensagem"
+                >
+                  <Copy size={14} />
+                  <span>Copiar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendWhatsApp}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+                  title="Abrir WhatsApp Web ou App com a mensagem preenchida"
+                >
+                  <MessageCircle size={14} />
+                  <span>Abrir WhatsApp</span>
+                  <ExternalLink size={12} className="opacity-75" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

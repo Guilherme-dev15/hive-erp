@@ -157,4 +157,17 @@ describe('SuperAdminPage (Gestão de Lojas, Trials e Order Bumps)', () => {
       );
     });
   });
+
+  it('abre modal de remarketing e permite selecionar template e copiar mensagem WhatsApp', async () => {
+    render(<SuperAdminPage />);
+
+    expect(await screen.findByText('Pratas do Brasil')).toBeInTheDocument();
+
+    const remarketingBtn = screen.getByRole('button', { name: /Remarketing/i });
+    fireEvent.click(remarketingBtn);
+
+    expect(await screen.findByText(/Remarketing de Vendas ERP/i)).toBeInTheDocument();
+    expect(screen.getByText(/Alerta de Expiração de Trial/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Abrir WhatsApp/i })).toBeInTheDocument();
+  });
 });

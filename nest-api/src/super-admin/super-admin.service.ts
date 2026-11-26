@@ -194,6 +194,13 @@ export class SuperAdminService {
         if (statusFilter && statusFilter !== 'ALL') {
           if (statusFilter === 'SUSPENDED') return !item.active;
           if (statusFilter === 'EXEMPT') return item.subscription.isExempt;
+          if (statusFilter === 'EXPIRING_SOON') {
+            return (
+              item.subscription.effectiveStatus === 'TRIAL' &&
+              (item.subscription.daysRemaining ?? 0) <= 3 &&
+              (item.subscription.daysRemaining ?? 0) >= 0
+            );
+          }
           return item.subscription.effectiveStatus === statusFilter;
         }
 
