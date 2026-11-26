@@ -528,6 +528,7 @@ export interface OnboardData {
   storeName: string;
   name?: string;
   email?: string;
+  phone?: string;
   slug?: string;
 }
 

@@ -121,4 +121,30 @@ describe('OnboardingPage', () => {
 
     expect(mockLogout).toHaveBeenCalled();
   });
+
+  it('valida WhatsApp inválido e envia phone normalizado quando preenchido', async () => {
+    mockCompleteOnboard.mockResolvedValue(undefined);
+    render(<OnboardingPage />);
+
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Pratas do Brasil/i), {
+      target: { value: 'Pratas Premium' },
+    });
+    const phoneInput = screen.getByPlaceholderText('Ex: (11) 99999-8888');
+    fireEvent.change(phoneInput, { target: { value: '123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Criar Loja & Acessar ERP/i }));
+
+    expect(toast.error).toHaveBeenCalledWith('Informe um telefone/WhatsApp válido com DDD.');
+    expect(mockCompleteOnboard).not.toHaveBeenCalled();
+
+    fireEvent.change(phoneInput, { target: { value: '(11) 97839-9326' } });
+    fireEvent.click(screen.getByRole('button', { name: /Criar Loja & Acessar ERP/i }));
+
+    await waitFor(() => {
+      expect(mockCompleteOnboard).toHaveBeenCalledWith(
+        'Pratas Premium',
+        'pratas-premium',
+        { phone: '+5511978399326' },
+      );
+    });
+  });
 });

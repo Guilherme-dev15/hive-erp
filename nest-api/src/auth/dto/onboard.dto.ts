@@ -15,6 +15,13 @@ export class OnboardDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^\+?[0-9()\s-]{10,20}$/, {
+    message: 'Telefone inválido. Informe DDD + número.',
+  })
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
     message: 'slug must contain lowercase letters, numbers, and single hyphens',
   })

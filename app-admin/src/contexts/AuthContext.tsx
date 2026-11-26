@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -8,6 +8,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult,
   signOut,
   User,
 } from 'firebase/auth';
@@ -19,6 +23,10 @@ import {
   registerSubscriptionExpiredHandler,
 } from '../services/apiService';
 import type { SubscriptionSummary } from '../types';
+import {
+  normalizeBrazilPhoneToE164,
+  validateRegistrationEmail,
+} from '../utils/authValidation';
 
 export interface StoreSummary {
   id: string;
@@ -39,16 +47,31 @@ export interface UserData {
   subscription?: SubscriptionSummary;
 }
 
+export interface OnboardExtraOptions {
+  phone?: string;
+  email?: string;
+  name?: string;
+}
+
 export interface AuthContextType {
   user: User | null;
   userData: UserData | null;
   needsOnboarding: boolean;
+  needsEmailVerification: boolean;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  completeOnboard: (storeName: string, slug?: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  checkEmailVerification: () => Promise<boolean>;
+  sendPhoneCode: (phone: string, recaptchaContainerId?: string) => Promise<void>;
+  confirmPhoneCode: (code: string) => Promise<void>;
+  completeOnboard: (
+    storeName: string,
+    slug?: string,
+    extra?: OnboardExtraOptions,
+  ) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -80,11 +103,35 @@ function getHttpErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+function getApiErrorCode(error: unknown): string | undefined {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: unknown }).response;
+    if (typeof response === 'object' && response !== null && 'data' in response) {
+      const data = (response as { data?: unknown }).data;
+      if (typeof data === 'object' && data !== null && 'code' in data) {
+        const code = (data as { code?: unknown }).code;
+        return typeof code === 'string' ? code : undefined;
+      }
+    }
+  }
+  return undefined;
+}
+
+function isUnverifiedPasswordUser(currentUser: User): boolean {
+  const providers = Array.isArray(currentUser.providerData) ? currentUser.providerData : [];
+  const isPasswordUser = providers.some((provider) => provider?.providerId === 'password');
+  return isPasswordUser && currentUser.emailVerified === false;
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
 
   const fetchAndApplyMe = useCallback(async (currentUser: User) => {
     const token = await currentUser.getIdToken();
@@ -97,12 +144,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUserData(meData);
       setUser(currentUser);
       setNeedsOnboarding(false);
+      setNeedsEmailVerification(false);
     } else {
       toast.error('Acesso negado. Usuário inativo no ERP.');
       await signOut(auth);
       setUser(null);
       setUserData(null);
       setNeedsOnboarding(false);
+      setNeedsEmailVerification(false);
       delete apiClient.defaults.headers.common['Authorization'];
     }
   }, []);
@@ -150,32 +199,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser && currentUser.email) {
+      if (currentUser && (currentUser.email || currentUser.phoneNumber)) {
+        if (isUnverifiedPasswordUser(currentUser)) {
+          setUser(currentUser);
+          setUserData(null);
+          setNeedsOnboarding(false);
+          setNeedsEmailVerification(true);
+          delete apiClient.defaults.headers.common['Authorization'];
+          setLoading(false);
+          return;
+        }
+
+        setNeedsEmailVerification(false);
         try {
           await fetchAndApplyMe(currentUser);
         } catch (error: unknown) {
           const status = getHttpErrorStatus(error);
-          if (status === 401 || status === 404) {
-            // Novo lojista autenticado no Google que ainda não possui loja cadastrada no PostgreSQL
+          const apiCode = getApiErrorCode(error);
+          if (status === 403 && apiCode === 'EMAIL_NOT_VERIFIED') {
+            setUser(currentUser);
+            setUserData(null);
+            setNeedsOnboarding(false);
+            setNeedsEmailVerification(true);
+          } else if (status === 401 || status === 404) {
             setUser(currentUser);
             setUserData(null);
             setNeedsOnboarding(true);
           } else {
             console.error('Erro ao validar usuário no backend:', error);
-            // Em caso de erro 500 ou de conexão, tenta uma segunda vez após breve intervalo antes de desistir
             try {
               await new Promise((resolve) => setTimeout(resolve, 1500));
               await fetchAndApplyMe(currentUser);
             } catch (retryError: unknown) {
               const retryStatus = getHttpErrorStatus(retryError);
-              if (retryStatus === 401 || retryStatus === 404) {
+              const retryApiCode = getApiErrorCode(retryError);
+              if (retryStatus === 403 && retryApiCode === 'EMAIL_NOT_VERIFIED') {
+                setUser(currentUser);
+                setUserData(null);
+                setNeedsOnboarding(false);
+                setNeedsEmailVerification(true);
+              } else if (retryStatus === 401 || retryStatus === 404) {
                 setUser(currentUser);
                 setUserData(null);
                 setNeedsOnboarding(true);
               } else {
                 console.error('Falha na tentativa de reconexão:', retryError);
                 toast.error('Instabilidade temporária na conexão com o servidor. Tente recarregar a página.');
-                // Mantém o usuário autenticado no Firebase para não provocar logout agressivo
                 setUser(currentUser);
                 setUserData(null);
                 setNeedsOnboarding(false);
@@ -187,6 +256,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(null);
         setUserData(null);
         setNeedsOnboarding(false);
+        setNeedsEmailVerification(false);
         delete apiClient.defaults.headers.common['Authorization'];
       }
       setLoading(false);
@@ -266,13 +336,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
       toast.error('Preencha seu e-mail e uma senha com pelo menos 6 dígitos.');
       return;
     }
+    const validation = validateRegistrationEmail(email);
+    if (!validation.valid) {
+      toast.error(validation.reason || 'Informe um e-mail válido.');
+      throw new Error(validation.reason || 'E-mail inválido');
+    }
     if (password.length < 6) {
       toast.error('A senha deve ter no mínimo 6 caracteres.');
       return;
     }
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-      toast.success('Conta criada com sucesso! Seja bem-vindo(a).');
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      if (cred?.user && typeof sendEmailVerification === 'function') {
+        try {
+          await sendEmailVerification(cred.user);
+        } catch (verifyErr) {
+          console.warn('Falha ao enviar e-mail de confirmação automático:', verifyErr);
+        }
+      }
+      setNeedsEmailVerification(true);
+      toast.success('Conta criada com sucesso! Enviamos um link de confirmação para o seu e-mail.');
     } catch (error: unknown) {
       const code = getErrorCode(error);
       if (code === 'auth/email-already-in-use') {
@@ -315,12 +398,152 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const completeOnboard = async (storeName: string, slug?: string) => {
+  const resendVerificationEmail = async () => {
+    const activeUser = auth.currentUser ?? user;
+    if (!activeUser) {
+      toast.error('Sessão não encontrada. Faça login novamente.');
+      return;
+    }
+    try {
+      await sendEmailVerification(activeUser);
+      toast.success('Novo link de confirmação enviado! Verifique sua caixa de entrada e spam.');
+    } catch (error: unknown) {
+      const code = getErrorCode(error);
+      if (code === 'auth/too-many-requests') {
+        toast.error('Aguarde um minuto antes de solicitar outro e-mail.');
+      } else {
+        console.error('Erro ao reenviar confirmação de e-mail:', error);
+        toast.error('Não foi possível reenviar o e-mail. Tente novamente em instantes.');
+      }
+      throw error;
+    }
+  };
+
+  const checkEmailVerification = async (): Promise<boolean> => {
+    const activeUser = auth.currentUser ?? user;
+    if (!activeUser) {
+      toast.error('Sessão não encontrada. Faça login novamente.');
+      return false;
+    }
+
+    try {
+      if (typeof activeUser.reload === 'function') {
+        await activeUser.reload();
+      }
+      const refreshedUser = auth.currentUser ?? activeUser;
+      await refreshedUser.getIdToken(true);
+
+      if (!refreshedUser.emailVerified) {
+        toast.error('E-mail ainda não confirmado. Clique no link enviado para sua caixa de entrada ou spam.');
+        return false;
+      }
+
+      setNeedsEmailVerification(false);
+      toast.success('E-mail confirmado com sucesso!');
+      try {
+        await fetchAndApplyMe(refreshedUser);
+      } catch (err: unknown) {
+        const status = getHttpErrorStatus(err);
+        if (status === 401 || status === 404) {
+          setUser(refreshedUser);
+          setUserData(null);
+          setNeedsOnboarding(true);
+        } else {
+          throw err;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar confirmação de e-mail:', error);
+      toast.error('Não foi possível validar a confirmação agora. Tente novamente.');
+      return false;
+    }
+  };
+
+  const sendPhoneCode = async (
+    phone: string,
+    recaptchaContainerId: string = 'recaptcha-phone-container',
+  ) => {
+    const e164 = normalizeBrazilPhoneToE164(phone);
+    if (!e164) {
+      toast.error('Informe um telefone válido com DDD. Ex: (11) 99999-8888');
+      throw new Error('Telefone inválido');
+    }
+
+    try {
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch {
+          // ignore cleanup failures
+        }
+        recaptchaVerifierRef.current = null;
+      }
+
+      const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
+        size: 'invisible',
+      });
+      recaptchaVerifierRef.current = verifier;
+
+      const confirmation = await signInWithPhoneNumber(auth, e164, verifier);
+      confirmationRef.current = confirmation;
+      toast.success('Código SMS enviado! Digite os 6 dígitos recebidos.');
+    } catch (error: unknown) {
+      const code = getErrorCode(error);
+      if (code === 'auth/operation-not-allowed' || code === 'auth/billing-not-enabled') {
+        toast.error('Login por SMS ainda está sendo ativado no provedor. Use Google ou E-mail com confirmação.');
+      } else if (code === 'auth/too-many-requests') {
+        toast.error('Muitas tentativas. Aguarde alguns minutos.');
+      } else if (code === 'auth/invalid-phone-number') {
+        toast.error('Número de telefone inválido.');
+      } else {
+        console.error('Erro ao enviar SMS:', error);
+        toast.error('Não foi possível enviar o código SMS. Tente novamente.');
+      }
+      throw error;
+    }
+  };
+
+  const confirmPhoneCode = async (code: string) => {
+    const cleanCode = code.replace(/\D/g, '');
+    if (cleanCode.length !== 6) {
+      toast.error('Digite o código de 6 dígitos enviado por SMS.');
+      return;
+    }
+    if (!confirmationRef.current) {
+      toast.error('Solicite o código SMS primeiro.');
+      return;
+    }
+
+    try {
+      await confirmationRef.current.confirm(cleanCode);
+      confirmationRef.current = null;
+      toast.success('Telefone confirmado com sucesso!');
+    } catch (error: unknown) {
+      const errCode = getErrorCode(error);
+      if (errCode === 'auth/invalid-verification-code') {
+        toast.error('Código SMS incorreto. Confira os 6 dígitos.');
+      } else if (errCode === 'auth/code-expired') {
+        toast.error('Código expirado. Solicite um novo SMS.');
+      } else {
+        console.error('Erro ao confirmar SMS:', error);
+        toast.error('Não foi possível confirmar o código SMS.');
+      }
+      throw error;
+    }
+  };
+
+  const completeOnboard = async (
+    storeName: string,
+    slug?: string,
+    extra?: OnboardExtraOptions,
+  ) => {
     if (!user) throw new Error('Usuário não autenticado');
     const result = await onboardMerchant({
       storeName,
-      name: user.displayName || storeName,
-      email: user.email || undefined,
+      name: extra?.name || user.displayName || storeName,
+      email: user.email || extra?.email || undefined,
+      phone: extra?.phone || user.phoneNumber || undefined,
       slug: slug || undefined,
     });
     setUserData({
@@ -348,6 +571,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
     setUserData(null);
     setNeedsOnboarding(false);
+    setNeedsEmailVerification(false);
     delete apiClient.defaults.headers.common['Authorization'];
   };
 
@@ -355,11 +579,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     userData,
     needsOnboarding,
+    needsEmailVerification,
     loading,
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
     resetPassword,
+    resendVerificationEmail,
+    checkEmailVerification,
+    sendPhoneCode,
+    confirmPhoneCode,
     completeOnboard,
     refreshAuth,
     logout,

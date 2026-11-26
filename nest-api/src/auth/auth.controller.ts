@@ -18,6 +18,22 @@ import { RegisterDto } from './dto/register.dto';
 import { BillingActionType, Prisma, Role, SubscriptionStatus } from '@prisma/client';
 import { SubscriptionService, evaluateSubscriptionAccess } from '../billing/subscription.service';
 
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  'mailinator.com',
+  'tempmail.com',
+  'guerrillamail.com',
+  'yopmail.com',
+  '10minutemail.com',
+  'trashmail.com',
+  'sharklasers.com',
+  'throwawaymail.com',
+  'fakeinbox.com',
+  'dispostable.com',
+  'getnada.com',
+  'temp-mail.org',
+  'mohmal.com',
+]);
+
 @Controller('api/v2/auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -26,6 +42,23 @@ export class AuthController {
     private readonly prisma: PrismaService,
     private readonly subscriptionService: SubscriptionService,
   ) {}
+
+  private validateAllowedEmail(email: string): void {
+    const trimmed = email.trim().toLowerCase();
+    const parts = trimmed.split('@');
+    if (parts.length !== 2 || !parts[0] || !parts[1] || trimmed.includes('..')) {
+      throw new BadRequestException('E-mail inválido. Informe um endereço de e-mail válido.');
+    }
+    const domain = parts[1];
+    const domainLabels = domain.split('.');
+    const tld = domainLabels[domainLabels.length - 1] || '';
+    if (domainLabels.length < 2 || tld.length < 2) {
+      throw new BadRequestException('E-mail inválido. Informe um endereço de e-mail válido.');
+    }
+    if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+      throw new BadRequestException('Use um e-mail válido e permanente (e-mails temporários não são aceitos).');
+    }
+  }
 
   private resolveIsSuperAdmin(email: string | null | undefined, flag?: boolean): boolean {
     if (flag === true) return true;
@@ -49,6 +82,7 @@ export class AuthController {
     if (!normalizedEmail) {
       throw new BadRequestException('E-mail é obrigatório para cadastrar uma nova loja');
     }
+    this.validateAllowedEmail(normalizedEmail);
 
     const existing = await this.prisma.user.findFirst({
       where: {
@@ -326,6 +360,9 @@ export class AuthController {
     if (!normalizedEmail) {
       throw new BadRequestException('E-mail é obrigatório para cadastrar uma nova loja');
     }
+    this.validateAllowedEmail(normalizedEmail);
+
+    const normalizedPhone = (req.user?.phoneNumber || dto.phone)?.trim() || null;
 
     const normalizedSlug = dto.slug?.trim().toLowerCase();
     if (normalizedSlug) {
@@ -352,6 +389,7 @@ export class AuthController {
         data: {
           email: normalizedEmail,
           name: dto.name || dto.storeName,
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
           role: Role.OWNER,
           active: true,
           legacyId: legacyId || undefined,
@@ -359,6 +397,7 @@ export class AuthController {
             create: {
               storeName: dto.storeName,
               publicSlug: normalizedSlug || undefined,
+              ...(normalizedPhone ? { whatsappNumber: normalizedPhone } : {}),
               primaryColor: '#D4AF37',
               secondaryColor: '#343434',
             },

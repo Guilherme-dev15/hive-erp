@@ -303,6 +303,69 @@ describe('AuthController', () => {
         ),
       ).rejects.toThrow('E-mail é obrigatório para cadastrar uma nova loja');
     });
+
+    it('should reject disposable email domains during onboard', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        controller.onboard(
+          { user: { legacyId: 'uid-disp', email: 'temp@mailinator.com' } },
+          { storeName: 'Loja Temp' },
+        ),
+      ).rejects.toThrow('Use um e-mail válido e permanente (e-mails temporários não são aceitos).');
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('should save phone and whatsappNumber from dto or phone auth token on onboard', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.config.findFirst.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'uuid-phone-1',
+        name: 'Loja Celular',
+        email: 'contato@lojacelular.com',
+        role: 'OWNER',
+        active: true,
+        config: {
+          id: 'cfg-phone-1',
+          storeName: 'Loja Celular',
+          publicSlug: 'loja-celular',
+          primaryColor: '#D4AF37',
+          secondaryColor: '#343434',
+        },
+        subscription: {
+          status: 'TRIAL',
+          planCode: 'PRO_MONTHLY',
+          monthlyPriceCents: 9700,
+          trialStartsAt: mockTrialAccess.trialStartsAt,
+          trialEndsAt: mockTrialAccess.trialEndsAt,
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          isExempt: false,
+        },
+      });
+
+      await controller.onboard(
+        { user: { legacyId: 'phone-uid-1', phoneNumber: '+5511988887777' } },
+        {
+          storeName: 'Loja Celular',
+          email: 'contato@lojacelular.com',
+          slug: 'loja-celular',
+        },
+      );
+
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            phone: '+5511988887777',
+            config: {
+              create: expect.objectContaining({
+                whatsappNumber: '+5511988887777',
+              }),
+            },
+          }),
+        }),
+      );
+    });
   });
 
   describe('register', () => {

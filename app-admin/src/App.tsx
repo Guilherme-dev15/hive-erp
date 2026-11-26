@@ -8,6 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { OnboardingPage } from './pages/OnboardingPage.tsx';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { LandingPage } from './pages/LandingPage';
 import { LegalPage } from './pages/LegalPage';
 import { getAdminAppUrl, resolvePublicSurface } from './utils/publicRoutes';
@@ -85,7 +86,7 @@ function PageLoadingFallback() {
 
 // --- CONTEÚDO PROTEGIDO ---
 function ProtectedLayout() {
-  const { user, userData, needsOnboarding, loading } = useAuth();
+  const { user, userData, needsOnboarding, needsEmailVerification, loading } = useAuth();
   const [pagina, setPagina] = useState<Pagina>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -162,6 +163,10 @@ function ProtectedLayout() {
 
   if (!user) {
     return <LoginPage onNavigate={navigatePublic} />;
+  }
+
+  if (needsEmailVerification) {
+    return <VerifyEmailPage />;
   }
 
   if (needsOnboarding) {

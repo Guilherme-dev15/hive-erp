@@ -7,6 +7,8 @@ const mockSignInWithGoogle = vi.fn();
 const mockSignInWithEmail = vi.fn();
 const mockSignUpWithEmail = vi.fn();
 const mockResetPassword = vi.fn();
+const mockSendPhoneCode = vi.fn();
+const mockConfirmPhoneCode = vi.fn();
 
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({
@@ -14,6 +16,8 @@ vi.mock('../hooks/useAuth', () => ({
     signInWithEmail: mockSignInWithEmail,
     signUpWithEmail: mockSignUpWithEmail,
     resetPassword: mockResetPassword,
+    sendPhoneCode: mockSendPhoneCode,
+    confirmPhoneCode: mockConfirmPhoneCode,
   }),
 }));
 
@@ -23,6 +27,8 @@ vi.mock('react-hot-toast', () => ({
     success: vi.fn(),
   },
 }));
+
+import toast from 'react-hot-toast';
 
 describe('LoginPage', () => {
   beforeEach(() => {
@@ -83,6 +89,49 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(mockSignInWithEmail).toHaveBeenCalledWith('lojista@pratas.com', '123456');
+    });
+  });
+
+  it('bloqueia cadastro com e-mail descartável antes de chamar signUpWithEmail', () => {
+    render(<LoginPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Criar conta grátis/i }));
+    fireEvent.change(screen.getByPlaceholderText('seuemail@exemplo.com'), {
+      target: { value: 'fake@mailinator.com' },
+    });
+    const pwdInputs = screen.getAllByPlaceholderText('••••••••');
+    fireEvent.change(pwdInputs[0], { target: { value: '123456' } });
+    fireEvent.change(pwdInputs[1], { target: { value: '123456' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Criar Conta e Começar Grátis/i }));
+
+    expect(mockSignUpWithEmail).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/temporários/i));
+  });
+
+  it('permite alternar para login via telefone SMS e confirmar o código de 6 dígitos', async () => {
+    mockSendPhoneCode.mockResolvedValueOnce(undefined);
+    mockConfirmPhoneCode.mockResolvedValueOnce(undefined);
+
+    render(<LoginPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Entrar ou criar conta com Telefone \(SMS\)/i }));
+    fireEvent.change(screen.getByPlaceholderText('(11) 99999-8888'), {
+      target: { value: '11999998888' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Enviar código por SMS/i }));
+
+    await waitFor(() => {
+      expect(mockSendPhoneCode).toHaveBeenCalledWith('11999998888', 'recaptcha-phone-container');
+    });
+
+    fireEvent.change(await screen.findByPlaceholderText('000000'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar código e entrar/i }));
+
+    await waitFor(() => {
+      expect(mockConfirmPhoneCode).toHaveBeenCalledWith('123456');
     });
   });
 });

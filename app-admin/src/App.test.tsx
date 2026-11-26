@@ -15,6 +15,7 @@ type AuthState = {
     subscription?: SubscriptionSummary;
   } | null;
   needsOnboarding?: boolean;
+  needsEmailVerification?: boolean;
   loading: boolean;
   refreshAuth?: ReturnType<typeof vi.fn>;
   logout: ReturnType<typeof vi.fn>;
@@ -25,6 +26,7 @@ const { authState, dashboardGate } = vi.hoisted(() => {
     user: { email: 'owner@example.com' },
     userData: { name: 'Owner', role: 'owner' },
     needsOnboarding: false,
+    needsEmailVerification: false,
     loading: false,
     refreshAuth: vi.fn(),
     logout: vi.fn(),
@@ -94,6 +96,10 @@ vi.mock('./pages/LoginPage.tsx', () => ({
 
 vi.mock('./pages/OnboardingPage.tsx', () => ({
   OnboardingPage: () => <div>Onboarding page</div>,
+}));
+
+vi.mock('./pages/VerifyEmailPage', () => ({
+  VerifyEmailPage: () => <div>Verify email page</div>,
 }));
 
 vi.mock('./pages/LandingPage', () => ({

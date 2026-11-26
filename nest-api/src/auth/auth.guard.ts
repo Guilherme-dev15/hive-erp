@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -10,6 +17,7 @@ export interface AuthenticatedRequestUser {
   email: string | null;
   role: Role | null;
   isSuperAdmin: boolean;
+  phoneNumber?: string | null;
 }
 
 export function ensureFirebaseApp(): void {
@@ -46,6 +54,8 @@ export class AuthGuard implements CanActivate {
 
     let firebaseUid: string | undefined;
     let firebaseEmail: string | undefined;
+    let firebasePhone: string | undefined;
+    let signInProvider: string | undefined;
     let emailVerified = true;
 
     if (request.method === 'OPTIONS') {
@@ -68,6 +78,8 @@ export class AuthGuard implements CanActivate {
         const decodedToken = await getAuth().verifyIdToken(token);
         firebaseUid = decodedToken.uid;
         firebaseEmail = decodedToken.email;
+        firebasePhone = (decodedToken as any).phone_number;
+        signInProvider = (decodedToken as any).firebase?.sign_in_provider;
         emailVerified = decodedToken.email_verified !== false;
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
@@ -85,6 +97,14 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Não foi possível identificar o usuário');
     }
 
+    if (process.env.NODE_ENV === 'production' && signInProvider === 'password' && !emailVerified) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Confirme seu e-mail através do link enviado antes de acessar o Hive ERP.',
+      });
+    }
+
     const normalizedEmail = firebaseEmail?.trim().toLowerCase();
     const adminEmails = getAdminEmails();
     const isAdmin = Boolean(normalizedEmail && emailVerified && adminEmails.includes(normalizedEmail));
@@ -99,6 +119,7 @@ export class AuthGuard implements CanActivate {
               ...(normalizedEmail
                 ? [{ email: { equals: normalizedEmail, mode: 'insensitive' as const } }]
                 : []),
+              ...(firebasePhone ? [{ phone: firebasePhone }] : []),
             ],
           },
           include: { config: true },
@@ -259,6 +280,7 @@ export class AuthGuard implements CanActivate {
           email: user.email ?? normalizedEmail ?? null,
           role: user.role ?? null,
           isSuperAdmin: isAdmin,
+          ...(firebasePhone ? { phoneNumber: firebasePhone } : {}),
         };
         request.user = authenticatedUser;
       } else {
@@ -268,6 +290,7 @@ export class AuthGuard implements CanActivate {
           email: normalizedEmail ?? null,
           role: null,
           isSuperAdmin: isAdmin,
+          ...(firebasePhone ? { phoneNumber: firebasePhone } : {}),
         };
         request.user = unprovisionedUser;
       }
@@ -279,6 +302,7 @@ export class AuthGuard implements CanActivate {
         email: normalizedEmail ?? null,
         role: user?.role ?? null,
         isSuperAdmin: isAdmin,
+        ...(firebasePhone ? { phoneNumber: firebasePhone } : {}),
       };
     }
 

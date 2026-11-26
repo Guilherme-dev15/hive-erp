@@ -1,6 +1,6 @@
 import { AuthGuard } from './auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 
 jest.mock('firebase-admin/app', () => ({
   getApps: jest.fn().mockReturnValue([]),
@@ -333,5 +333,41 @@ describe('AuthGuard', () => {
         projectId: expect.any(String),
       }),
     );
+  });
+
+  it('should throw ForbiddenException EMAIL_NOT_VERIFIED in production when password user has unverified email', async () => {
+    const context = mockExecutionContext({ authorization: 'Bearer valid-token' });
+    (getAuth().verifyIdToken as jest.Mock).mockResolvedValue({
+      uid: 'pwd-uid-1',
+      email: 'naoconfirmado@empresa.com',
+      email_verified: false,
+      firebase: { sign_in_provider: 'password' },
+    });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('should accept Firebase Phone Auth token without email and attach phoneNumber', async () => {
+    const context = mockExecutionContext({ authorization: 'Bearer phone-token' });
+    (getAuth().verifyIdToken as jest.Mock).mockResolvedValue({
+      uid: 'phone-uid-1',
+      phone_number: '+5511999998888',
+      firebase: { sign_in_provider: 'phone' },
+    });
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    const result = await guard.canActivate(context);
+
+    expect(result).toBe(true);
+    const request = context.switchToHttp().getRequest();
+    expect(request.user).toEqual({
+      id: null,
+      legacyId: 'phone-uid-1',
+      email: null,
+      role: null,
+      isSuperAdmin: false,
+      phoneNumber: '+5511999998888',
+    });
   });
 });

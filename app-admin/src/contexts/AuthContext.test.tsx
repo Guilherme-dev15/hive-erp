@@ -13,6 +13,9 @@ const {
   mockSignInWithEmailAndPassword,
   mockCreateUserWithEmailAndPassword,
   mockSendPasswordResetEmail,
+  mockSendEmailVerification,
+  mockSignInWithPhoneNumber,
+  mockRecaptchaClear,
   mockSignOut,
   mockApiGet,
   mockToastError,
@@ -26,6 +29,9 @@ const {
   mockSignInWithEmailAndPassword: vi.fn(),
   mockCreateUserWithEmailAndPassword: vi.fn(),
   mockSendPasswordResetEmail: vi.fn(),
+  mockSendEmailVerification: vi.fn(),
+  mockSignInWithPhoneNumber: vi.fn(),
+  mockRecaptchaClear: vi.fn(),
   mockSignOut: vi.fn(),
   mockApiGet: vi.fn(),
   mockToastError: vi.fn(),
@@ -41,6 +47,11 @@ vi.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: mockSignInWithEmailAndPassword,
   createUserWithEmailAndPassword: mockCreateUserWithEmailAndPassword,
   sendPasswordResetEmail: mockSendPasswordResetEmail,
+  sendEmailVerification: mockSendEmailVerification,
+  signInWithPhoneNumber: mockSignInWithPhoneNumber,
+  RecaptchaVerifier: vi.fn(function MockRecaptchaVerifier() {
+    return { clear: mockRecaptchaClear };
+  }),
   GoogleAuthProvider: vi.fn(function MockGoogleAuthProvider() {
     return { providerId: 'google.com' };
   }),
@@ -75,12 +86,24 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 function AuthHarness() {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, user, userData } = useAuth();
+  const {
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    resetPassword,
+    checkEmailVerification,
+    needsEmailVerification,
+    needsOnboarding,
+    user,
+    userData,
+  } = useAuth();
   return (
     <div>
       <span data-testid="user-email">{user?.email ?? 'anon'}</span>
       <span data-testid="user-role">{userData?.role ?? 'none'}</span>
       <span data-testid="sub-blocked">{String(Boolean(userData?.subscription?.isBlocked))}</span>
+      <span data-testid="needs-verify">{String(needsEmailVerification)}</span>
+      <span data-testid="needs-onboard">{String(needsOnboarding)}</span>
       <button type="button" onClick={signInWithGoogle}>
         Entrar
       </button>
@@ -99,6 +122,22 @@ function AuthHarness() {
         }}
       >
         CadastrarEmail
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          signUpWithEmail('temp@mailinator.com', '123456').catch(() => {});
+        }}
+      >
+        CadastrarDescartavel
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          checkEmailVerification().catch(() => {});
+        }}
+      >
+        VerificarEmail
       </button>
       <button
         type="button"
@@ -321,5 +360,59 @@ describe('AuthContext (resiliência de login Google / COOP / popup / assinatura)
     expect(mockToastSuccess).toHaveBeenCalledWith(
       expect.stringMatching(/Instruções de recuperação enviadas/),
     );
+    expect(mockSendEmailVerification).toHaveBeenCalledWith({ email: 'novo@pratas.com' });
+  });
+
+  it('rejeita e-mail descartável no signUpWithEmail sem criar usuário no Firebase', async () => {
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    const btnDisposable = await screen.findByRole('button', { name: 'CadastrarDescartavel' });
+    await act(async () => {
+      btnDisposable.click();
+    });
+
+    expect(mockCreateUserWithEmailAndPassword).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringMatching(/temporários não são aceitos/i),
+    );
+  });
+
+  it('bloqueia usuário password com e-mail não confirmado e libera após checkEmailVerification', async () => {
+    const unverifiedUser: any = {
+      email: 'pendente@pratas.com',
+      emailVerified: false,
+      providerData: [{ providerId: 'password' }],
+      reload: vi.fn().mockImplementation(async () => {
+        unverifiedUser.emailVerified = true;
+      }),
+      getIdToken: vi.fn().mockResolvedValue('jwt-verified'),
+    };
+    mockOnAuthStateChanged.mockImplementation((_auth, cb) => {
+      cb(unverifiedUser);
+      return vi.fn();
+    });
+    mockApiGet.mockRejectedValueOnce({ response: { status: 404 } });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByTestId('needs-verify')).toHaveTextContent('true');
+    expect(mockApiGet).not.toHaveBeenCalled();
+
+    const btnCheck = await screen.findByRole('button', { name: 'VerificarEmail' });
+    await act(async () => {
+      btnCheck.click();
+    });
+
+    expect(unverifiedUser.reload).toHaveBeenCalled();
+    expect(await screen.findByTestId('needs-verify')).toHaveTextContent('false');
+    expect(await screen.findByTestId('needs-onboard')).toHaveTextContent('true');
   });
 });

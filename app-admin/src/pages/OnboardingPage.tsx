@@ -1,14 +1,18 @@
 import React, { useState, useId } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Store, Globe, ArrowRight, Loader2, LogOut, CheckCircle2 } from 'lucide-react';
+import { Store, Globe, ArrowRight, Loader2, LogOut, CheckCircle2, Phone, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getCatalogDisplayUrl } from '../utils/catalogUrl';
+import {
+  normalizeBrazilPhoneToE164,
+  validateRegistrationEmail,
+} from '../utils/authValidation';
 
 function slugify(text: string): string {
   return text
     .toString()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
@@ -24,13 +28,19 @@ export function OnboardingPage({ onNavigate }: OnboardingPageProps = {}) {
   const { user, completeOnboard, logout } = useAuth();
   const storeNameId = useId();
   const ownerNameId = useId();
+  const phoneId = useId();
+  const emailId = useId();
   const slugId = useId();
 
   const [storeName, setStoreName] = useState('');
   const [ownerName, setOwnerName] = useState(user?.displayName || '');
+  const [phone, setPhone] = useState(user?.phoneNumber || '');
+  const [contactEmail, setContactEmail] = useState(user?.email || '');
   const [slug, setSlug] = useState('');
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const needsManualEmail = !user?.email;
 
   const handleStoreNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -60,9 +70,43 @@ export function OnboardingPage({ onNavigate }: OnboardingPageProps = {}) {
       return;
     }
 
+    const trimmedPhone = phone.trim();
+    let normalizedPhone: string | undefined;
+    if (trimmedPhone) {
+      const e164 = normalizeBrazilPhoneToE164(trimmedPhone);
+      if (!e164) {
+        toast.error('Informe um telefone/WhatsApp válido com DDD.');
+        return;
+      }
+      normalizedPhone = e164;
+    }
+
+    let trimmedEmail: string | undefined;
+    if (needsManualEmail) {
+      const candidateEmail = contactEmail.trim();
+      const emailCheck = validateRegistrationEmail(candidateEmail);
+      if (!emailCheck.valid) {
+        toast.error(emailCheck.reason || 'Informe um e-mail válido.');
+        return;
+      }
+      trimmedEmail = candidateEmail;
+    }
+
+    const trimmedOwner = ownerName.trim();
+    const hasCustomOwner = Boolean(trimmedOwner && trimmedOwner !== (user?.displayName || ''));
+    const hasExtra = Boolean(normalizedPhone || trimmedEmail || hasCustomOwner);
+
     setLoading(true);
     try {
-      await completeOnboard(trimmedStore, trimmedSlug || undefined);
+      if (hasExtra) {
+        await completeOnboard(trimmedStore, trimmedSlug || undefined, {
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+          ...(trimmedEmail ? { email: trimmedEmail } : {}),
+          ...(hasCustomOwner ? { name: trimmedOwner } : {}),
+        });
+      } else {
+        await completeOnboard(trimmedStore, trimmedSlug || undefined);
+      }
     } catch (err: any) {
       console.error('Erro no onboarding:', err);
       const msg = err?.response?.data?.message || err?.message || 'Erro ao criar loja.';
@@ -90,7 +134,7 @@ export function OnboardingPage({ onNavigate }: OnboardingPageProps = {}) {
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" aria-label="form-onboarding">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-label="form-onboarding">
           <div>
             <label htmlFor={storeNameId} className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
               Nome da Loja *
@@ -122,6 +166,43 @@ export function OnboardingPage({ onNavigate }: OnboardingPageProps = {}) {
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-dourado focus:border-transparent transition"
             />
           </div>
+
+          <div>
+            <label htmlFor={phoneId} className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+              WhatsApp da Loja (com DDD)
+            </label>
+            <div className="relative">
+              <input
+                id={phoneId}
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Ex: (11) 99999-8888"
+                className="w-full px-4 py-2.5 pl-10 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-dourado focus:border-transparent transition"
+              />
+              <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
+            </div>
+          </div>
+
+          {needsManualEmail && (
+            <div>
+              <label htmlFor={emailId} className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                E-mail de Contato *
+              </label>
+              <div className="relative">
+                <input
+                  id={emailId}
+                  type="email"
+                  required
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="contato@sualoja.com.br"
+                  className="w-full px-4 py-2.5 pl-10 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-dourado focus:border-transparent transition"
+                />
+                <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+              </div>
+            </div>
+          )}
 
           <div>
             <label htmlFor={slugId} className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -166,7 +247,10 @@ export function OnboardingPage({ onNavigate }: OnboardingPageProps = {}) {
         </form>
 
         <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-          <span>Conectado como <strong className="text-gray-700">{user?.email}</strong></span>
+          <span>
+            Conectado como{' '}
+            <strong className="text-gray-700">{user?.email || user?.phoneNumber}</strong>
+          </span>
           <button
             type="button"
             onClick={logout}
